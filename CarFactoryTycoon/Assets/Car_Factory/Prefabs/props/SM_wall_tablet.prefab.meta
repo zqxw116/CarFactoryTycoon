@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2c5ca809c321b124b8038038e2106803
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_wall_tablet.prefab
+  uploadId: 816038

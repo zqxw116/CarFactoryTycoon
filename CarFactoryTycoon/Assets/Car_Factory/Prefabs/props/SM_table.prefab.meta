@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d63c4cc7f74a7cc4dbed540ae2f910b1
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_table.prefab
+  uploadId: 816038

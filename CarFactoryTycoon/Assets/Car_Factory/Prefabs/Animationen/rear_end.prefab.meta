@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 0013c22bce12ff1488db0014b8532ebe
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_end.prefab
+  uploadId: 816038

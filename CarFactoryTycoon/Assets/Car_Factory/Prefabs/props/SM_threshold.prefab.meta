@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4b6124c1eddd03b47b477c1731975326
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_threshold.prefab
+  uploadId: 816038

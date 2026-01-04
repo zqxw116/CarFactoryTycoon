@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a76483bb4c215d8429ef2d037ff89686
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_marker.prefab
+  uploadId: 816038

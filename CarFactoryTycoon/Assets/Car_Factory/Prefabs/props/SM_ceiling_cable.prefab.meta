@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ce23072fb2bdd1e43bd4728887df9a23
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_ceiling_cable.prefab
+  uploadId: 816038

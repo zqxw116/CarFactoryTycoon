@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: af65d8a8e1896604dae5fdf36d629984
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_glass_holder.prefab
+  uploadId: 816038

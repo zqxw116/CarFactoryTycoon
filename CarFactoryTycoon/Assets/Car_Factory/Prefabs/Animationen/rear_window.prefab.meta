@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 2c9e6fb79dd91fd49941b18479a78bc2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_window.prefab
+  uploadId: 816038

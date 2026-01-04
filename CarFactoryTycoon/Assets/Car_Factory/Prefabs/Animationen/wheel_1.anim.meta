@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 29dd87bd0a9a9d74a9cabe65d72e6a7f
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/wheel_1.anim
+  uploadId: 816038

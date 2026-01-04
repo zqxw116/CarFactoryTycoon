@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 2527ba4d8f6c6d449affe986d996b0a2
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/electric_welding3.anim
+  uploadId: 816038

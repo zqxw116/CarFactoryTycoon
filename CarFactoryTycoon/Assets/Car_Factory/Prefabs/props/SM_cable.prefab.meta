@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3f090059bcf5a554aa6e159152673fa3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_cable.prefab
+  uploadId: 816038

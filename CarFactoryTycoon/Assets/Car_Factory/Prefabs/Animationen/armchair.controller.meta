@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: c8ddbe219d388644790878dd9523b452
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/armchair.controller
+  uploadId: 816038

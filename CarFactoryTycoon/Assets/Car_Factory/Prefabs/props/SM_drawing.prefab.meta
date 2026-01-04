@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 68ed9a8fe27262f40b37ad78145a457f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_drawing.prefab
+  uploadId: 816038

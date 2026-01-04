@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: de0a804a2ac47344c8117bfb11c37dd4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_wheel.prefab
+  uploadId: 816038

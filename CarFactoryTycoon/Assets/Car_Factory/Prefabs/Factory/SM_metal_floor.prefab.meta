@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 3b29d3a340ef1df4b886fa1b40eec410
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_metal_floor.prefab
+  uploadId: 816038

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 547288aff2a21c24eb037cab35901b1b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_crane_transporter.prefab
+  uploadId: 816038

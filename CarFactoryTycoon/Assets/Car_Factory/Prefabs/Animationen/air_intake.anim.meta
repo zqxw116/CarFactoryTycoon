@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f1faacfd258e1b44a93d80041f1ce3e8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/air_intake.anim
+  uploadId: 816038

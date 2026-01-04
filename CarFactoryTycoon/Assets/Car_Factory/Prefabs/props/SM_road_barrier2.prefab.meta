@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 9ad7801ae8d568c4b8fb88eae529ca9a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_road_barrier2.prefab
+  uploadId: 816038

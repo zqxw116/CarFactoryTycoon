@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3d49bb5a58c83ee4bb3d79d7fa7d296c
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/profile.controller
+  uploadId: 816038

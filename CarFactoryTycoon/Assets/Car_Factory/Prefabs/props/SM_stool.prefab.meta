@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dd57b631659790a49a77b55b6320a990
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_stool.prefab
+  uploadId: 816038

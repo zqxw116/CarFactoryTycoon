@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 642b1aee97bfb454584d7ff0a7cfa3bb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_roof.prefab
+  uploadId: 816038

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 19becea18377c5e47aa581b1ceba2237
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/airbrush3.controller
+  uploadId: 816038

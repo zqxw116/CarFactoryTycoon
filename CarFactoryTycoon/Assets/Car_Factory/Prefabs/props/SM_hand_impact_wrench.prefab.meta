@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 242130fe728f374429fee95bf472cd0e
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_hand_impact_wrench.prefab
+  uploadId: 816038

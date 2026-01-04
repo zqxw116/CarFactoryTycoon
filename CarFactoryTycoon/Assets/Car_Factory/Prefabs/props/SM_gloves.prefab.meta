@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 52d6ae3a09ac41e4c8dfdc7f7506fcdb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_gloves.prefab
+  uploadId: 816038

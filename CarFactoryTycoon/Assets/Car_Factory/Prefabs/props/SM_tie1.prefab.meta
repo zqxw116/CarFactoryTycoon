@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: be6ae32891b8a8149b008e54d8fb9a4a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_tie1.prefab
+  uploadId: 816038

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 26a6d7f6109ce5145b395bf3385b17db
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/windshield.anim
+  uploadId: 816038

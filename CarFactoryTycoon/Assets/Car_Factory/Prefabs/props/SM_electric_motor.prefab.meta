@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 28606738103677644847352bd4721cfc
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_electric_motor.prefab
+  uploadId: 816038

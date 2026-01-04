@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 55eff7a8839ba5c4a935f57dca9158e7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_button1.prefab
+  uploadId: 816038

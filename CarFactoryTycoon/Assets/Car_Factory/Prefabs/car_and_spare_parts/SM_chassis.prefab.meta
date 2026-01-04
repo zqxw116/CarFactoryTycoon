@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 76d93073f4b1df04485bde189d4360ca
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/car_and_spare_parts/SM_chassis.prefab
+  uploadId: 816038

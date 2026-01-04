@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a3f8c757f4f297945a1d448787596f68
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_screwdriver.prefab
+  uploadId: 816038

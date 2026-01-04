@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1e56d4f3b34cb8042b6c947e73a23b01
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_terminal.prefab
+  uploadId: 816038

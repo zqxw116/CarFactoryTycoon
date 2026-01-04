@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: bca7c68c067c415429025a06c9e92b84
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_mini_wall.prefab
+  uploadId: 816038

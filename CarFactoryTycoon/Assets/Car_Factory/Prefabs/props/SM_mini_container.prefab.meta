@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8e4d947d15cb78e47816bc3e74beeb1b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_mini_container.prefab
+  uploadId: 816038

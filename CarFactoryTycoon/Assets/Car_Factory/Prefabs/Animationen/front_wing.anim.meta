@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 91f1b25ae90d77b4ea4d14af6c0d4fc2
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/front_wing.anim
+  uploadId: 816038

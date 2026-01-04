@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 51adf398a0c359246956abe16c519d2b
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_bumper.controller
+  uploadId: 816038

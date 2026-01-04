@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6e0ad371913378442a572f86956a3201
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/roof.controller
+  uploadId: 816038

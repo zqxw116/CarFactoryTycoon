@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8960b5fab8d6c24419fcff9299ee1d77
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/door.controller
+  uploadId: 816038

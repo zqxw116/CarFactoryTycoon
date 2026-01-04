@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fc18549a8a68163418d3044e1ad858e7
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Materials/C_F 3.mat
+  uploadId: 816038

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 743f57242e7fda04c8f69fd3679e43b6
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/roof.prefab
+  uploadId: 816038

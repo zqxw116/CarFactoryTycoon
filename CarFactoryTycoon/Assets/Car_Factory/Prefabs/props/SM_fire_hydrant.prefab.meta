@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 302e491c60277d54a94273e60fd3d067
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_fire_hydrant.prefab
+  uploadId: 816038

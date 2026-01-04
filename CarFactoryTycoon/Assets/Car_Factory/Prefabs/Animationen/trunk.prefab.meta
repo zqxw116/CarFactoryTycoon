@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4c2d78393238ca449a286092f4f3f052
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/trunk.prefab
+  uploadId: 816038

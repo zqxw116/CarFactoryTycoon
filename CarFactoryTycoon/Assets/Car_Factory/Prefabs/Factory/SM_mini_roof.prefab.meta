@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1bba84d369642ac42bcf95da213adb6c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_mini_roof.prefab
+  uploadId: 816038

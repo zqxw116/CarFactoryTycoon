@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ccd3659e17c68104091056e8f436a750
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_fire_net.prefab
+  uploadId: 816038

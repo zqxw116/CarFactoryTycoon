@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8b054934e8a67274c8e34795003595c2
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_rails2.prefab
+  uploadId: 816038

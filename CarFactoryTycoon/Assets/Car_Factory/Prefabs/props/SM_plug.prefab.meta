@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 67255e327b2113741b309a4680c78946
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_plug.prefab
+  uploadId: 816038

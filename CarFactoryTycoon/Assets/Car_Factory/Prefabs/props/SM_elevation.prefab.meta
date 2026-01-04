@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b72049d5879ab7f4ca117ec1e47a7b08
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_elevation.prefab
+  uploadId: 816038

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 45cfded880db27d40a7d843ea364205f
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_robot_painter.prefab
+  uploadId: 816038

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e1fc9fc2b483169448b93c71960601c8
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_window.controller
+  uploadId: 816038

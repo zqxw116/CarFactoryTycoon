@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 618ac8bb194ebca41b54c12c3ac2c3eb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_turning_circle.prefab
+  uploadId: 816038

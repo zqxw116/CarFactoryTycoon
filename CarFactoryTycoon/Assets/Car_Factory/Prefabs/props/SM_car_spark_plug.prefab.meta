@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 4dbd779f0e765924083b22d7e1797f40
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_car_spark_plug.prefab
+  uploadId: 816038

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: f70a4c6d1e811a84986815a866fd34d8
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_stand.prefab
+  uploadId: 816038

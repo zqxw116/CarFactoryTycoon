@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: da552ce08a5548c428da340703db72f3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_curb.prefab
+  uploadId: 816038

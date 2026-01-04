@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: becfe1f0be2c978419fcfd3ed484c740
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_exhaust_ventilation.prefab
+  uploadId: 816038

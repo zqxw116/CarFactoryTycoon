@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 834fba55883eb3c4e864213f45d00d15
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_trash_can.prefab
+  uploadId: 816038

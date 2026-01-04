@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 41c8e87afd92e7a49bba3a576e20105b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_impact_wrench.prefab
+  uploadId: 816038

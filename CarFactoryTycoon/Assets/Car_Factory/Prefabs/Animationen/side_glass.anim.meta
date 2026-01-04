@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: db9a1f94bcf398843b188282de153cd0
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/side_glass.anim
+  uploadId: 816038

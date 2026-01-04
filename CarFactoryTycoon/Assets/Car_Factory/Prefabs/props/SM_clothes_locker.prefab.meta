@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 07b158a1efd3a6742bb1ff0fa1fd0b5a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_clothes_locker.prefab
+  uploadId: 816038

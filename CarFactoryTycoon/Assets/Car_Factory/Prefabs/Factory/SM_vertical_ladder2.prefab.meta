@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a87180f3633df2e48bcd1aa006e75303
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_vertical_ladder2.prefab
+  uploadId: 816038

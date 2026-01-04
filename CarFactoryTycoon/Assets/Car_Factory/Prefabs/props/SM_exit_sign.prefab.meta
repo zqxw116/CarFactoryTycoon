@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c9b6755ce09e49540a2b78fc27fdb3a3
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_exit_sign.prefab
+  uploadId: 816038

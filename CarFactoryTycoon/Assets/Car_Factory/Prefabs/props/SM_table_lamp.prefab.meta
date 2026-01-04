@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b15606d20d82c7a48a013e9908672625
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_table_lamp.prefab
+  uploadId: 816038

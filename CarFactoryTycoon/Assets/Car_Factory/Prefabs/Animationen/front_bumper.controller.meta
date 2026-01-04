@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: cd8d4d2db64b4024ea2a05561304b079
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/front_bumper.controller
+  uploadId: 816038

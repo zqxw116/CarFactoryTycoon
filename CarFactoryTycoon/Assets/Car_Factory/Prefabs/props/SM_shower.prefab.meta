@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5e37e6ea2ca33c84c89aaa24e418c9a4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_shower.prefab
+  uploadId: 816038

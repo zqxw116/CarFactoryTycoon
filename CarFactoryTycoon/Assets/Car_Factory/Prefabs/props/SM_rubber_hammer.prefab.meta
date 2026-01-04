@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: b8de5e431adca36438a0d359a362114d
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_rubber_hammer.prefab
+  uploadId: 816038

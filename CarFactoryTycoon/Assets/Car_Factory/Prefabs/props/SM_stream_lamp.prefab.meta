@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dd752f49b67184c4cab89b42fd05ddc7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_stream_lamp.prefab
+  uploadId: 816038

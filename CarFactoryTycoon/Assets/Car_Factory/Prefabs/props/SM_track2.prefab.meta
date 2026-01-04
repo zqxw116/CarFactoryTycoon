@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 38a5d9be8cb2e814b93fa0c1ade47d58
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_track2.prefab
+  uploadId: 816038

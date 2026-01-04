@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ff5c103c6e7f87e4da647e13b0667999
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_channel.prefab
+  uploadId: 816038

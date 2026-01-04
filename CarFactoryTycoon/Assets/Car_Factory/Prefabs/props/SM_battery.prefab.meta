@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 5f3b721a932e04542a2e8c6e3115761b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_battery.prefab
+  uploadId: 816038

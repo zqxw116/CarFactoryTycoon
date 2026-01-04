@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e732594407bc59743b648970057cce63
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_bolt.prefab
+  uploadId: 816038

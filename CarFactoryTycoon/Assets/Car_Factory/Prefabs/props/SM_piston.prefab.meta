@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 8e1ff82d0a95a7544a0d0f0d8348549b
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_piston.prefab
+  uploadId: 816038

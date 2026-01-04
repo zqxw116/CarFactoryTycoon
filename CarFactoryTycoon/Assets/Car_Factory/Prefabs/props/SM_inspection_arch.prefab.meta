@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ef4ec5bb62920b84fad1a93337ecc8da
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_inspection_arch.prefab
+  uploadId: 816038

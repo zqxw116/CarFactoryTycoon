@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ec447868590f022489067cce1ea49c26
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_rack.prefab
+  uploadId: 816038

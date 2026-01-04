@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 1ba688f4f0c7cff468e1b0f6e5b6c0b9
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/Front_panel.controller
+  uploadId: 816038

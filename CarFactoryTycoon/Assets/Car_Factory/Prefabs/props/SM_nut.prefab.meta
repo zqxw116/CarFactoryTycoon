@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e9ee763ed0b1d5d4f970b8de41ecbb5c
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_nut.prefab
+  uploadId: 816038

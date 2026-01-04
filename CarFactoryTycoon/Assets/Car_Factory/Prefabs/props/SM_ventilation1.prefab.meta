@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 919e4da2b4603ad4f8cd90209202bc51
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_ventilation1.prefab
+  uploadId: 816038

@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 7c46d025b72ee19458dda38230b401c7
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_rollers.prefab
+  uploadId: 816038

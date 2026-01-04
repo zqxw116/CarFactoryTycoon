@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: d7a74fcaf5b29c442901e7c177d6ebeb
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/car_and_spare_parts/SM_engine2.prefab
+  uploadId: 816038

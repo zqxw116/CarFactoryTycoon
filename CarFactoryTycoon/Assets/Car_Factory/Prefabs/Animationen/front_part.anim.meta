@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b55fb7d5ca8411646a2fddd229c37fba
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/front_part.anim
+  uploadId: 816038

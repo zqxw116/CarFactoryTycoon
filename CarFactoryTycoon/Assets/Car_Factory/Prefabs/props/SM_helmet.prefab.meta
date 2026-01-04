@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 70e1beef1d572b54aa00ca63b1059a08
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_helmet.prefab
+  uploadId: 816038

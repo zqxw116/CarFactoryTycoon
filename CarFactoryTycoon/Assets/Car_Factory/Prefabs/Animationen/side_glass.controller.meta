@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: e0c23d4fcd6508947bbd6ab0068c6026
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/side_glass.controller
+  uploadId: 816038

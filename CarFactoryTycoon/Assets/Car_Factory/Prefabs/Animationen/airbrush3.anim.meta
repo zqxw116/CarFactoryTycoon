@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 52a625404f6e8d94f87fbac96df39dbc
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/airbrush3.anim
+  uploadId: 816038

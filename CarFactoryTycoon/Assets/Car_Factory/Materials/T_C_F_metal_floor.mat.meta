@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 3fd587f806ba17b4ab43c94f0954c168
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Materials/T_C_F_metal_floor.mat
+  uploadId: 816038

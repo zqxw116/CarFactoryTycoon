@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 26f3c9be1b2f4304391cc10be3860f65
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_control_machine.prefab
+  uploadId: 816038

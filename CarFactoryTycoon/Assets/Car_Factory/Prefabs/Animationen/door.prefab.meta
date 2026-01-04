@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ee167b8e420fe05408a7741a1be859e4
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/door.prefab
+  uploadId: 816038

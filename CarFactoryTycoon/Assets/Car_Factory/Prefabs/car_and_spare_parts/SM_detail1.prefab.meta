@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 02357b75bfb4b2e4d83d6da26038c198
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/car_and_spare_parts/SM_detail1.prefab
+  uploadId: 816038

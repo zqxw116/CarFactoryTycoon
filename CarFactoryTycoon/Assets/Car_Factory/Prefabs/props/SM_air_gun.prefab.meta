@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 781915a335aed2f40b2e70854cfadd7a
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_air_gun.prefab
+  uploadId: 816038

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: f1a0b11629babc74b8eabb6cd8837046
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/electric_welding7.controller
+  uploadId: 816038

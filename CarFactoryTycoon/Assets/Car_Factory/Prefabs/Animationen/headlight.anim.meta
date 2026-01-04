@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b5ab4a9fa4437de41bc306fbab2eb205
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/headlight.anim
+  uploadId: 816038

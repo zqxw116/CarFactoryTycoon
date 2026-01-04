@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 1f9d5cc19a2df754c96693bde9b108ba
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/DemoScene/demo.unity
+  uploadId: 816038

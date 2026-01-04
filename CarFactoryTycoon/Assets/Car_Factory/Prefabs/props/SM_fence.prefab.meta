@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e7d3c1cd670552d49a2c4786b9738264
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_fence.prefab
+  uploadId: 816038

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 36fa15d7607c9f04080770581fdd441a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 7400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_bumper.anim
+  uploadId: 816038

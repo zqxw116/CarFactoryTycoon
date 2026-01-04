@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: b34edd407e4340e49b7fbbd3b7e24f5d
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/rear_end.controller
+  uploadId: 816038

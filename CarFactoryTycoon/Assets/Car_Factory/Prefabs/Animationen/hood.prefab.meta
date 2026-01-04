@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 038aa15f33d1aa24ba15034a5f30dc34
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/hood.prefab
+  uploadId: 816038

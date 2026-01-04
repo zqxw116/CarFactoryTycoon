@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a4ff91d48a0fa8940b19c76a5fb79820
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Factory/SM_wall3.prefab
+  uploadId: 816038

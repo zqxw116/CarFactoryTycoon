@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 93cf9fb76b512e1459575b42adde8716
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/props/SM_large_podium1.prefab
+  uploadId: 816038

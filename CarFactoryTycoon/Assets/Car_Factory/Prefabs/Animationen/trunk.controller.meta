@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: d4b18fa4f8fd6e544801d1a2522a83b3
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 313335
+  packageName: Car Factory
+  packageVersion: 1.0
+  assetPath: Assets/Car_Factory/Prefabs/Animationen/trunk.controller
+  uploadId: 816038
