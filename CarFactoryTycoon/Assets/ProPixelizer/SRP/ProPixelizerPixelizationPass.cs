@@ -146,6 +146,7 @@ namespace ProPixelizer
 
         private Vector4 TexelSize;
 
+        [Obsolete]
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             base.OnCameraSetup(cmd, ref renderingData);
@@ -162,6 +163,7 @@ namespace ProPixelizer
             #endif
         }
 
+        [Obsolete]
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
             cameraTextureDescriptor.useMipMap = false;
@@ -227,6 +229,7 @@ namespace ProPixelizer
 
         public const string PROFILER_TAG = "PIXELISATION";
 
+        [Obsolete]
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             #if DISABLE_PROPIX_PREVIEW_WINDOW

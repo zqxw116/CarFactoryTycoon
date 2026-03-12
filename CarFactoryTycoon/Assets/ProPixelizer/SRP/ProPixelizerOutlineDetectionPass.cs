@@ -96,6 +96,7 @@ namespace ProPixelizer
         public const string OUTLINE_BUFFER = "_ProPixelizerOutlines";
         private const string PROPIXELIZER_SHADER_TAG = "ProPixelizer";
 
+        [Obsolete]
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {
             var outlineDescriptor = cameraTextureDescriptor;
@@ -154,11 +155,13 @@ namespace ProPixelizer
 
         public const string PROFILER_TAG = "ProPixelizerOutlines";
 
+        [Obsolete]
         public override void OnCameraSetup(CommandBuffer cmd, ref RenderingData renderingData)
         {
             Prepare(cmd, ref renderingData);
         }
 
+        [Obsolete]
         public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
         {
             if (DepthTestOutlines)

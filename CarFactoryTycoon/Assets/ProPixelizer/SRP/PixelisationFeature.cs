@@ -58,7 +58,8 @@ namespace ProPixelizer
         }
 
 #if BLIT_API
-    public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
+        [System.Obsolete]
+        public override void SetupRenderPasses(ScriptableRenderer renderer, in RenderingData renderingData)
     {
         _PixelisationPass.ConfigureInput(ScriptableRenderPassInput.Color);
     }
