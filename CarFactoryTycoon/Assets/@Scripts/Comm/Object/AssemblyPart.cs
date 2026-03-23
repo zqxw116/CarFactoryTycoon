@@ -50,6 +50,11 @@ public class AssemblyPart : MonoBehaviour
     }
 
 
+    public void CompleteAssembly()
+    {
+
+    }
+
     #region 에디터 함수
 
 

@@ -82,4 +82,27 @@ public class CarController : MonoBehaviour
             }
         }
     }
+
+    // =======================================================
+    // [공정 연동용] 특정 그룹에서 아직 조립 안 된 부품 하나 찾기
+    // =======================================================
+    public AssemblyPart GetUnassembledPart(PartGroup targetGroup)
+    {
+        // 1. 요청한 그룹(예: Wheel)이 내 Dictionary에 있는지 확인
+        if (partsDictionary.ContainsKey(targetGroup))
+        {
+            // 2. 해당 그룹의 부품 리스트를 순회
+            foreach (AssemblyPart part in partsDictionary[targetGroup])
+            {
+                // 3. 완전히 체결되지 않은(progress가 0보다 큰) 첫 번째 부품을 발견하면 즉시 반환
+                if (part.assemblyProgress > 0f)
+                {
+                    return part;
+                }
+            }
+        }
+
+        // 해당 그룹의 모든 부품이 100% 조립되었거나, 아예 없는 그룹이면 null 반환
+        return null;
+    }
 }
