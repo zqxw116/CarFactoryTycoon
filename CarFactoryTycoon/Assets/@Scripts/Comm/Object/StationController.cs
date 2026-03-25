@@ -74,7 +74,7 @@ public class StationController : MonoBehaviour
             {
                 // 로봇팔의 타겟을 스테이션 거치대로 설정하고 상태 변경
                 myRobotArm.target = partSpawnPoint;
-                myRobotArm.isWorking = true;
+                //myRobotArm.isWorking = true;
 
                 currentState = WorkState.FetchingPart;
                 Debug.Log($"[{gameObject.name}] 차량 진입! 거치대로 부품 가지러 가는 중...");
@@ -102,54 +102,54 @@ public class StationController : MonoBehaviour
 
     private void ProcessMovingToCar()
     {
-        // 로봇팔이 차량의 부품 조립 위치를 따라가며 도달했는지 확인
-        float distance = Vector3.Distance(myRobotArm.GetEndEffectorPosition(), currentPart.transform.position);
+        //// 로봇팔이 차량의 부품 조립 위치를 따라가며 도달했는지 확인
+        //float distance = Vector3.Distance(myRobotArm.GetEndEffectorPosition(), currentPart.transform.position);
 
-        if (distance <= REACH_THRESHOLD)
-        {
-            currentState = WorkState.Assembling;
-            Debug.Log($"[{gameObject.name}] 차량 도달! 조립 시작...");
-        }
+        //if (distance <= REACH_THRESHOLD)
+        //{
+        //    currentState = WorkState.Assembling;
+        //    Debug.Log($"[{gameObject.name}] 차량 도달! 조립 시작...");
+        //}
     }
     private void ProcessFetchingPart()
     {
-        Vector3 offset = myRobotArm.GetEndEffectorPosition() - partSpawnPoint.position;
+        //Vector3 offset = myRobotArm.GetEndEffectorPosition() - partSpawnPoint.position;
 
-        // sqrMagnitude를 이용한 거리 오차 검사 (성능 최적화)
-        if (offset.sqrMagnitude <= REACH_THRESHOLD * REACH_THRESHOLD)
-        {
-            // 1. 로봇팔 끝단의 부품 모델링 활성화!
-            myRobotArm.ToggleAttachedPart(true);
+        //// sqrMagnitude를 이용한 거리 오차 검사 (성능 최적화)
+        //if (offset.sqrMagnitude <= REACH_THRESHOLD * REACH_THRESHOLD)
+        //{
+        //    // 1. 로봇팔 끝단의 부품 모델링 활성화!
+        //    myRobotArm.ToggleAttachedPart(true);
 
-            // (선택) 스테이션 거치대의 부품을 잠시 꺼서 집어간 것처럼 연출할 수도 있습니다.
-            // stationPartView.SetActive(false); 
+        //    // (선택) 스테이션 거치대의 부품을 잠시 꺼서 집어간 것처럼 연출할 수도 있습니다.
+        //    // stationPartView.SetActive(false); 
 
-            // 2. 타겟을 차량으로 변경
-            myRobotArm.target = currentPart.transform;
-            currentState = WorkState.MovingToCar;
-        }
+        //    // 2. 타겟을 차량으로 변경
+        //    myRobotArm.target = currentPart.transform;
+        //    currentState = WorkState.MovingToCar;
+        //}
     }
 
     private void ProcessAssembling()
     {
-        currentPart.assemblyProgress -= workSpeed * Time.deltaTime;
+        //currentPart.assemblyProgress -= workSpeed * Time.deltaTime;
 
-        if (currentPart.assemblyProgress <= 0f)
-        {
-            currentPart.assemblyProgress = 0f;
+        //if (currentPart.assemblyProgress <= 0f)
+        //{
+        //    currentPart.assemblyProgress = 0f;
 
-            // 1. 차량 쪽 부품 활성화 (AssemblyPart 스크립트 내부에 함수가 있다고 가정)
-            currentPart.CompleteAssembly();
+        //    // 1. 차량 쪽 부품 활성화 (AssemblyPart 스크립트 내부에 함수가 있다고 가정)
+        //    currentPart.CompleteAssembly();
 
-            // 2. 로봇팔이 들고 있던 부품 비활성화
-            myRobotArm.ToggleAttachedPart(false);
+        //    // 2. 로봇팔이 들고 있던 부품 비활성화
+        //    myRobotArm.ToggleAttachedPart(false);
 
-            // (선택) 스테이션 거치대 부품을 다시 활성화하여 무한 리필되는 것처럼 연출
-            // stationPartView.SetActive(true);
+        //    // (선택) 스테이션 거치대 부품을 다시 활성화하여 무한 리필되는 것처럼 연출
+        //    // stationPartView.SetActive(true);
 
-            Debug.Log($"[{gameObject.name}] 조립 완료 및 뷰 전환 성공!");
-            ResetStation();
-        }
+        //    Debug.Log($"[{gameObject.name}] 조립 완료 및 뷰 전환 성공!");
+        //    ResetStation();
+        //}
     }
     #endregion
 
@@ -161,7 +161,7 @@ public class StationController : MonoBehaviour
 
         if (myRobotArm != null)
         {
-            myRobotArm.isWorking = false;
+            //myRobotArm.isWorking = false;
             // 로봇팔을 기본 대기 위치(초기 위치)로 돌려보내는 로직을 추가하면 좋습니다.
             // myRobotArm.target = idleTransform; 
         }
