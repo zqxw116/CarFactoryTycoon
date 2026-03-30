@@ -68,8 +68,6 @@ public class CarController : MonoBehaviour
     }
 
 
-    // CarController.cs 내부에 추가
-
     // 로봇팔이 호출할 함수: 해당 그룹의 파츠들의 progress를 일정량 감소시킴
     public void WorkOnGroup(PartGroup targetGroup, float workAmount)
     {
@@ -83,26 +81,19 @@ public class CarController : MonoBehaviour
         }
     }
 
-    // =======================================================
-    // [공정 연동용] 특정 그룹에서 아직 조립 안 된 부품 하나 찾기
-    // =======================================================
-    public AssemblyPart GetUnassembledPart(PartGroup targetGroup)
+    /// <summary> [공정 연동용] 특정 그룹에서 아직 조립 안 된 부품 하나 찾기 </summary>
+    public AssemblyPart GetUnassembledPart(PartType targetType)
     {
-        // 1. 요청한 그룹(예: Wheel)이 내 Dictionary에 있는지 확인
-        if (partsDictionary.ContainsKey(targetGroup))
+        // 최적화를 위해 Dictionary<PartType, AssemblyPart> 로 관리하는 것을 권장합니다.
+        // 현재는 하위 검색으로 처리:
+        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
+        foreach (AssemblyPart part in allParts)
         {
-            // 2. 해당 그룹의 부품 리스트를 순회
-            foreach (AssemblyPart part in partsDictionary[targetGroup])
+            if (part.myType == targetType && part.assemblyProgress > 0f)
             {
-                // 3. 완전히 체결되지 않은(progress가 0보다 큰) 첫 번째 부품을 발견하면 즉시 반환
-                if (part.assemblyProgress > 0f)
-                {
-                    return part;
-                }
+                return part; // 타겟 타입과 일치하고 아직 조립 안 된 부품 반환
             }
         }
-
-        // 해당 그룹의 모든 부품이 100% 조립되었거나, 아예 없는 그룹이면 null 반환
         return null;
     }
 }

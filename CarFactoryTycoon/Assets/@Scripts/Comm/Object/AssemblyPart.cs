@@ -1,16 +1,15 @@
 using System.Collections;
 using UnityEngine;
 
-public enum PartGroup { Indoor, Window, Wheel, Outdoor, Parts }
 
 public class AssemblyPart : MonoBehaviour
 {
-    [Header("소속 그룹 설정")]
+    [Header("소속 및 식별")]
     public PartGroup myGroup;
+    public PartType myType; // [추가] 세부 부품 식별자
 
     [Header("현재 체결 상태 (1: 분리 대기 -> 0: 체결 완료)")]
-    [Range(0f, 1f)]
-    public float assemblyProgress = 1f;
+    [Range(0f, 1f)] public float assemblyProgress = 1f;
 
     [Header("위치 데이터 (수정 후 반드시 수동저장 누를 것!)")]
     public Vector3 assembledPos;
@@ -18,10 +17,28 @@ public class AssemblyPart : MonoBehaviour
     public Vector3 detachedPos;
     public Vector3 detachedRot;
 
+
     [Header("자동 분리 세팅값")]
     public float explodeDistance = 3f;
-    // ... (기존 변수 및 함수들 유지) ...
+    // [최적화] 매번 transform.parent를 호출하지 않도록 미리 저장할 변수
+    private Transform cachedParent;
 
+    private void Awake()
+    {
+        // 게임 시작 시 단 한 번만 부모를 찾아서 캐싱합니다.
+        cachedParent = transform.parent;
+    }
+
+    // 로봇팔이 추적할 월드 좌표 반환 (캐싱된 부모 사용)
+    public Vector3 GetWorldDetachedPos()
+    {
+        return cachedParent != null ? cachedParent.TransformPoint(detachedPos) : transform.position;
+    }
+
+    public Vector3 GetWorldAssembledPos()
+    {
+        return cachedParent != null ? cachedParent.TransformPoint(assembledPos) : transform.position;
+    }
     // [추가 1] 외부(로봇팔/스테이션)에서 매 프레임 progress를 깎을 때 호출하는 함수
     public void UpdateProgress(float newProgress)
     {
@@ -50,10 +67,6 @@ public class AssemblyPart : MonoBehaviour
     }
 
 
-    public void CompleteAssembly()
-    {
-
-    }
 
     #region 에디터 함수
 
@@ -62,7 +75,7 @@ public class AssemblyPart : MonoBehaviour
     {
         assembledPos = transform.localPosition;
         assembledRot = transform.localEulerAngles;
-        AutoSetDetachedPosition();
+        //AutoSetDetachedPosition();
     }
 
     private void OnValidate()
@@ -120,6 +133,33 @@ public class AssemblyPart : MonoBehaviour
             if (child.name == targetName) return child;
         }
         return null;
+    }
+
+    [ContextMenu("이름 기반 Group 및 Type 자동 설정")]
+    public void AutoSetGroupAndType()
+    {
+        // 1. 부모의 이름으로 PartGroup 자동 할당
+        if (transform.parent != null)
+        {
+            if (System.Enum.TryParse(transform.parent.name, out PartGroup parsedGroup))
+            {
+                myGroup = parsedGroup;
+            }
+            else
+            {
+                Debug.LogWarning($"[{gameObject.name}]의 부모 이름({transform.parent.name})과 일치하는 PartGroup Enum이 없습니다.");
+            }
+        }
+
+        // 2. 자신의 이름으로 PartType 자동 할당
+        if (System.Enum.TryParse(gameObject.name, out PartType parsedType))
+        {
+            myType = parsedType;
+        }
+        else
+        {
+            Debug.LogWarning($"[{gameObject.name}] 이름과 일치하는 PartType Enum이 없습니다.");
+        }
     }
 
     // =======================================================

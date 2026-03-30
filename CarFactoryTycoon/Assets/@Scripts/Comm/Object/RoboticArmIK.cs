@@ -25,6 +25,9 @@ public class RoboticArmIK : MonoBehaviour
         [HideInInspector] public Vector3 initialLocalSky;
     }
 
+    [Header("타겟 타입")]
+    public PartType targetPartType;
+
     [Header("핵심 타겟")]
     public Transform target;
     public Transform endEffector;
