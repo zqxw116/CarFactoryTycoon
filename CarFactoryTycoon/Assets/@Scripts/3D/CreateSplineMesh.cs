@@ -17,6 +17,20 @@ namespace Unity.Splines.Examples
     [RequireComponent(typeof(SplineContainer), typeof(MeshRenderer), typeof(MeshFilter))]
     public class CreateSplineMesh : MonoBehaviour
     {
+        [Header("★ 벨트 형태 설정 ★")]
+        [Tooltip("컨베이어 벨트의 전체 넓이를 조절합니다.")]
+        [Range(0.1f, 5f)]
+        public float globalWidth = 1f;
+
+        [Tooltip("곡선의 부드러움 정도 (높을수록 촘촘해짐)")]
+        [Range(1, 10)]
+        [SerializeField] int m_SegmentsPerMeter = 1;
+
+        [Header("★ 머티리얼 및 텍스처 ★")]
+        [SerializeField] Material m_Material;
+        [SerializeField] float m_TextureScale = 1f;
+
+        [Header("고급 스플라인 데이터 (Index는 0.0 ~ 1.0 사이의 비율입니다)")]
         [SerializeField]
         List<SplineData<float>> m_Widths = new List<SplineData<float>>();
 
@@ -26,43 +40,25 @@ namespace Unity.Splines.Examples
             {
                 foreach (var width in m_Widths)
                 {
-                    if (width.DefaultValue == 0)
-                        width.DefaultValue = 1f;
+                    if (width.DefaultValue == 0) width.DefaultValue = 1f;
                 }
                 return m_Widths;
             }
         }
 
-        [SerializeField] SplineContainer m_Spline;
+        [SerializeField, HideInInspector] SplineContainer m_Spline;
+        [SerializeField, HideInInspector] Mesh m_Mesh;
 
         public SplineContainer Container
         {
-            get
-            {
-                if (m_Spline == null) m_Spline = GetComponent<SplineContainer>();
-                return m_Spline;
-            }
+            get { if (m_Spline == null) m_Spline = GetComponent<SplineContainer>(); return m_Spline; }
             set => m_Spline = value;
         }
 
-        [SerializeField] int m_SegmentsPerMeter = 1;
-        [SerializeField] Mesh m_Mesh;
-        [SerializeField] float m_TextureScale = 1f;
-
-        // [수정됨] 머티리얼을 인스펙터에서 직접 넣을 수 있게 변경
-        [Header("Material Settings")]
-        [SerializeField] Material m_Material;
-
         public IReadOnlyList<Spline> splines => LoftSplines;
-
         public IReadOnlyList<Spline> LoftSplines
         {
-            get
-            {
-                if (m_Spline == null) m_Spline = GetComponent<SplineContainer>();
-                if (m_Spline == null) return null;
-                return m_Spline.Splines;
-            }
+            get { if (m_Spline == null) m_Spline = GetComponent<SplineContainer>(); return m_Spline?.Splines; }
         }
 
         public Mesh LoftMesh
@@ -70,13 +66,8 @@ namespace Unity.Splines.Examples
             get
             {
                 if (m_Mesh != null) return m_Mesh;
-
                 m_Mesh = new Mesh();
-
-                // [수정됨] Resources.Load 대신 인스펙터에 할당된 머티리얼 사용
-                if (m_Material == null) m_Material = Resources.Load<Material>("Prefabs/Road1"); 
-                GetComponent<MeshRenderer>().sharedMaterial = m_Material;
-
+                if (m_Material != null) GetComponent<MeshRenderer>().sharedMaterial = m_Material;
                 return m_Mesh;
             }
         }
@@ -88,6 +79,23 @@ namespace Unity.Splines.Examples
         List<Vector2> m_Textures = new List<Vector2>();
         List<int> m_Indices = new List<int>();
         bool m_LoftRoadsRequested = false;
+
+        private void RequestEditorUpdate()
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                EditorApplication.QueuePlayerLoopUpdate();
+                if (SceneView.lastActiveSceneView != null) SceneView.lastActiveSceneView.Repaint();
+            }
+#endif
+        }
+
+        private void OnValidate()
+        {
+            m_LoftRoadsRequested = true;
+            RequestEditorUpdate();
+        }
 
         void Update()
         {
@@ -124,8 +132,6 @@ namespace Unity.Splines.Examples
             EditorSplineUtility.UnregisterSplineDataChanged<float>(OnAfterSplineDataWasModified);
             Undo.undoRedoPerformed -= LoftAllRoads;
 #endif
-
-            // [수정됨] 에셋으로 저장된 메쉬는 파괴하지 않도록 방어 코드 추가
             if (m_Mesh != null)
             {
 #if UNITY_EDITOR
@@ -141,14 +147,13 @@ namespace Unity.Splines.Examples
             Spline.Changed -= OnSplineChanged;
         }
 
-        // ... (중간 이벤트 함수들은 기존과 동일하게 유지) ...
-        void OnSplineContainerAdded(SplineContainer container, int index) { if (container == m_Spline) LoftAllRoads(); }
-        void OnSplineContainerRemoved(SplineContainer container, int index) { if (container == m_Spline) LoftAllRoads(); }
-        void OnSplineContainerReordered(SplineContainer container, int previousIndex, int newIndex) { if (container == m_Spline) LoftAllRoads(); }
-        void OnAfterSplineWasModified(Spline s) { m_LoftRoadsRequested = true; }
-        void OnSplineChanged(Spline spline, int knotIndex, SplineModification modification) { OnAfterSplineWasModified(spline); }
-        void OnAfterSplineDataWasModified(SplineData<float> splineData) { m_LoftRoadsRequested = true; }
+        void OnSplineContainerAdded(SplineContainer container, int index) { if (container == m_Spline) { m_LoftRoadsRequested = true; RequestEditorUpdate(); } }
+        void OnSplineContainerRemoved(SplineContainer container, int index) { if (container == m_Spline) { m_LoftRoadsRequested = true; RequestEditorUpdate(); } }
+        void OnSplineContainerReordered(SplineContainer container, int previousIndex, int newIndex) { if (container == m_Spline) { m_LoftRoadsRequested = true; RequestEditorUpdate(); } }
 
+        void OnAfterSplineWasModified(Spline s) { m_LoftRoadsRequested = true; RequestEditorUpdate(); }
+        void OnSplineChanged(Spline spline, int knotIndex, SplineModification modification) { m_LoftRoadsRequested = true; RequestEditorUpdate(); }
+        void OnAfterSplineDataWasModified(SplineData<float> splineData) { m_LoftRoadsRequested = true; RequestEditorUpdate(); }
 
         public void LoftAllRoads()
         {
@@ -158,6 +163,7 @@ namespace Unity.Splines.Examples
             m_Textures.Clear();
             m_Indices.Clear();
 
+            if (LoftSplines == null) return;
             for (var i = 0; i < LoftSplines.Count; i++) Loft(LoftSplines[i], i);
 
             LoftMesh.SetVertices(m_Positions);
@@ -200,10 +206,17 @@ namespace Unity.Splines.Examples
                 var scale = transform.lossyScale;
                 var tangent = math.normalizesafe(math.cross(up, dir)) * new float3(1f / scale.x, 1f / scale.y, 1f / scale.z);
 
-                var w = 1f;
-                if (widthDataIndex < m_Widths.Count && m_Widths[widthDataIndex] != null)
+                var w = globalWidth;
+                if (widthDataIndex < m_Widths.Count)
                 {
-                    w = m_Widths[widthDataIndex].DefaultValue;
+                    float localW = m_Widths[widthDataIndex].DefaultValue;
+                    if (m_Widths[widthDataIndex] != null && m_Widths[widthDataIndex].Count > 0)
+                    {
+                        // PathIndexUnit.Normalized = t(0~1) 기준으로 보간함!
+                        localW = m_Widths[widthDataIndex].Evaluate(spline, t, PathIndexUnit.Normalized, new Interpolators.LerpFloat());
+                        localW = math.clamp(localW, .001f, 10000f);
+                    }
+                    w *= localW;
                 }
 
                 m_Positions.Add(pos - (tangent * w));
@@ -226,62 +239,90 @@ namespace Unity.Splines.Examples
                 m_Indices.Add((n + 1) % (prevVertexCount + vertexCount));
             }
         }
+
 #if UNITY_EDITOR
-        // =======================================================
-        // [완성판] 메쉬 추출부터 완벽한 최적화 프리팹 생성까지 원클릭 자동화
-        // =======================================================
         [ContextMenu("★★ 원클릭 최적화 프리팹 만들기 (Bake & Create Prefab)")]
         public void CreateOptimizedPrefab()
         {
-            if (m_Mesh == null || m_Mesh.vertexCount == 0)
-            {
-                Debug.LogWarning("추출할 메쉬가 없습니다. 스플라인을 확인하세요.");
-                return;
-            }
+            if (m_Mesh == null || m_Mesh.vertexCount == 0) return;
 
-            // 1. 프리팹 저장 경로 지정 창 띄우기
             string defaultName = gameObject.name + "_Conveyor";
-            string path = EditorUtility.SaveFilePanelInProject(
-                "컨베이어 프리팹 저장",
-                defaultName,
-                "prefab",
-                "저장할 위치를 선택하세요. (동일한 폴더에 메쉬 데이터도 함께 생성됩니다)"
-            );
-
+            string path = EditorUtility.SaveFilePanelInProject("컨베이어 프리팹 저장", defaultName, "prefab", "저장할 위치를 선택하세요.");
             if (string.IsNullOrEmpty(path)) return;
 
-            // 경로 문자열 정리 (.prefab 확장자를 기준으로 메쉬 경로 도출)
             string prefabPath = path;
             string meshPath = path.Replace(".prefab", ".asset");
 
-            // 2. 메쉬 데이터(Asset) 파일로 영구 굽기
             Mesh bakedMesh = Instantiate(m_Mesh);
             bakedMesh.name = gameObject.name + "_Mesh";
             AssetDatabase.CreateAsset(bakedMesh, meshPath);
 
-            // 3. 현재 씬에 있는 오브젝트 복제 (머티리얼, 스크립트 등 모든 세팅 보존)
             GameObject clone = Instantiate(gameObject);
             clone.name = gameObject.name + "_Optimized";
-
-            // 4. 복제본의 메쉬를 방금 구워낸 영구 메쉬 파일로 교체
             clone.GetComponent<MeshFilter>().sharedMesh = bakedMesh;
 
-            // 5. [핵심] 복제본에서 게임 성능을 갉아먹는 스플라인 연산 컴포넌트 완벽 제거
             DestroyImmediate(clone.GetComponent<CreateSplineMesh>());
             DestroyImmediate(clone.GetComponent<SplineContainer>());
 
-            // 6. 찌꺼기가 제거된 순수 오브젝트를 프리팹(.prefab) 파일로 패키징
             PrefabUtility.SaveAsPrefabAsset(clone, prefabPath);
 
-            // 7. 씬에 잠시 만들었던 임시 복제본 파괴 및 에셋 새로고침
             DestroyImmediate(clone);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            Debug.Log($"<color=cyan>[프리팹 자동화 성공!]</color>\n" +
-                      $"1. 메쉬 저장: {meshPath}\n" +
-                      $"2. 프리팹 완성: {prefabPath}\n" +
-                      $"프로젝트 창을 확인해 보세요. 이제 이 프리팹을 꺼내 쓰시면 성능 저하가 0%입니다!");
+            Debug.Log($"<color=cyan>[프리팹 자동화 성공!]</color> {prefabPath}");
+        }
+
+        // =======================================================
+        // [시각화] 사용자가 입력한 Data Point의 위치를 직접 보여줌!
+        // =======================================================
+        private void OnDrawGizmosSelected()
+        {
+            if (m_Spline == null) return;
+            var splines = m_Spline.Splines;
+            if (splines == null) return;
+
+            for (int i = 0; i < splines.Count; i++)
+            {
+                var spline = splines[i];
+
+                // 1. 기본 뼈대(Knot)는 눈에 덜 띄는 작은 흰색 점으로 표시
+                Gizmos.color = Color.white;
+                for (int k = 0; k < spline.Count; k++)
+                {
+                    Vector3 knotPos = transform.TransformPoint((Vector3)spline[k].Position);
+                    Gizmos.DrawSphere(knotPos, 0.1f);
+                }
+
+                // 2. 디렉터님이 인스펙터에 추가한 Data Point의 실제 위치 렌더링!
+                if (i < m_Widths.Count && m_Widths[i] != null)
+                {
+                    var widthData = m_Widths[i];
+                    for (int j = 0; j < widthData.Count; j++)
+                    {
+                        var dataPoint = widthData[j];
+
+                        // 사용자가 입력한 Index를 0.0 ~ 1.0 비율로 해석하여 위치를 찾음
+                        float t = math.clamp(dataPoint.Index, 0f, 1f);
+
+                        SplineUtility.Evaluate(spline, t, out var pos, out var _, out var _);
+                        Vector3 worldPos = transform.TransformPoint(pos);
+
+                        // 눈에 확 띄는 빨간색 구체! 여기가 바로 그 데이터가 적용되는 중심지입니다.
+                        Gizmos.color = Color.red;
+                        Gizmos.DrawSphere(worldPos, 0.4f);
+
+                        // 허공에 텍스트를 띄워 어떤 데이터인지 명확히 안내
+                        GUIStyle style = new GUIStyle();
+                        style.normal.textColor = Color.black;
+                        style.fontSize = 10;
+                        style.fontStyle = FontStyle.Bold;
+
+                        Handles.Label(worldPos + Vector3.up * 1f,
+                            $"▼ [Data {j}]\n위치(Index): {t:F2}\n넓이(Value): {dataPoint.Value:F1}", style);
+                    }
+                }
+            }
         }
 #endif
     }
