@@ -1,9 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Splines;   // [추가] 스플라인 네임스페이스
+using Unity.Mathematics;     // [추가] 수학 연산용 (float3 등)
+using System.Collections;
 
 public class CarController : MonoBehaviour
 {
-    // 각 파츠들을 그룹별로 묶어둘 리스트 (Dictionary 활용)
+    [Header("물류 설정")]
+    public float moveSpeed = 1.0f;
+    public bool isMoving = true;
+
+    [Header("스플라인 추적 상태 (디버그용)")]
+    public SplineContainer targetSpline;
+    [Range(0f, 1f)] public float pathProgress = 0f; // 0=시작점, 1=도착점
+    private float splineLength;
+
     private Dictionary<PartGroup, List<AssemblyPart>> partsDictionary = new Dictionary<PartGroup, List<AssemblyPart>>();
 
     private void Awake()
@@ -11,89 +22,122 @@ public class CarController : MonoBehaviour
         InitializeCarParts();
     }
 
-    // 1. 하위 오브젝트를 다 뒤져서 그룹별로 분류하는 초기화 함수
+    // [신규] 스포너가 차량을 생성할 때 호출하여 경로를 주입해주는 함수
+    public void InitializePath(SplineContainer spline, float speed)
+    {
+        targetSpline = spline;
+        moveSpeed = speed;
+        pathProgress = 0f;
+
+        if (targetSpline != null)
+        {
+            // 스플라인의 실제 물리적 길이(m)를 계산하여 저장
+            splineLength = targetSpline.CalculateLength();
+        }
+    }
+
+    private void Update()
+    {
+        // 1. 이동 로직: 스플라인이 할당되어 있고, 이동 스위치가 켜져 있을 때만 작동
+        if (isMoving && targetSpline != null && splineLength > 0f)
+        {
+            MoveAlongSpline();
+        }
+    }
+
+    private void MoveAlongSpline()
+    {
+        // 속도를 실제 스플라인 길이로 나누어 진행도(0~1)를 증가시킴
+        pathProgress += (moveSpeed / splineLength) * Time.deltaTime;
+
+        // 라인 끝에 도달하면 파괴 (CarDestructor가 없어도 스스로 파괴되도록 안전장치)
+        if (pathProgress >= 1f)
+        {
+            pathProgress = 1f;
+            CheckResultAndDestroy();
+            return;
+        }
+
+        // 스플라인의 현재 진행도(pathProgress)에 해당하는 로컬 좌표와 방향을 가져옴
+        SplineUtility.Evaluate(targetSpline.Spline, pathProgress, out float3 localPos, out float3 localTangent, out float3 localUp);
+
+        // 로컬 좌표를 월드 좌표로 변환하여 차량 위치 적용
+        transform.position = targetSpline.transform.TransformPoint(localPos);
+
+        // 곡선 방향에 맞춰 차량의 머리를 회전시킴 (부드러운 코너링)
+        if (math.length(localTangent) > 0.001f)
+        {
+            Vector3 worldDirection = targetSpline.transform.TransformDirection(localTangent);
+            Vector3 worldUp = targetSpline.transform.TransformDirection(localUp);
+            transform.rotation = Quaternion.LookRotation(worldDirection, worldUp);
+        }
+    }
+
+    private void CheckResultAndDestroy()
+    {
+        if (HasUnassembledParts())
+            Debug.LogWarning($"<color=red>[RESULT]</color> {gameObject.name} 불량품 출고! 조립 안 된 부품 있음.");
+        else
+            Debug.Log($"<color=green>[RESULT]</color> {gameObject.name} 완제품 출고 성공!");
+
+        Destroy(gameObject);
+    }
+
     private void InitializeCarParts()
     {
-        // Enum에 있는 모든 그룹을 Dictionary에 빈 리스트로 생성
         foreach (PartGroup group in System.Enum.GetValues(typeof(PartGroup)))
         {
             partsDictionary[group] = new List<AssemblyPart>();
         }
 
-        // 자식들에 붙어있는 모든 AssemblyPart 찾기
         AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
-
-        // 찾은 파츠들을 자신의 그룹에 맞게 리스트에 쏙쏙 넣기
         foreach (AssemblyPart part in allParts)
         {
             partsDictionary[part.myGroup].Add(part);
+            part.UpdateProgress(1f);
         }
-
-        Debug.Log($"[{gameObject.name}] 차량 파츠 초기화 완료. 총 {allParts.Length}개의 파츠를 그룹화했습니다.");
-
-        // (테스트용) 시작할 때 모든 파츠를 분리 상태(1)로 만듦
-        SetAllPartsProgress(1f);
     }
 
-    // 2. 특정 그룹의 모든 파츠를 체결(0) 상태로 만드는 함수 (로봇팔이 호출할 예정)
-    public void AssembleGroup(PartGroup targetGroup)
+    public bool HasUnassembledParts()
     {
-        if (partsDictionary.ContainsKey(targetGroup))
+        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
+        foreach (var part in allParts)
         {
-            foreach (AssemblyPart part in partsDictionary[targetGroup])
-            {
-                // TODO: 나중에 이 부분을 DOTween이나 Coroutine으로 부드럽게 바꿀 예정
-                part.assemblyProgress = 0f;
-
-                // OnValidate는 에디터용이므로, 실제 게임에선 직접 위치 적용
-                part.transform.localPosition = part.assembledPos;
-                part.transform.localRotation = Quaternion.Euler(part.assembledRot);
-            }
-            Debug.Log($"[{targetGroup}] 그룹 체결 완료!");
+            if (part.assemblyProgress > 0f) return true;
         }
+        return false;
     }
 
-    // 3. 모든 파츠의 진행도를 일괄 강제 설정 (초기화용)
-    public void SetAllPartsProgress(float progress)
-    {
-        foreach (var groupList in partsDictionary.Values)
-        {
-            foreach (AssemblyPart part in groupList)
-            {
-                part.assemblyProgress = progress;
-                part.transform.localPosition = Vector3.Lerp(part.assembledPos, part.detachedPos, progress);
-                part.transform.localRotation = Quaternion.Euler(Vector3.Lerp(part.assembledRot, part.detachedRot, progress));
-            }
-        }
-    }
-
-
-    // 로봇팔이 호출할 함수: 해당 그룹의 파츠들의 progress를 일정량 감소시킴
-    public void WorkOnGroup(PartGroup targetGroup, float workAmount)
-    {
-        if (partsDictionary.ContainsKey(targetGroup))
-        {
-            foreach (AssemblyPart part in partsDictionary[targetGroup])
-            {
-                // 현재 progress에서 workAmount만큼 뺌
-                part.UpdateProgress(part.assemblyProgress - workAmount);
-            }
-        }
-    }
-
-    /// <summary> [공정 연동용] 특정 그룹에서 아직 조립 안 된 부품 하나 찾기 </summary>
     public AssemblyPart GetUnassembledPart(PartType targetType)
     {
-        // 최적화를 위해 Dictionary<PartType, AssemblyPart> 로 관리하는 것을 권장합니다.
-        // 현재는 하위 검색으로 처리:
         AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
         foreach (AssemblyPart part in allParts)
         {
-            if (part.myType == targetType && part.assemblyProgress > 0f)
-            {
-                return part; // 타겟 타입과 일치하고 아직 조립 안 된 부품 반환
-            }
+            if (part.myType == targetType && part.assemblyProgress > 0f) return part;
         }
         return null;
+    }
+
+    [ContextMenu("차량 체결 값 전체 리셋")]
+    private void ResetAssemblyPart()
+    {
+        if (partsDictionary == null || partsDictionary.Count <= 0) return;
+
+        foreach (List<AssemblyPart> lists in partsDictionary.Values)
+        {
+            foreach (AssemblyPart item in lists)
+            {
+                item.UpdateProgress(1f);
+            }
+        }
+        StartCoroutine(coReset());
+        IEnumerator coReset()
+        {
+            var pos = this.transform.position;
+            this.transform.position = new Vector3(999, 999, 999);
+            yield return new WaitForSeconds(0.5f);
+            this.transform.position = pos;
+        }
+        Debug.Log($"[{gameObject.name}] 파츠 전체 리셋");
     }
 }

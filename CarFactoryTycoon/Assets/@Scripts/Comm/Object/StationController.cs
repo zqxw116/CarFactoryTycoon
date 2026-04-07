@@ -33,12 +33,13 @@ public class StationController : MonoBehaviour
     private void Start()
     {
         trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
+        //trackingTarget.parent = this.transform;
 
         InitializePartResources();
 
         if (robotArm != null && stationPilePos != null)
         {
-            robotArm.target = stationPilePos;
+            robotArm.SetTarget(stationPilePos);
             robotArm.targetPartType = this.targetPartType;
         }
     }
@@ -75,7 +76,7 @@ public class StationController : MonoBehaviour
         {
             currentCar = car;
             currentState = StationState.PickingUp;
-            robotArm.target = stationPilePos;
+            robotArm.SetTarget(stationPilePos);
         }
     }
 
@@ -108,7 +109,7 @@ public class StationController : MonoBehaviour
                     if (spawnedArmMesh) spawnedArmMesh.SetActive(true);
 
                     currentState = StationState.MovingToCar;
-                    robotArm.target = trackingTarget;
+                    robotArm.SetTarget(trackingTarget);
                 }
                 break;
 
@@ -148,7 +149,7 @@ public class StationController : MonoBehaviour
 
                     if (spawnedPileMesh) spawnedPileMesh.SetActive(true);
 
-                    robotArm.target = stationPilePos;
+                    robotArm.SetTarget(stationPilePos);
                     cooldownTimer = 1.0f;
                     currentState = StationState.Cooldown;
                 }
@@ -169,7 +170,7 @@ public class StationController : MonoBehaviour
         if (spawnedArmMesh) spawnedArmMesh.SetActive(false);
         if (spawnedPileMesh) spawnedPileMesh.SetActive(true);
 
-        if (robotArm != null) robotArm.target = stationPilePos;
+        if (robotArm != null) robotArm.SetTarget(stationPilePos);
 
         currentCar = null;
         targetCarPart = null;
