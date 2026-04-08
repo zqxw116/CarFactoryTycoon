@@ -1,26 +1,33 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 public class AssemblyPart : MonoBehaviour
 {
+    [Header("마스터 설계도 (Scriptable Object)")]
+    public AssemblyPartDataSO masterData;
+
     [Header("소속 및 식별")]
     public PartGroup myGroup;
     public PartType myType;
 
-    [Header("현재 체결 상태 (1: 분리 대기 -> 0: 체결 완료)")]
+    [Header("현재 체결 상태 (0:완료 <-> 1:분리)")]
     [Range(0f, 1f)] public float assemblyProgress = 1f;
 
-    [Header("1단계: 체결 완료 위치 (Progress: 0.0)")]
+    [Header("[0.0] 조립 완료 좌표 (Assembled)")]
     public Vector3 assembledPos;
     public Vector3 assembledRot;
 
-    [Header("2단계: 중간 경유지 (Progress: 0.5)")]
-    [Tooltip("체결 직전 뚫림 방지를 위한 경유지 사용 여부")]
+    [Header("[0.5] 중간 경유지 좌표 (Intermediate)")]
     public bool useIntermediate = true;
     public Vector3 intermediatePos;
     public Vector3 intermediateRot;
 
-    [Header("3단계: 최종 분리 위치 (Progress: 1.0)")]
+    [Header("[1.0] 분리 시작 좌표 (Detached)")]
     public Vector3 detachedPos;
     public Vector3 detachedRot;
 
@@ -31,55 +38,54 @@ public class AssemblyPart : MonoBehaviour
 
     private void Awake()
     {
-        // 게임 시작 시 부모 캐싱
         cachedParent = transform.parent;
         if (myType == PartType.None) AutoSetGroupAndType();
+        LoadDataFromSO(); // 시작 시 설계도에서 값 불러오기
     }
 
-    // 로봇팔이 추적할 월드 좌표 (분리 상태의 월드 위치)
+    #region 외부 참조용 함수 (로봇팔 등에서 사용)
+
+    // 로봇팔이 추적할 '시작(분리)' 월드 좌표
     public Vector3 GetWorldDetachedPos() => GetWorldPosFromLocal(detachedPos);
 
-    // 로봇팔이 최종적으로 가져다 놓아야 할 체결 월드 위치
+    // 로봇팔이 가져다 놓아야 할 '최종(체결)' 월드 좌표
     public Vector3 GetWorldAssembledPos() => GetWorldPosFromLocal(assembledPos);
 
-    // 내부 좌표 계산용 편의 함수
     private Vector3 GetWorldPosFromLocal(Vector3 localPos)
     {
         if (cachedParent == null) cachedParent = transform.parent;
         return cachedParent != null ? cachedParent.TransformPoint(localPos) : transform.position;
     }
 
-    // [핵심] 외부(로봇팔 등)에서 호출하여 파츠 위치를 실시간 갱신
+    #endregion
+
+    // [핵심] 진행도에 따른 실시간 위치 업데이트
     public void UpdateProgress(float newProgress)
     {
         assemblyProgress = Mathf.Clamp01(newProgress);
 
         if (useIntermediate)
         {
-            // 구간 1: 0.0(체결) ~ 0.5(경유지)
             if (assemblyProgress <= 0.5f)
             {
-                float t = assemblyProgress / 0.5f; // 0~0.5를 0~1로 환산
+                float t = assemblyProgress / 0.5f;
                 transform.localPosition = Vector3.Lerp(assembledPos, intermediatePos, t);
                 transform.localRotation = Quaternion.Euler(Vector3.Lerp(assembledRot, intermediateRot, t));
             }
-            // 구간 2: 0.5(경유지) ~ 1.0(분리)
             else
             {
-                float t = (assemblyProgress - 0.5f) / 0.5f; // 0.5~1을 0~1로 환산
+                float t = (assemblyProgress - 0.5f) / 0.5f;
                 transform.localPosition = Vector3.Lerp(intermediatePos, detachedPos, t);
                 transform.localRotation = Quaternion.Euler(Vector3.Lerp(intermediateRot, detachedRot, t));
             }
         }
         else
         {
-            // 단순 직선 이동
             transform.localPosition = Vector3.Lerp(assembledPos, detachedPos, assemblyProgress);
             transform.localRotation = Quaternion.Euler(Vector3.Lerp(assembledRot, detachedRot, assemblyProgress));
         }
     }
 
-    // 부드럽게 완전 체결(0)시키는 코루틴
     public IEnumerator FixPartRoutine(float speed = 2f)
     {
         while (assemblyProgress > 0f)
@@ -89,46 +95,89 @@ public class AssemblyPart : MonoBehaviour
             yield return null;
         }
         UpdateProgress(0f);
-        Debug.Log($"<color=green>[{gameObject.name}]</color> 조립 완료!");
     }
 
     #region 에디터 도구 (Inspector 메뉴)
 
     private void OnValidate()
     {
-        // 에디터 슬라이더 조작 시 즉시 반영
         if (assembledPos == Vector3.zero && detachedPos == Vector3.zero) return;
         UpdateProgress(assemblyProgress);
     }
 
-    [ContextMenu("★ 1. [수동 저장] 현 위치를 '중간 경유지(0.5)'로")]
-    private void SaveIntermediateState()
+    [ContextMenu("Step 0. 설계도(SO) 데이터 불러오기")]
+    public void LoadDataFromSO()
     {
-        intermediatePos = transform.localPosition;
-        intermediateRot = transform.localEulerAngles;
-        Debug.Log($"[{gameObject.name}] 중간 위치 저장됨 (ㄱ자 꺾임점)");
+        if (masterData == null) return;
+        PartConfig config = masterData.GetConfig(myType);
+        if (config.type == PartType.None) return;
+
+        assembledPos = config.assembledPos;
+        assembledRot = config.assembledRot;
+        useIntermediate = config.useIntermediate;
+        intermediatePos = config.intermediatePos;
+        intermediateRot = config.intermediateRot;
+        detachedPos = config.detachedPos;
+        detachedRot = config.detachedRot;
     }
 
-    [ContextMenu("2. [수동 저장] 현 위치를 '분리 대기(1.0)'로")]
-    private void SaveDetachedState()
-    {
-        detachedPos = transform.localPosition;
-        detachedRot = transform.localEulerAngles;
-        Debug.Log($"[{gameObject.name}] 시작 위치(빨간 구슬) 저장됨");
-    }
-
-    [ContextMenu("3. [수동 저장] 현 위치를 '체결 완료(0.0)'로")]
-    private void SaveAssembledState()
+    [ContextMenu("Step 1. 현재 위치를 [조립 완료(0.0)]로 저장")]
+    public void SaveAsAssembled()
     {
         assembledPos = transform.localPosition;
         assembledRot = transform.localEulerAngles;
-        Debug.Log($"[{gameObject.name}] 최종 조립 위치(초록 구슬) 저장됨");
+        ApplyToSO();
     }
 
-    [ContextMenu("4. [자동화] 방사형 분리 위치 계산")]
+    [ContextMenu("Step 2. 현재 위치를 [중간 경유(0.5)]로 저장")]
+    public void SaveAsIntermediate()
+    {
+        intermediatePos = transform.localPosition;
+        intermediateRot = transform.localEulerAngles;
+        useIntermediate = true;
+        ApplyToSO();
+    }
+
+    [ContextMenu("Step 3. 현재 위치를 [분리 시작(1.0)]로 저장")]
+    public void SaveAsDetached()
+    {
+        detachedPos = transform.localPosition;
+        detachedRot = transform.localEulerAngles;
+        ApplyToSO();
+    }
+
+    [ContextMenu("Step 4. !!! [최종 저장] 인스펙터 값을 설계도(SO)에 굽기")]
+    public void ApplyToSO()
+    {
+        if (masterData == null) { Debug.LogError("masterData(SO)가 없습니다!"); return; }
+
+        int index = masterData.partConfigs.FindIndex(x => x.type == myType);
+        PartConfig config = new PartConfig
+        {
+            type = myType,
+            assembledPos = assembledPos,
+            assembledRot = assembledRot,
+            useIntermediate = useIntermediate,
+            intermediatePos = intermediatePos,
+            intermediateRot = intermediateRot,
+            detachedPos = detachedPos,
+            detachedRot = detachedRot
+        };
+
+        if (index != -1) masterData.partConfigs[index] = config;
+        else masterData.partConfigs.Add(config);
+
+#if UNITY_EDITOR
+        EditorUtility.SetDirty(masterData);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[{myType}] 설계도 저장 완료!");
+#endif
+    }
+
+    [ContextMenu("5. [자동화] 방사형 분리 위치 계산 및 저장")]
     public void AutoSetDetachedPosition()
     {
-        Transform centerObj = FindCenterObject("SM_detail27");
+        Transform centerObj = FindCenterObject("Frame");
         if (centerObj == null) return;
 
         Vector3 direction = (transform.position - centerObj.position).normalized;
@@ -146,10 +195,7 @@ public class AssemblyPart : MonoBehaviour
     private Transform FindCenterObject(string targetName)
     {
         Transform[] allChildren = transform.root.GetComponentsInChildren<Transform>(true);
-        foreach (Transform child in allChildren)
-        {
-            if (child.name == targetName) return child;
-        }
+        foreach (Transform child in allChildren) if (child.name == targetName) return child;
         return null;
     }
 
@@ -157,33 +203,23 @@ public class AssemblyPart : MonoBehaviour
     public void AutoSetGroupAndType()
     {
         if (transform.parent != null)
-        {
-            if (System.Enum.TryParse(transform.parent.name, out PartGroup parsedGroup))
-                myGroup = parsedGroup;
-        }
+            if (System.Enum.TryParse(transform.parent.name, out PartGroup parsedGroup)) myGroup = parsedGroup;
 
-        if (System.Enum.TryParse(gameObject.name, out PartType parsedType))
-            myType = parsedType;
+        if (System.Enum.TryParse(gameObject.name, out PartType parsedType)) myType = parsedType;
+        LoadDataFromSO();
     }
 
-    // 씬 뷰 궤적 시각화
     private void OnDrawGizmosSelected()
     {
         if (transform.parent == null) return;
+        Vector3 p0 = transform.parent.TransformPoint(assembledPos);
+        Vector3 p1 = transform.parent.TransformPoint(intermediatePos);
+        Vector3 p2 = transform.parent.TransformPoint(detachedPos);
 
-        Vector3 worldAssembled = transform.parent.TransformPoint(assembledPos);
-        Vector3 worldInter = transform.parent.TransformPoint(intermediatePos);
-        Vector3 worldDetached = transform.parent.TransformPoint(detachedPos);
-
-        // 도착점(초록), 경유지(노랑), 시작점(빨강)
-        Gizmos.color = Color.green; Gizmos.DrawWireSphere(worldAssembled, 0.05f);
-        Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(worldInter, 0.05f);
-        Gizmos.color = Color.red; Gizmos.DrawWireSphere(worldDetached, 0.05f);
-
-        // 하늘색으로 꺾인 궤적 표시
-        Gizmos.color = Color.cyan;
-        Gizmos.DrawLine(worldAssembled, worldInter);
-        Gizmos.DrawLine(worldInter, worldDetached);
+        Gizmos.color = Color.green; Gizmos.DrawWireSphere(p0, 0.05f);
+        Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(p1, 0.05f);
+        Gizmos.color = Color.red; Gizmos.DrawWireSphere(p2, 0.05f);
+        Gizmos.color = Color.cyan; Gizmos.DrawLine(p0, p1); Gizmos.DrawLine(p1, p2);
     }
     #endregion
 }

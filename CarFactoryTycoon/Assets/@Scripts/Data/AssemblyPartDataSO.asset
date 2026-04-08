@@ -1,0 +1,232 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45db07bbfeb55fb4caad4f7a5fb14809, type: 3}
+  m_Name: AssemblyPartDataSO
+  m_EditorClassIdentifier: Assembly-CSharp::AssemblyPartDataSO
+  carModelName: FirstModel
+  partConfigs:
+  - type: 0
+    assembledPos: {x: 0, y: 0, z: 0}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 0
+    intermediatePos: {x: 0, y: 0, z: 0}
+    intermediateRot: {x: 0, y: 0, z: 0}
+    detachedPos: {x: 0, y: 0, z: 0}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 2
+    assembledPos: {x: -0.013540268, y: 0.5145526, z: 0.5731125}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -2.0298119, y: 0.792, z: -0.00000025177002}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -3.0000005, y: 1.5, z: -0.00000047683716}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 27
+    assembledPos: {x: 0, y: 0.78725576, z: 2.523632}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 1.2637147, z: 1.5121309}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 2.393399, z: 2.8638842}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 26
+    assembledPos: {x: 0.7651005, y: 0.5254, z: -1.9640007}
+    assembledRot: {x: -0, y: 180, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.55790645, y: 1.1751184, z: -1.4321363}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 1.056641, y: 2.225603, z: -2.7123795}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 25
+    assembledPos: {x: -0.7651005, y: 0.5254, z: -1.9640007}
+    assembledRot: {x: -0, y: 180, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.5579062, y: 1.1751184, z: -1.4321367}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.0566405, y: 2.225603, z: -2.71238}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 24
+    assembledPos: {x: -0.74404335, y: 0.98193014, z: -1.9137878}
+    assembledRot: {x: -0, y: 180, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.5178128, y: 1.475369, z: -1.3318919}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.9807061, y: 2.7942595, z: -2.5225224}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 23
+    assembledPos: {x: 0.74404716, y: 0.98193014, z: -1.9137878}
+    assembledRot: {x: -0, y: 180, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.5178156, y: 1.4753686, z: -1.3318896}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 0.98071134, y: 2.7942588, z: -2.5225182}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 22
+    assembledPos: {x: 0.6687757, y: 0.78769225, z: 2.0308988}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.4648973, y: 1.3395617, z: 1.4117734}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 0.8804873, y: 2.5370486, z: 2.6738133}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 21
+    assembledPos: {x: -0.6687724, y: 0.7876923, z: 2.030895}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.46489555, y: 1.3395628, z: 1.4117732}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.880484, y: 2.5370507, z: 2.6738129}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 20
+    assembledPos: {x: 0.82852364, y: 1.1983644, z: 0.84272766}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.77975535, y: 1.9198267, z: 0.7931241}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 1.4768094, y: 3.6360354, z: 1.502129}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 19
+    assembledPos: {x: -0.8285122, y: 1.1983644, z: 0.84272766}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.77974755, y: 1.9198304, z: 0.793126}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.4767946, y: 3.6360426, z: 1.5021325}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 18
+    assembledPos: {x: 0, y: 1.1002625, z: 1.184803}
+    assembledRot: {x: 0, y: -5.0888875e-14, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 1.869881, z: 1.1607022}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 3.5414414, z: 2.1982996}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 17
+    assembledPos: {x: 0, y: 1.5977572, z: -1.4576073}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.00000012588501, y: 1.9622037, z: -1.0675573}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 0.00000023841858, y: 3.716295, z: -2.021889}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 16
+    assembledPos: {x: 0, y: 0.1924607, z: 2.1506844}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 0.933185, z: 1.5776958}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 1.7673959, z: 2.9880602}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 15
+    assembledPos: {x: -0.8977871, y: 0.38079593, z: -1.2596283}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.8927075, y: 1.1706414, z: -1.2525017}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.6907339, y: 2.217124, z: -2.3721623}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 14
+    assembledPos: {x: -0.89777946, y: 0.38079593, z: 1.6514626}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.741479, y: 1.1065005, z: 1.363949}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.4043163, y: 2.095645, z: 2.5832367}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 13
+    assembledPos: {x: 0.8977871, y: 0.38079593, z: -1.2596283}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.8927075, y: 1.1706414, z: -1.2525017}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.6907339, y: 2.217124, z: -2.3721623}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 12
+    assembledPos: {x: 0.8977833, y: 0.38079593, z: 1.6514626}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.74148124, y: 1.1065003, z: 1.3639472}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 1.4043206, y: 2.0956445, z: 2.5832334}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 11
+    assembledPos: {x: 0.9284992, y: 0.290456, z: 0.4680977}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 1.3622712, y: 1.2181499, z: 0.6867825}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 2.580059, y: 2.3071022, z: 1.3007244}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 10
+    assembledPos: {x: -0.9284954, y: 0.290456, z: 0.4680977}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -1.3622705, y: 1.2181512, z: 0.68678415}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -2.5800576, y: 2.3071046, z: 1.3007276}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 9
+    assembledPos: {x: 0, y: 1.104219, z: 1.4715347}
+    assembledRot: {x: 308.59998, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 1.742713, z: 1.2669653}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 3.3005927, z: 2.3995554}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 8
+    assembledPos: {x: 0.81500435, y: 1.2556942, z: -0.7802658}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.7647279, y: 1.9702318, z: -0.73213106}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 1.4483483, y: 3.7314997, z: -1.3866118}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 7
+    assembledPos: {x: -0.81500185, y: 1.2556942, z: -0.7802658}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -1.3587507, y: 2.379372, z: -1.3342291}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.4845732, y: 3.3838716, z: -1.8019642}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 6
+    assembledPos: {x: -0.47009087, y: 0.46858943, z: 0.54359055}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.867926, y: 1.6571537, z: 1.0036278}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -1.6437993, y: 3.1385489, z: 1.9008102}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 5
+    assembledPos: {x: 0.47911263, y: 0.46858943, z: 0.54359436}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: 0.879479, y: 1.6521622, z: 0.9978454}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: 1.6656799, y: 3.129095, z: 1.8898587}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 4
+    assembledPos: {x: 0, y: 0.9234956, z: 1.3514252}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 1.6856922, z: 1.3078104}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 3.1925988, z: 2.4769137}
+    detachedRot: {x: -0, y: 0, z: 0}
+  - type: 3
+    assembledPos: {x: 0, y: 0.348, z: 1.8600006}
+    assembledRot: {x: -0, y: 0, z: 0}
+    useIntermediate: 1
+    intermediatePos: {x: -0.00000012588501, y: 1.0833064, z: 1.5569822}
+    intermediateRot: {x: -0, y: 0, z: 0}
+    detachedPos: {x: -0.00000023841858, y: 2.0517168, z: 2.94883}
+    detachedRot: {x: -0, y: 0, z: 0}

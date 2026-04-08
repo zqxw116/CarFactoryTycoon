@@ -9,8 +9,8 @@ public static class PartResourceManager
             // ==========================================
             // 1. Body
             // ==========================================
-            case PartType.Body:
-                return "Prefabs/Parts/Body/Body";
+            case PartType.Frame:
+                return "Prefabs/Parts/Body/Frame";
 
             // ==========================================
             // 2. Indoor

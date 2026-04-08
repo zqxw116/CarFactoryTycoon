@@ -9,7 +9,7 @@ public enum PartType
     None,
 
     // Body
-    Body,
+    Frame,
 
     // Indoor
     Controll, Engine, EngineCover, CarSeat_Right, CarSeat_Left,
