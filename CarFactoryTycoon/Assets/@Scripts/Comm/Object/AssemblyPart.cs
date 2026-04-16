@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -18,37 +17,64 @@ public class AssemblyPart : MonoBehaviour
     [Header("현재 체결 상태 (0:완료 <-> 1:분리)")]
     [Range(0f, 1f)] public float assemblyProgress = 1f;
 
-    [Header("[0.0] 조립 완료 좌표 (Assembled)")]
+    [Header("[0.0] 체결 완료 좌표")]
     public Vector3 assembledPos;
     public Vector3 assembledRot;
 
-    [Header("[0.5] 중간 경유지 좌표 (Intermediate)")]
-    public bool useIntermediate = true;
-    public Vector3 intermediatePos;
-    public Vector3 intermediateRot;
-
-    [Header("[1.0] 분리 시작 좌표 (Detached)")]
-    public Vector3 detachedPos;
-    public Vector3 detachedRot;
+    [Header("[0.5] 중간 꺾임 좌표 (stationPilePos → 여기 → 체결완료)")]
+    public Vector3 midPos;
+    public Vector3 midRot;
 
     [Header("자동 분리 설정")]
     public float explodeDistance = 3f;
 
     private Transform cachedParent;
 
+    // 런타임 분리 위치 (스테이션 stationPilePos로부터 오버라이드)
+    private bool hasRuntimeDetached = false;
+    private Vector3 runtimeDetachedLocalPos;
+    private Vector3 runtimeDetachedLocalRot; // Euler 각도 (로컬)
+
+    public void SetActive(bool _isActive) => this.gameObject.SetActive(_isActive);
+
     private void Awake()
     {
         cachedParent = transform.parent;
         if (myType == PartType.None) AutoSetGroupAndType();
-        LoadDataFromSO(); // 시작 시 설계도에서 값 불러오기
+        LoadDataFromSO();
     }
 
-    #region 외부 참조용 함수 (로봇팔 등에서 사용)
+    #region 외부 참조용 함수
 
-    // 로봇팔이 추적할 '시작(분리)' 월드 좌표
-    public Vector3 GetWorldDetachedPos() => GetWorldPosFromLocal(detachedPos);
+    /// <summary>분리 상태(progress=1)로 되돌리고 오브젝트를 비활성화한다.</summary>
+    public void Reset()
+    {
+        ClearRuntimeDetached();
+        UpdateProgress(1f); // 내부에서 assemblyProgress==1 → SetActive(false) 호출
+    }
 
-    // 로봇팔이 가져다 놓아야 할 '최종(체결)' 월드 좌표
+    /// <summary>스테이션의 stationPilePos 월드 좌표를 분리 시작 위치로 오버라이드한다.</summary>
+    public void SetRuntimeDetachedPose(Vector3 worldPos, Quaternion worldRot)
+    {
+        if (cachedParent == null) cachedParent = transform.parent;
+        if (cachedParent != null)
+        {
+            runtimeDetachedLocalPos = cachedParent.InverseTransformPoint(worldPos);
+            runtimeDetachedLocalRot = (Quaternion.Inverse(cachedParent.rotation) * worldRot).eulerAngles;
+        }
+        else
+        {
+            runtimeDetachedLocalPos = worldPos;
+            runtimeDetachedLocalRot = worldRot.eulerAngles;
+        }
+        hasRuntimeDetached = true;
+    }
+
+    /// <summary>런타임 오버라이드를 해제하고 SO 기본값을 사용하도록 되돌린다.</summary>
+    public void ClearRuntimeDetached() => hasRuntimeDetached = false;
+
+
+    /// <summary>로봇팔이 가져다 놓아야 할 '최종(체결)' 월드 좌표</summary>
     public Vector3 GetWorldAssembledPos() => GetWorldPosFromLocal(assembledPos);
 
     private Vector3 GetWorldPosFromLocal(Vector3 localPos)
@@ -59,31 +85,47 @@ public class AssemblyPart : MonoBehaviour
 
     #endregion
 
-    // [핵심] 진행도에 따른 실시간 위치 업데이트
+    /// <summary>
+    /// 진행도에 따른 실시간 위치 업데이트.
+    /// 구간별 보간:
+    ///   1.0 ~ 0.5 : stationPilePos(런타임) → midPos
+    ///   0.5 ~ 0.0 : midPos → assembledPos
+    /// </summary>
     public void UpdateProgress(float newProgress)
     {
         assemblyProgress = Mathf.Clamp01(newProgress);
+        ApplyLocalPose(assemblyProgress);
 
-        if (useIntermediate)
+        if (assemblyProgress == 1f)
+            SetActive(false);
+        else if (!gameObject.activeSelf)
+            SetActive(true);
+    }
+
+    /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>
+    private void ApplyLocalPose(float progress)
+    {
+        Vector3 localPos, localRot;
+
+        if (progress >= 0.5f)
         {
-            if (assemblyProgress <= 0.5f)
-            {
-                float t = assemblyProgress / 0.5f;
-                transform.localPosition = Vector3.Lerp(assembledPos, intermediatePos, t);
-                transform.localRotation = Quaternion.Euler(Vector3.Lerp(assembledRot, intermediateRot, t));
-            }
-            else
-            {
-                float t = (assemblyProgress - 0.5f) / 0.5f;
-                transform.localPosition = Vector3.Lerp(intermediatePos, detachedPos, t);
-                transform.localRotation = Quaternion.Euler(Vector3.Lerp(intermediateRot, detachedRot, t));
-            }
+            // 1.0 → 0.5 구간: stationPilePos → midPos
+            float t = (progress - 0.5f) * 2f;
+            Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : midPos;
+            Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : midRot;
+            localPos = Vector3.Lerp(midPos, pileLocalPos, t);
+            localRot = Vector3.Lerp(midRot, pileLocalRot, t);
         }
         else
         {
-            transform.localPosition = Vector3.Lerp(assembledPos, detachedPos, assemblyProgress);
-            transform.localRotation = Quaternion.Euler(Vector3.Lerp(assembledRot, detachedRot, assemblyProgress));
+            // 0.5 → 0.0 구간: midPos → assembledPos
+            float t = progress * 2f;
+            localPos = Vector3.Lerp(assembledPos, midPos, t);
+            localRot = Vector3.Lerp(assembledRot, midRot, t);
         }
+
+        transform.localPosition = localPos;
+        transform.localRotation = Quaternion.Euler(localRot);
     }
 
     public IEnumerator FixPartRoutine(float speed = 2f)
@@ -101,8 +143,9 @@ public class AssemblyPart : MonoBehaviour
 
     private void OnValidate()
     {
-        if (assembledPos == Vector3.zero && detachedPos == Vector3.zero) return;
-        UpdateProgress(assemblyProgress);
+        if (assembledPos == Vector3.zero && midPos == Vector3.zero) return;
+        // OnValidate에서 SetActive 호출 금지 → 위치만 업데이트
+        ApplyLocalPose(Mathf.Clamp01(assemblyProgress));
     }
 
     [ContextMenu("Step 0. 설계도(SO) 데이터 불러오기")]
@@ -114,14 +157,11 @@ public class AssemblyPart : MonoBehaviour
 
         assembledPos = config.assembledPos;
         assembledRot = config.assembledRot;
-        useIntermediate = config.useIntermediate;
-        intermediatePos = config.intermediatePos;
-        intermediateRot = config.intermediateRot;
-        detachedPos = config.detachedPos;
-        detachedRot = config.detachedRot;
+        midPos       = config.midPos;
+        midRot       = config.midRot;
     }
 
-    [ContextMenu("Step 1. 현재 위치를 [조립 완료(0.0)]로 저장")]
+    [ContextMenu("Step 1. 현재 위치를 [체결 완료(0.0)]로 저장")]
     public void SaveAsAssembled()
     {
         assembledPos = transform.localPosition;
@@ -129,24 +169,15 @@ public class AssemblyPart : MonoBehaviour
         ApplyToSO();
     }
 
-    [ContextMenu("Step 2. 현재 위치를 [중간 경유(0.5)]로 저장")]
-    public void SaveAsIntermediate()
+    [ContextMenu("Step 2. 현재 위치를 [중간 꺾임(0.5)]로 저장")]
+    public void SaveAsMid()
     {
-        intermediatePos = transform.localPosition;
-        intermediateRot = transform.localEulerAngles;
-        useIntermediate = true;
+        midPos = transform.localPosition;
+        midRot = transform.localEulerAngles;
         ApplyToSO();
     }
 
-    [ContextMenu("Step 3. 현재 위치를 [분리 시작(1.0)]로 저장")]
-    public void SaveAsDetached()
-    {
-        detachedPos = transform.localPosition;
-        detachedRot = transform.localEulerAngles;
-        ApplyToSO();
-    }
-
-    [ContextMenu("Step 4. !!! [최종 저장] 인스펙터 값을 설계도(SO)에 굽기")]
+    [ContextMenu("Step 3. !!! [최종 저장] 인스펙터 값을 설계도(SO)에 굽기")]
     public void ApplyToSO()
     {
         if (masterData == null) { Debug.LogError("masterData(SO)가 없습니다!"); return; }
@@ -154,14 +185,11 @@ public class AssemblyPart : MonoBehaviour
         int index = masterData.partConfigs.FindIndex(x => x.type == myType);
         PartConfig config = new PartConfig
         {
-            type = myType,
+            type         = myType,
             assembledPos = assembledPos,
             assembledRot = assembledRot,
-            useIntermediate = useIntermediate,
-            intermediatePos = intermediatePos,
-            intermediateRot = intermediateRot,
-            detachedPos = detachedPos,
-            detachedRot = detachedRot
+            midPos       = midPos,
+            midRot       = midRot
         };
 
         if (index != -1) masterData.partConfigs[index] = config;
@@ -174,8 +202,8 @@ public class AssemblyPart : MonoBehaviour
 #endif
     }
 
-    [ContextMenu("5. [자동화] 방사형 분리 위치 계산 및 저장")]
-    public void AutoSetDetachedPosition()
+    [ContextMenu("4. [자동화] 방사형 중간 위치 계산 및 저장")]
+    public void AutoSetMidPosition()
     {
         Transform centerObj = FindCenterObject("Frame");
         if (centerObj == null) return;
@@ -185,10 +213,10 @@ public class AssemblyPart : MonoBehaviour
         direction.y += 0.5f;
 
         transform.position = centerObj.position + (direction * explodeDistance);
-        detachedPos = transform.localPosition;
-        detachedRot = assembledRot + new Vector3(Random.Range(-20f, 20f), Random.Range(-20f, 20f), Random.Range(-20f, 20f));
+        midPos = transform.localPosition;
+        midRot = assembledRot + new Vector3(Random.Range(-20f, 20f), Random.Range(-20f, 20f), Random.Range(-20f, 20f));
 
-        assemblyProgress = 1f;
+        assemblyProgress = 0.5f;
         UpdateProgress(assemblyProgress);
     }
 
@@ -212,14 +240,14 @@ public class AssemblyPart : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         if (transform.parent == null) return;
-        Vector3 p0 = transform.parent.TransformPoint(assembledPos);
-        Vector3 p1 = transform.parent.TransformPoint(intermediatePos);
-        Vector3 p2 = transform.parent.TransformPoint(detachedPos);
+        Vector3 p0 = transform.parent.TransformPoint(assembledPos); // 체결 완료 (0.0)
+        Vector3 p1 = transform.parent.TransformPoint(midPos);       // 중간 꺾임 (0.5)
 
-        Gizmos.color = Color.green; Gizmos.DrawWireSphere(p0, 0.05f);
+        Gizmos.color = Color.green;  Gizmos.DrawWireSphere(p0, 0.05f);
         Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(p1, 0.05f);
-        Gizmos.color = Color.red; Gizmos.DrawWireSphere(p2, 0.05f);
-        Gizmos.color = Color.cyan; Gizmos.DrawLine(p0, p1); Gizmos.DrawLine(p1, p2);
+        Gizmos.color = Color.cyan;   Gizmos.DrawLine(p0, p1);
+        // p1 → stationPilePos 구간은 런타임에 결정되므로 에디터에서 표시 불가
     }
+
     #endregion
 }

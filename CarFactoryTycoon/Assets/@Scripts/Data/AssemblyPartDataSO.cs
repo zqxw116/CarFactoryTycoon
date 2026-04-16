@@ -1,18 +1,23 @@
 using System.Collections.Generic;
 using UnityEngine;
+
+/// <summary>라인 진행 방향 기준 로봇팔 배치 방향</summary>
+public enum ArmSide { Left, Right }
+
 [System.Serializable]
 public struct PartConfig
 {
-    public PartType type; // 어떤 부품인가? (Enum)
+    public PartType type;
+
+    [Header("로봇팔 배치")]
+    [Tooltip("라인 진행 방향 기준으로 로봇팔이 왼쪽에 배치될지 오른쪽에 배치될지 지정")]
+    public ArmSide armSide;
 
     [Header("위치 데이터")]
-    public Vector3 assembledPos;
+    public Vector3 assembledPos;   // progress=0.0 체결 완료
     public Vector3 assembledRot;
-    public bool useIntermediate;
-    public Vector3 intermediatePos;
-    public Vector3 intermediateRot;
-    public Vector3 detachedPos;
-    public Vector3 detachedRot;
+    public Vector3 midPos;         // progress=0.5 중간 꺾임 지점
+    public Vector3 midRot;
 }
 
 [CreateAssetMenu(fileName = "AssemblyPartDataSO", menuName = "Scriptable Objects/AssemblyPartDataSO")]

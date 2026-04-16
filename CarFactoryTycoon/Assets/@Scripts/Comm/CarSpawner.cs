@@ -35,7 +35,7 @@ public class CarSpawner : MonoBehaviour
         // 생성된 자동차에 스플라인 경로와 속도를 주입
         if (newCar.TryGetComponent<CarController>(out var controller))
         {
-            controller.InitializePath(mainLineSpline, globalLineSpeed);
+            controller.SetPath(mainLineSpline, globalLineSpeed);
         }
     }
 }

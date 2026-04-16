@@ -1,8 +1,11 @@
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.Splines;   // [추가] 스플라인 네임스페이스
-using Unity.Mathematics;     // [추가] 수학 연산용 (float3 등)
+using System;
 using System.Collections;
+using System.Collections.Generic;
+using Unity.Burst.CompilerServices;
+using Unity.Mathematics;     // [추가] 수학 연산용 (float3 등)
+using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Splines;   // [추가] 스플라인 네임스페이스
 
 public class CarController : MonoBehaviour
 {
@@ -15,15 +18,32 @@ public class CarController : MonoBehaviour
     [Range(0f, 1f)] public float pathProgress = 0f; // 0=시작점, 1=도착점
     private float splineLength;
 
-    private Dictionary<PartGroup, List<AssemblyPart>> partsDictionary = new Dictionary<PartGroup, List<AssemblyPart>>();
+    [SerializeField]private SerializedDictionary<PartGroup, List<AssemblyPart>> dicListParts = new SerializedDictionary<PartGroup, List<AssemblyPart>>();
 
     private void Awake()
     {
         InitializeCarParts();
     }
 
+    private void InitializeCarParts()
+    {
+        foreach (PartGroup group in System.Enum.GetValues(typeof(PartGroup)))
+        {
+            dicListParts[group] = new List<AssemblyPart>();
+        }
+
+        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
+        foreach (AssemblyPart part in allParts)
+        {
+            dicListParts[part.myGroup].Add(part);
+            part.Reset();
+        }
+
+        Debug.Log($"[InitializeCarParts] {gameObject.name} (ID={GetInstanceID()}) → 파츠 {allParts.Length}개 등록");
+    }
+
     // [신규] 스포너가 차량을 생성할 때 호출하여 경로를 주입해주는 함수
-    public void InitializePath(SplineContainer spline, float speed)
+    public void SetPath(SplineContainer spline, float speed)
     {
         targetSpline = spline;
         moveSpeed = speed;
@@ -54,7 +74,11 @@ public class CarController : MonoBehaviour
         if (pathProgress >= 1f)
         {
             pathProgress = 1f;
-            CheckResultAndDestroy();
+
+            if (IsNotSuccessParts())
+                Debug.LogWarning($"<color=red>[RESULT]</color> {gameObject.name} 불량품 출고! 조립 안 된 부품 있음.");
+            else
+                Debug.Log($"<color=green>[RESULT]</color> {gameObject.name} 완제품 출고 성공!");
             return;
         }
 
@@ -73,57 +97,77 @@ public class CarController : MonoBehaviour
         }
     }
 
-    private void CheckResultAndDestroy()
+    public void SetPosition(Vector3 pos)
     {
-        if (HasUnassembledParts())
-            Debug.LogWarning($"<color=red>[RESULT]</color> {gameObject.name} 불량품 출고! 조립 안 된 부품 있음.");
-        else
-            Debug.Log($"<color=green>[RESULT]</color> {gameObject.name} 완제품 출고 성공!");
-
-        Destroy(gameObject);
+        transform.position = pos;
     }
 
-    private void InitializeCarParts()
+    public bool IsNotSuccessParts()
     {
-        foreach (PartGroup group in System.Enum.GetValues(typeof(PartGroup)))
-        {
-            partsDictionary[group] = new List<AssemblyPart>();
-        }
-
-        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
-        foreach (AssemblyPart part in allParts)
-        {
-            partsDictionary[part.myGroup].Add(part);
-            part.UpdateProgress(1f);
-        }
-    }
-
-    public bool HasUnassembledParts()
-    {
-        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
-        foreach (var part in allParts)
-        {
-            if (part.assemblyProgress > 0f) return true;
-        }
+        foreach (var listParts in dicListParts.Values)
+        { foreach (var part in listParts) if (part.assemblyProgress > 0f) return true; }
         return false;
     }
 
+
     public AssemblyPart GetUnassembledPart(PartType targetType)
     {
-        AssemblyPart[] allParts = GetComponentsInChildren<AssemblyPart>(true);
-        foreach (AssemblyPart part in allParts)
+        foreach (var listParts in dicListParts.Values)
         {
-            if (part.myType == targetType && part.assemblyProgress > 0f) return part;
+            foreach (var part in listParts)
+            {
+                if (part.myType == targetType)
+                {
+                    Debug.Log($"[GetUnassembledPart] {targetType} 발견 → assemblyProgress={part.assemblyProgress:F4}, active={part.gameObject.activeSelf}");
+                    if (part.assemblyProgress > 0f) return part;
+                    else Debug.LogWarning($"[GetUnassembledPart] {targetType} progress={part.assemblyProgress:F4} 로 인해 null 반환!");
+                }
+            }
         }
         return null;
     }
 
+
+    public void ResetParts()
+    { foreach (var listParts in dicListParts.Values) foreach (var part in listParts) part.Reset(); }
+
+    public void SetCurretParts(PartType targetType)
+    {
+        int targetIdx = Constants.GetPartTypeIndex(targetType);
+        int totalParts = 0;
+        foreach (var l in dicListParts.Values) totalParts += l.Count;
+        Debug.Log($"[SetCurretParts] {gameObject.name} (ID={GetInstanceID()}) targetType={targetType} (idx={targetIdx}), 등록된 파츠 수={totalParts}");
+        foreach (var listParts in dicListParts.Values)
+        {
+            foreach (var part in listParts)
+            {
+                int partIdx = Constants.GetPartTypeIndex(part.myType);
+
+                if (partIdx >= 0 && partIdx < targetIdx)
+                {
+                    // 이전 공정: 체결 완료(progress=0), 활성화
+                    part.ClearRuntimeDetached();
+                    part.SetActive(true);
+                    part.UpdateProgress(0f);
+                }
+                else
+                {
+                    // 현재/미래 공정 또는 None: 분리 상태로 숨김
+                    Debug.Log($"[SetCurretParts] {part.myType}(idx={partIdx}) → Reset() 호출");
+                    part.Reset();
+                    Debug.Log($"[SetCurretParts] {part.myType} Reset 후 assemblyProgress={part.assemblyProgress:F4}");
+                }
+            }
+        }
+    }
+
+
     [ContextMenu("차량 체결 값 전체 리셋")]
     private void ResetAssemblyPart()
     {
-        if (partsDictionary == null || partsDictionary.Count <= 0) return;
+        if (dicListParts == null || dicListParts.Count <= 0) return;
 
-        foreach (List<AssemblyPart> lists in partsDictionary.Values)
+        foreach (List<AssemblyPart> lists in dicListParts.Values)
         {
             foreach (AssemblyPart item in lists)
             {

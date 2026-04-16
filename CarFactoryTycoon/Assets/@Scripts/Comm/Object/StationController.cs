@@ -2,67 +2,49 @@ using UnityEngine;
 
 public class StationController : MonoBehaviour
 {
-    public enum StationState { Idle, PickingUp, MovingToCar, Assembling, Cooldown }
+    public enum StationState { Idle, Assembling, Cooldown }
 
     [Header("공정 설정")]
     public PartType targetPartType;
 
-    // [수정] 기본 속도를 1.0(1초)에서 0.2(5초)로 확 줄였습니다. (인스펙터에서도 수정 필요)
-    [Tooltip("1초당 체결되는 비율 (0.2 = 5초 소요)")]
+    [Tooltip("1초당 체결되는 비율 (0.05 = 20초 소요)")]
     public float assembleSpeed = 0.05f;
 
-    [Header("판정 설정")]
-    public float reachDistance = 2f;
+    [Tooltip("Rig_End가 이 거리(m) 이내에 들어와야 체결이 진행됩니다")]
+    public float assembleReachThreshold = 0.3f;
 
     [Header("오브젝트 연결")]
     public RoboticArmIK robotArm;
     public Transform stationPilePos;
+
+    [Tooltip("체결 완료/리셋 후 로봇팔이 대기하는 위치 (미설정 시 PilePos 사용)")]
+    public Transform endPos;
+
+    [Tooltip("씬에 배치된 스테이션 파츠 오브젝트 (코드로 생성하지 않음)")]
+    public GameObject stationPileMesh;
 
     private Transform trackingTarget;
 
     [Header("현재 공정 상태")]
     public StationState currentState = StationState.Idle;
 
-    private GameObject spawnedPileMesh;
-    private GameObject spawnedArmMesh;
-    private CarController currentCar;
-    private AssemblyPart targetCarPart;
+    [SerializeField] private CarController currentCar;
+    [SerializeField] private AssemblyPart targetCarPart;
 
     private float cooldownTimer = 0f;
+    private bool manualMode = false;
+
+
+    private Transform GetRestTarget() => endPos != null ? endPos : stationPilePos;
 
     private void Start()
     {
         trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
-        //trackingTarget.parent = this.transform;
-
-        InitializePartResources();
 
         if (robotArm != null && stationPilePos != null)
         {
-            robotArm.SetTarget(stationPilePos);
+            robotArm.SetTarget(GetRestTarget());
             robotArm.targetPartType = this.targetPartType;
-        }
-    }
-
-    private void InitializePartResources()
-    {
-        string path = PartResourceManager.GetPrefabPath(targetPartType);
-        if (string.IsNullOrEmpty(path)) return;
-
-        GameObject partPrefab = Resources.Load<GameObject>(path);
-        if (partPrefab == null) return;
-
-        spawnedPileMesh = Instantiate(partPrefab, stationPilePos);
-        spawnedPileMesh.transform.localPosition = Vector3.zero;
-        spawnedPileMesh.transform.localRotation = Quaternion.identity;
-        spawnedPileMesh.SetActive(true);
-
-        if (robotArm != null && robotArm.endEffector != null)
-        {
-            spawnedArmMesh = Instantiate(partPrefab, robotArm.endEffector);
-            spawnedArmMesh.transform.localPosition = Vector3.zero;
-            spawnedArmMesh.transform.localRotation = Quaternion.identity;
-            spawnedArmMesh.SetActive(false);
         }
     }
 
@@ -75,19 +57,17 @@ public class StationController : MonoBehaviour
         if (targetCarPart != null)
         {
             currentCar = car;
-            currentState = StationState.PickingUp;
-            robotArm.SetTarget(stationPilePos);
+            StartAssembly();
         }
     }
 
     private void OnTriggerExit(Collider other)
     {
+        if (manualMode) return; // 수동 모드에서는 PhysX 이벤트 무시
         if (other.TryGetComponent<CarController>(out var car) == false) return;
 
         if (car == currentCar)
-        {
             ResetStation();
-        }
     }
 
     private void Update()
@@ -102,54 +82,35 @@ public class StationController : MonoBehaviour
 
         switch (currentState)
         {
-            case StationState.PickingUp:
-                if (Vector3.Distance(robotArm.endEffector.position, stationPilePos.position) <= reachDistance)
-                {
-                    if (spawnedPileMesh) spawnedPileMesh.SetActive(false);
-                    if (spawnedArmMesh) spawnedArmMesh.SetActive(true);
-
-                    currentState = StationState.MovingToCar;
-                    robotArm.SetTarget(trackingTarget);
-                }
-                break;
-
-            case StationState.MovingToCar:
-                trackingTarget.position = targetCarPart.GetWorldDetachedPos();
-
-                if (Vector3.Distance(robotArm.endEffector.position, trackingTarget.position) <= reachDistance)
-                {
-                    currentState = StationState.Assembling;
-                    if (spawnedArmMesh) spawnedArmMesh.SetActive(false);
-                }
-                break;
-
             case StationState.Assembling:
-                // 1. 계산: 현재 프레임에서 깎일 진행도 도출
-                float nextProgress = targetCarPart.assemblyProgress - (assembleSpeed * Time.deltaTime);
+                // 로봇팔 끝(Rig_End)이 파츠에 충분히 근접했을 때만 체결 진행
+                bool armReached = false;
+                if (robotArm.endEffector != null)
+                {
+                    float dist = Vector3.Distance(robotArm.endEffector.position, trackingTarget.position);
+                    armReached = dist <= assembleReachThreshold;
+                }
 
-                // 2. 적용: 변수에 직접 접근하지 않고 AssemblyPart의 전용 함수(Setter) 호출
-                // (UpdateProgress 함수 안에서 위치 이동과 Clamp 처리를 스스로 다 해줍니다)
-                targetCarPart.UpdateProgress(nextProgress);
+                if (armReached)
+                {
+                    float nextProgress = targetCarPart.assemblyProgress - (assembleSpeed * Time.deltaTime);
+                    targetCarPart.UpdateProgress(nextProgress);
+                }
 
-                // 3. 추적: 로봇팔은 스스로 이동하고 있는 부품의 현재 위치를 그대로 따라가기만 하면 됨
+                // 파츠의 현재 위치를 실시간으로 추적 (체결 진행 여부와 무관하게 항상 업데이트)
                 trackingTarget.position = targetCarPart.transform.position;
 
-                // 4. 로그: 1.0 -> 0.0 으로 떨어지는 수치를 0% -> 100% 형태의 보기 편한 로그로 출력
-                float percentString = (1f - targetCarPart.assemblyProgress) * 100f;
-                Debug.Log($"[{gameObject.name}] 🔧 {targetCarPart.name} 조립 중... {percentString:F1}%");
-
-                // 5. 완료 판정
                 if (targetCarPart.assemblyProgress <= 0f)
                 {
-                    // 확실하게 0(체결 완료)으로 쐐기를 박음
-                    targetCarPart.UpdateProgress(0f);
+                    targetCarPart.ClearRuntimeDetached(); // 런타임 오버라이드 먼저 해제
+                    targetCarPart.UpdateProgress(0f);      // 완전히 체결 완료 위치에 고정
                     Debug.Log($"[{gameObject.name}] ✅ {targetCarPart.name} 체결 완전 성공!");
 
                     targetCarPart = null;
+                    currentCar = null;
 
-                    if (spawnedPileMesh) spawnedPileMesh.SetActive(true);
-
-                    robotArm.SetTarget(stationPilePos);
+                    if (stationPileMesh) stationPileMesh.SetActive(true);
+                    robotArm.SetTarget(GetRestTarget());
                     cooldownTimer = 1.0f;
                     currentState = StationState.Cooldown;
                 }
@@ -158,22 +119,104 @@ public class StationController : MonoBehaviour
             case StationState.Cooldown:
                 cooldownTimer -= Time.deltaTime;
                 if (cooldownTimer <= 0f)
-                {
                     currentState = StationState.Idle;
-                }
                 break;
         }
     }
 
+    /// <summary>파츠의 분리 위치를 stationPilePos로 설정하고 조립을 시작한다.</summary>
+    private void StartAssembly()
+    {
+        // 1. 런타임 분리 위치를 stationPilePos로 오버라이드
+        targetCarPart.SetRuntimeDetachedPose(stationPilePos.position, stationPilePos.rotation);
+        // 2. stationPilePos 위치로 이동 (UpdateProgress 내부에서 assemblyProgress==1 → SetActive(false) 호출됨)
+        targetCarPart.UpdateProgress(1f);
+        // 3. 위치 확정 후 활성화 (UpdateProgress의 SetActive(false)를 덮어씀)
+        targetCarPart.SetActive(true);
+
+        // 스테이션 파일 메시 숨김 (파츠 오브젝트가 그 자리에 있으므로)
+        if (stationPileMesh) stationPileMesh.SetActive(false);
+
+        // 로봇팔이 파츠를 추적하도록 설정
+        trackingTarget.position = targetCarPart.transform.position;
+        if (robotArm != null) robotArm.SetTarget(trackingTarget);
+
+        currentState = StationState.Assembling;
+    }
+
     private void ResetStation()
     {
-        if (spawnedArmMesh) spawnedArmMesh.SetActive(false);
-        if (spawnedPileMesh) spawnedPileMesh.SetActive(true);
+        if (stationPileMesh) stationPileMesh.SetActive(true);
+        if (robotArm != null) robotArm.SetTarget(GetRestTarget());
 
-        if (robotArm != null) robotArm.SetTarget(stationPilePos);
+        if (targetCarPart != null)
+        {
+            targetCarPart.Reset(); // progress=1, 비활성화, 런타임 오버라이드 해제
+            targetCarPart = null;
+        }
 
         currentCar = null;
-        targetCarPart = null;
+        manualMode = false;
         currentState = StationState.Idle;
+    }
+
+    /// <summary>
+    /// 다음 공정을 준비하되 조립을 즉시 시작하지 않는다.
+    /// 차량이 트리거에 진입하면 OnTriggerEnter가 자동으로 StartAssembly를 호출한다.
+    /// RunTest처럼 차량을 출발점으로 리셋한 직후 호출하는 방식에 사용.
+    /// </summary>
+    public void PrepareStation(PartType newType)
+    {
+        manualMode = true; // OnTriggerExit로 인한 조립 취소 방지
+
+        currentState = StationState.Idle;
+        currentCar = null;
+        targetCarPart = null;
+
+        if (stationPileMesh) stationPileMesh.SetActive(true);
+
+        targetPartType = newType;
+        if (robotArm != null)
+        {
+            robotArm.targetPartType = newType;
+            robotArm.SetTarget(stationPilePos);
+        }
+    }
+
+    /// <summary>테스트 씬 등 외부에서 파츠 타입을 지정하고 즉시 조립을 시작할 때 호출</summary>
+    public void SetPartTypeAndStart(PartType newType, CarController targetCar)
+    {
+        manualMode = true; // PhysX TriggerExit 이벤트가 조립을 취소하지 못하도록
+
+        // 진행 중인 작업 초기화
+        currentState = StationState.Idle;
+        currentCar = null;
+
+        if (targetCarPart != null)
+        {
+            // car.SetCurretParts()가 이미 파츠 상태를 처리했으므로 Reset 불필요
+            // 여기서 Reset하면 이전 공정 파츠가 체결 완료 상태에서 다시 비활성화됨
+            targetCarPart = null;
+        }
+
+        if (stationPileMesh) stationPileMesh.SetActive(true);
+
+        // 새로운 파츠 타입 적용
+        targetPartType = newType;
+        if (robotArm != null) robotArm.targetPartType = newType;
+
+        if (targetCar == null) return;
+
+        AssemblyPart part = targetCar.GetUnassembledPart(targetPartType);
+        if (part == null)
+        {
+            Debug.LogWarning($"[{gameObject.name}] {newType} 파츠를 차량에서 찾을 수 없습니다.");
+            if (robotArm != null) robotArm.SetTarget(stationPilePos);
+            return;
+        }
+
+        currentCar = targetCar;
+        targetCarPart = part;
+        StartAssembly();
     }
 }
