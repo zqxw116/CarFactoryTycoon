@@ -98,7 +98,7 @@ public class StationController : MonoBehaviour
                 }
 
                 // 파츠의 현재 위치를 실시간으로 추적 (체결 진행 여부와 무관하게 항상 업데이트)
-                trackingTarget.position = targetCarPart.transform.position;
+                trackingTarget.position = targetCarPart.GetArmLookWorldPos();
 
                 if (targetCarPart.assemblyProgress <= 0f)
                 {
@@ -138,7 +138,7 @@ public class StationController : MonoBehaviour
         if (stationPileMesh) stationPileMesh.SetActive(false);
 
         // 로봇팔이 파츠를 추적하도록 설정
-        trackingTarget.position = targetCarPart.transform.position;
+        trackingTarget.position = targetCarPart.GetArmLookWorldPos();
         if (robotArm != null) robotArm.SetTarget(trackingTarget);
 
         currentState = StationState.Assembling;

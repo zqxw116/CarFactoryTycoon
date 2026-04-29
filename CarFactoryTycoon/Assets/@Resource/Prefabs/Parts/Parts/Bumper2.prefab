@@ -29,10 +29,11 @@ Transform:
   m_GameObject: {fileID: 21759925735687475}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0.78725576, z: 2.523632}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 6275990083841614994}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &4371101537157500972
@@ -126,11 +127,46 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e4806bc8ccd17204788ca54830059ea2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::AssemblyPart
+  masterData: {fileID: 0}
   myGroup: 0
   myType: 0
   assemblyProgress: 0
   assembledPos: {x: 0, y: 0.78725576, z: 2.523632}
   assembledRot: {x: -0, y: 0, z: 0}
-  detachedPos: {x: 0.0000019073486, y: 1.063, z: 4.619}
-  detachedRot: {x: -0, y: 0, z: 0}
+  midPos: {x: 0, y: 0, z: 0}
+  midRot: {x: 0, y: 0, z: 0}
+  mid2Pos: {x: 0, y: 0, z: 0}
+  mid2Rot: {x: 0, y: 0, z: 0}
+  armLookTarget: {fileID: 6275990083841614994}
   explodeDistance: 3
+--- !u!1 &4607046806950433777
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6275990083841614994}
+  m_Layer: 0
+  m_Name: ArmLookTarget
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6275990083841614994
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4607046806950433777}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 794496266454228873}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}

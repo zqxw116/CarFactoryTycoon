@@ -16,8 +16,11 @@ public struct PartConfig
     [Header("위치 데이터")]
     public Vector3 assembledPos;   // progress=0.0 체결 완료
     public Vector3 assembledRot;
-    public Vector3 midPos;         // progress=0.5 중간 꺾임 지점
+    public Vector3 midPos;         // progress=0.3 첫 번째 중간 꺾임
     public Vector3 midRot;
+    public Vector3 mid2Pos;        // progress=0.6 두 번째 중간 꺾임
+    public Vector3 mid2Rot;
+
 }
 
 [CreateAssetMenu(fileName = "AssemblyPartDataSO", menuName = "Scriptable Objects/AssemblyPartDataSO")]

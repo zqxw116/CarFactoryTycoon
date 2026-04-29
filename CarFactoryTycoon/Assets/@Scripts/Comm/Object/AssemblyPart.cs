@@ -21,9 +21,17 @@ public class AssemblyPart : MonoBehaviour
     public Vector3 assembledPos;
     public Vector3 assembledRot;
 
-    [Header("[0.5] 중간 꺾임 좌표 (stationPilePos → 여기 → 체결완료)")]
+    [Header("[0.3] 첫 번째 중간 꺾임 좌표 (mid2 → 여기 → 체결완료)")]
     public Vector3 midPos;
     public Vector3 midRot;
+
+    [Header("[0.6] 두 번째 중간 꺾임 좌표 (stationPilePos → 여기 → mid)")]
+    public Vector3 mid2Pos;
+    public Vector3 mid2Rot;
+
+    [Header("로봇팔 바라보기 타겟")]
+    [Tooltip("미설정 시 오브젝트 중심을 바라봄. 자식 오브젝트로 배치해 파츠 회전에 함께 따라가도록 설정.")]
+    public Transform armLookTarget;
 
     [Header("자동 분리 설정")]
     public float explodeDistance = 3f;
@@ -42,6 +50,7 @@ public class AssemblyPart : MonoBehaviour
         cachedParent = transform.parent;
         if (myType == PartType.None) AutoSetGroupAndType();
         LoadDataFromSO();
+        armLookTarget = this.GetComponentInChildren<Transform>();
     }
 
     #region 외부 참조용 함수
@@ -77,6 +86,9 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>로봇팔이 가져다 놓아야 할 '최종(체결)' 월드 좌표</summary>
     public Vector3 GetWorldAssembledPos() => GetWorldPosFromLocal(assembledPos);
 
+    /// <summary>로봇팔이 바라봐야 할 월드 좌표. armLookTarget 미설정 시 오브젝트 중심 반환.</summary>
+    public Vector3 GetArmLookWorldPos() => armLookTarget != null ? armLookTarget.position : transform.position;
+
     private Vector3 GetWorldPosFromLocal(Vector3 localPos)
     {
         if (cachedParent == null) cachedParent = transform.parent;
@@ -88,8 +100,9 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>
     /// 진행도에 따른 실시간 위치 업데이트.
     /// 구간별 보간:
-    ///   1.0 ~ 0.5 : stationPilePos(런타임) → midPos
-    ///   0.5 ~ 0.0 : midPos → assembledPos
+    ///   1.0 ~ 0.6 : stationPilePos(런타임) → mid2Pos
+    ///   0.6 ~ 0.3 : mid2Pos → midPos
+    ///   0.3 ~ 0.0 : midPos → assembledPos
     /// </summary>
     public void UpdateProgress(float newProgress)
     {
@@ -107,19 +120,26 @@ public class AssemblyPart : MonoBehaviour
     {
         Vector3 localPos, localRot;
 
-        if (progress >= 0.5f)
+        if (progress >= 0.6f)
         {
-            // 1.0 → 0.5 구간: stationPilePos → midPos
-            float t = (progress - 0.5f) * 2f;
-            Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : midPos;
-            Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : midRot;
-            localPos = Vector3.Lerp(midPos, pileLocalPos, t);
-            localRot = Vector3.Lerp(midRot, pileLocalRot, t);
+            // 1.0 → 0.6 구간: stationPilePos → mid2Pos
+            float t = (progress - 0.6f) / 0.4f;
+            Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : mid2Pos;
+            Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : mid2Rot;
+            localPos = Vector3.Lerp(mid2Pos, pileLocalPos, t);
+            localRot = Vector3.Lerp(mid2Rot, pileLocalRot, t);
+        }
+        else if (progress >= 0.3f)
+        {
+            // 0.6 → 0.3 구간: mid2Pos → midPos
+            float t = (progress - 0.3f) / 0.3f;
+            localPos = Vector3.Lerp(midPos, mid2Pos, t);
+            localRot = Vector3.Lerp(midRot, mid2Rot, t);
         }
         else
         {
-            // 0.5 → 0.0 구간: midPos → assembledPos
-            float t = progress * 2f;
+            // 0.3 → 0.0 구간: midPos → assembledPos
+            float t = progress / 0.3f;
             localPos = Vector3.Lerp(assembledPos, midPos, t);
             localRot = Vector3.Lerp(assembledRot, midRot, t);
         }
@@ -159,6 +179,8 @@ public class AssemblyPart : MonoBehaviour
         assembledRot = config.assembledRot;
         midPos       = config.midPos;
         midRot       = config.midRot;
+        mid2Pos      = config.mid2Pos;
+        mid2Rot      = config.mid2Rot;
     }
 
     [ContextMenu("Step 1. 현재 위치를 [체결 완료(0.0)]로 저장")]
@@ -169,11 +191,19 @@ public class AssemblyPart : MonoBehaviour
         ApplyToSO();
     }
 
-    [ContextMenu("Step 2. 현재 위치를 [중간 꺾임(0.5)]로 저장")]
+    [ContextMenu("Step 2. 현재 위치를 [첫 번째 중간 꺾임(0.3)]로 저장")]
     public void SaveAsMid()
     {
         midPos = transform.localPosition;
         midRot = transform.localEulerAngles;
+        ApplyToSO();
+    }
+
+    [ContextMenu("Step 2-2. 현재 위치를 [두 번째 중간 꺾임(0.6)]로 저장")]
+    public void SaveAsMid2()
+    {
+        mid2Pos = transform.localPosition;
+        mid2Rot = transform.localEulerAngles;
         ApplyToSO();
     }
 
@@ -189,7 +219,9 @@ public class AssemblyPart : MonoBehaviour
             assembledPos = assembledPos,
             assembledRot = assembledRot,
             midPos       = midPos,
-            midRot       = midRot
+            midRot       = midRot,
+            mid2Pos      = mid2Pos,
+            mid2Rot      = mid2Rot
         };
 
         if (index != -1) masterData.partConfigs[index] = config;
@@ -241,12 +273,22 @@ public class AssemblyPart : MonoBehaviour
     {
         if (transform.parent == null) return;
         Vector3 p0 = transform.parent.TransformPoint(assembledPos); // 체결 완료 (0.0)
-        Vector3 p1 = transform.parent.TransformPoint(midPos);       // 중간 꺾임 (0.5)
+        Vector3 p1 = transform.parent.TransformPoint(midPos);       // 첫 번째 중간 꺾임 (0.333)
+        Vector3 p2 = transform.parent.TransformPoint(mid2Pos);      // 두 번째 중간 꺾임 (0.667)
 
-        Gizmos.color = Color.green;  Gizmos.DrawWireSphere(p0, 0.05f);
-        Gizmos.color = Color.yellow; Gizmos.DrawWireSphere(p1, 0.05f);
-        Gizmos.color = Color.cyan;   Gizmos.DrawLine(p0, p1);
-        // p1 → stationPilePos 구간은 런타임에 결정되므로 에디터에서 표시 불가
+        Gizmos.color = Color.green;   Gizmos.DrawWireSphere(p0, 0.05f);
+        Gizmos.color = Color.yellow;  Gizmos.DrawWireSphere(p1, 0.05f);
+        Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(p2, 0.05f);
+        Gizmos.color = Color.cyan;    Gizmos.DrawLine(p0, p1);
+        Gizmos.color = Color.cyan;    Gizmos.DrawLine(p1, p2);
+        // p2 → stationPilePos 구간은 런타임에 결정되므로 에디터에서 표시 불가
+
+        if (armLookTarget != null)
+        {
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(armLookTarget.position, 0.07f);
+            Gizmos.DrawLine(transform.position, armLookTarget.position);
+        }
     }
 
     #endregion
