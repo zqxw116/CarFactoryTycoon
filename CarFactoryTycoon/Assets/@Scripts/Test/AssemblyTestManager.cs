@@ -37,7 +37,7 @@ public class AssemblyTestManager : GameObjectSingleton<AssemblyTestManager>
 
     private void Start()
     {
-        RunTest(PartType.Frame);
+        RunTest(PartType.Frame_1);
     }
 
 

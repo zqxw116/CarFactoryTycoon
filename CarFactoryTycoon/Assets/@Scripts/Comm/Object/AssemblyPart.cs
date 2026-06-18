@@ -14,8 +14,17 @@ public class AssemblyPart : MonoBehaviour
     public PartGroup myGroup;
     public PartType myType;
 
-    [Header("현재 체결 상태 (0:완료 <-> 1:분리)")]
-    [Range(0f, 1f)] public float assemblyProgress = 1f;
+    [Header("필요 작업량 (난이도, 10~100 / 평균 50)")]
+    [Tooltip("이 부품 체결에 필요한 총 작업량. 옆면(문/바퀴)은 크게, 범퍼처럼 앞면은 작게.")]
+    public float requiredWork = 50f;
+
+    [Header("현재 체결 값 (0:분리 → requiredWork:체결완료)")]
+    public float currentWork = 0f;
+
+    /// <summary>포즈 보간용 정규화 값. 0:분리(pile) → 1:체결완료(assembled)</summary>
+    public float Fill => requiredWork > 0f ? Mathf.Clamp01(currentWork / requiredWork) : (currentWork > 0f ? 1f : 0f);
+    public bool IsAssembled => currentWork >= requiredWork;
+    public bool IsDetached  => currentWork <= 0f;
 
     [Header("[0.0] 체결 완료 좌표")]
     public Vector3 assembledPos;
@@ -50,16 +59,26 @@ public class AssemblyPart : MonoBehaviour
         cachedParent = transform.parent;
         if (myType == PartType.None) AutoSetGroupAndType();
         LoadDataFromSO();
-        armLookTarget = this.GetComponentInChildren<Transform>();
+
+        // 인스펙터에 지정돼 있으면 그대로 두고, 없으면 자식 "ArmLookTarget"을 찾는다.
+        // (이전 코드는 GetComponentInChildren<Transform>()가 자기 자신을 반환해 잘못 덮어썼음)
+        if (armLookTarget == null)
+        {
+            foreach (Transform t in GetComponentsInChildren<Transform>(true))
+            {
+                if (t.name == "ArmLookTarget") { armLookTarget = t; break; }
+            }
+            if (armLookTarget == null) armLookTarget = transform;
+        }
     }
 
     #region 외부 참조용 함수
 
-    /// <summary>분리 상태(progress=1)로 되돌리고 오브젝트를 비활성화한다.</summary>
+    /// <summary>완전 분리 상태(work=0)로 되돌리고 오브젝트를 비활성화한다.</summary>
     public void Reset()
     {
         ClearRuntimeDetached();
-        UpdateProgress(1f); // 내부에서 assemblyProgress==1 → SetActive(false) 호출
+        SetDetached(); // work=0 → SetActive(false)
     }
 
     /// <summary>스테이션의 stationPilePos 월드 좌표를 분리 시작 위치로 오버라이드한다.</summary>
@@ -97,66 +116,59 @@ public class AssemblyPart : MonoBehaviour
 
     #endregion
 
-    /// <summary>
-    /// 진행도에 따른 실시간 위치 업데이트.
-    /// 구간별 보간:
-    ///   1.0 ~ 0.6 : stationPilePos(런타임) → mid2Pos
-    ///   0.6 ~ 0.3 : mid2Pos → midPos
-    ///   0.3 ~ 0.0 : midPos → assembledPos
-    /// </summary>
-    public void UpdateProgress(float newProgress)
-    {
-        assemblyProgress = Mathf.Clamp01(newProgress);
-        ApplyLocalPose(assemblyProgress);
+    /// <summary>체결 값을 amount만큼 누적(증가)시킨다.</summary>
+    public void AddWork(float amount) => SetWork(currentWork + amount);
 
-        if (assemblyProgress == 1f)
-            SetActive(false);
-        else if (!gameObject.activeSelf)
-            SetActive(true);
+    /// <summary>
+    /// 체결 값을 직접 설정한다 (0 ~ requiredWork로 clamp).
+    /// 위치는 4개 제어점(pile → mid2 → mid → assembled)을 지나는 큐빅 베지어로 보간.
+    /// (mid/mid2는 통과점이 아니라 곡선을 휘게 하는 '제어 핸들')
+    /// </summary>
+    public void SetWork(float work)
+    {
+        currentWork = Mathf.Clamp(work, 0f, requiredWork);
+        ApplyLocalPose(Fill);
+
+        // 완전 분리(work=0)면 숨기고, 그 외에는 표시
+        if (currentWork <= 0f) SetActive(false);
+        else if (!gameObject.activeSelf) SetActive(true);
     }
 
-    /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>
-    private void ApplyLocalPose(float progress)
-    {
-        Vector3 localPos, localRot;
+    public void SetAssembled() => SetWork(requiredWork); // 체결 완료
+    public void SetDetached()  => SetWork(0f);           // 완전 분리(숨김)
 
-        if (progress >= 0.6f)
-        {
-            // 1.0 → 0.6 구간: stationPilePos → mid2Pos
-            float t = (progress - 0.6f) / 0.4f;
-            Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : mid2Pos;
-            Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : mid2Rot;
-            localPos = Vector3.Lerp(mid2Pos, pileLocalPos, t);
-            localRot = Vector3.Lerp(mid2Rot, pileLocalRot, t);
-        }
-        else if (progress >= 0.3f)
-        {
-            // 0.6 → 0.3 구간: mid2Pos → midPos
-            float t = (progress - 0.3f) / 0.3f;
-            localPos = Vector3.Lerp(midPos, mid2Pos, t);
-            localRot = Vector3.Lerp(midRot, mid2Rot, t);
-        }
-        else
-        {
-            // 0.3 → 0.0 구간: midPos → assembledPos
-            float t = progress / 0.3f;
-            localPos = Vector3.Lerp(assembledPos, midPos, t);
-            localRot = Vector3.Lerp(assembledRot, midRot, t);
-        }
+    /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>
+    private void ApplyLocalPose(float fill)
+    {
+        // fill: 0 → pile(분리), 1 → assembled(체결완료)
+        Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : mid2Pos;
+        Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : mid2Rot;
+
+        Vector3 localPos = CubicBezier(pileLocalPos, mid2Pos, midPos, assembledPos, fill);
+        Vector3 localRot = CubicBezier(pileLocalRot, mid2Rot, midRot, assembledRot, fill);
 
         transform.localPosition = localPos;
         transform.localRotation = Quaternion.Euler(localRot);
     }
 
-    public IEnumerator FixPartRoutine(float speed = 2f)
+    /// <summary>큐빅 베지어: t=0 → p0, t=1 → p3. p1·p2는 제어 핸들.</summary>
+    private static Vector3 CubicBezier(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t)
     {
-        while (assemblyProgress > 0f)
+        float u = 1f - t;
+        return (u * u * u) * p0
+             + (3f * u * u * t) * p1
+             + (3f * u * t * t) * p2
+             + (t * t * t) * p3;
+    }
+
+    public IEnumerator FixPartRoutine(float speed = 20f)
+    {
+        while (!IsAssembled)
         {
-            float newProgress = assemblyProgress - (Time.deltaTime * speed);
-            UpdateProgress(newProgress);
+            AddWork(Time.deltaTime * speed);
             yield return null;
         }
-        UpdateProgress(0f);
+        SetAssembled();
     }
 
     #region 에디터 도구 (Inspector 메뉴)
@@ -165,7 +177,7 @@ public class AssemblyPart : MonoBehaviour
     {
         if (assembledPos == Vector3.zero && midPos == Vector3.zero) return;
         // OnValidate에서 SetActive 호출 금지 → 위치만 업데이트
-        ApplyLocalPose(Mathf.Clamp01(assemblyProgress));
+        ApplyLocalPose(Fill);
     }
 
     [ContextMenu("Step 0. 설계도(SO) 데이터 불러오기")]
@@ -181,6 +193,7 @@ public class AssemblyPart : MonoBehaviour
         midRot       = config.midRot;
         mid2Pos      = config.mid2Pos;
         mid2Rot      = config.mid2Rot;
+        if (config.requiredWork > 0f) requiredWork = config.requiredWork;
     }
 
     [ContextMenu("Step 1. 현재 위치를 [체결 완료(0.0)]로 저장")]
@@ -221,7 +234,8 @@ public class AssemblyPart : MonoBehaviour
             midPos       = midPos,
             midRot       = midRot,
             mid2Pos      = mid2Pos,
-            mid2Rot      = mid2Rot
+            mid2Rot      = mid2Rot,
+            requiredWork = requiredWork
         };
 
         if (index != -1) masterData.partConfigs[index] = config;
@@ -248,8 +262,7 @@ public class AssemblyPart : MonoBehaviour
         midPos = transform.localPosition;
         midRot = assembledRot + new Vector3(Random.Range(-20f, 20f), Random.Range(-20f, 20f), Random.Range(-20f, 20f));
 
-        assemblyProgress = 0.5f;
-        UpdateProgress(assemblyProgress);
+        SetWork(requiredWork * 0.5f);
     }
 
     private Transform FindCenterObject(string targetName)
@@ -276,11 +289,10 @@ public class AssemblyPart : MonoBehaviour
         Vector3 p1 = transform.parent.TransformPoint(midPos);       // 첫 번째 중간 꺾임 (0.333)
         Vector3 p2 = transform.parent.TransformPoint(mid2Pos);      // 두 번째 중간 꺾임 (0.667)
 
+        // 제어점만 표시. 실제 이동 경로(베지어 곡선)는 AssemblyPartEditor의 OnSceneGUI가 그린다.
         Gizmos.color = Color.green;   Gizmos.DrawWireSphere(p0, 0.05f);
         Gizmos.color = Color.yellow;  Gizmos.DrawWireSphere(p1, 0.05f);
         Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(p2, 0.05f);
-        Gizmos.color = Color.cyan;    Gizmos.DrawLine(p0, p1);
-        Gizmos.color = Color.cyan;    Gizmos.DrawLine(p1, p2);
         // p2 → stationPilePos 구간은 런타임에 결정되므로 에디터에서 표시 불가
 
         if (armLookTarget != null)

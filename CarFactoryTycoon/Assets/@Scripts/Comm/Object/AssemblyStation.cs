@@ -9,15 +9,8 @@ public class AssemblyStation : MonoBehaviour
         {
             CarController car = other.GetComponent<CarController>();
 
-            // 로봇팔 체결 확률 계산
-            if (Random.value > GameManager.Instance.assemblySuccessRate)
-            {
-                //car.AddDefect(); // 앗! 체결 누락 (불량 발생)
-            }
-            else
-            {
-                // 정상 체결. TODO: 뚝딱거리는 이펙트 및 해당 부품 mesh 활성화
-            }
+            // [폐기] 확률 기반 체결 모델은 작업존 체류시간 기반(StationController)으로 대체됨.
+            //        이 컴포넌트는 더 이상 사용하지 않음 (StationController 사용).
         }
     }
 }

@@ -13,6 +13,10 @@ public struct PartConfig
     [Tooltip("라인 진행 방향 기준으로 로봇팔이 왼쪽에 배치될지 오른쪽에 배치될지 지정")]
     public ArmSide armSide;
 
+    [Header("난이도")]
+    [Tooltip("이 부품 체결에 필요한 총 작업량. 옆면(문/바퀴)은 크게, 범퍼처럼 사거리 체류가 짧은 앞면은 작게.")]
+    public float requiredWork;
+
     [Header("위치 데이터")]
     public Vector3 assembledPos;   // progress=0.0 체결 완료
     public Vector3 assembledRot;

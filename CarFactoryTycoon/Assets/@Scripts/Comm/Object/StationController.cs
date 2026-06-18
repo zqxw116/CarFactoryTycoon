@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class StationController : MonoBehaviour
@@ -7,11 +8,8 @@ public class StationController : MonoBehaviour
     [Header("공정 설정")]
     public PartType targetPartType;
 
-    [Tooltip("1초당 체결되는 비율 (0.05 = 20초 소요)")]
-    public float assembleSpeed = 0.05f;
-
-    [Tooltip("Rig_End가 이 거리(m) 이내에 들어와야 체결이 진행됩니다")]
-    public float assembleReachThreshold = 0.3f;
+    // 체결 속도/사거리는 StationConfig(전역 싱글톤)에서 일괄 관리한다.
+    private StationConfig config;
 
     [Header("오브젝트 연결")]
     public RoboticArmIK robotArm;
@@ -25,6 +23,11 @@ public class StationController : MonoBehaviour
 
     private Transform trackingTarget;
 
+    [Header("작업존 기즈모 (BoxCollider = 체결 사거리)")]
+    [Tooltip("씬 뷰에서 BoxCollider 범위를 박스로 표시해 배치/크기 조정을 쉽게 한다")]
+    public bool drawWorkZoneGizmo = true;
+    public Color workZoneColor = new Color(0f, 1f, 0.4f, 1f);
+
     [Header("현재 공정 상태")]
     public StationState currentState = StationState.Idle;
 
@@ -33,13 +36,19 @@ public class StationController : MonoBehaviour
 
     private float cooldownTimer = 0f;
     private bool manualMode = false;
+    private bool reachEngaged = false; // 팔이 닿아 체결이 물린 상태(히스테리시스용)
+
+    // 현재 작업존(트리거) 안에 들어와 있는 차량들. 스테이션이 비면 이 중에서 다음 대상을 고른다.
+    private readonly List<CarController> carsInZone = new List<CarController>();
 
 
     private Transform GetRestTarget() => endPos != null ? endPos : stationPilePos;
 
     private void Start()
     {
+        config = StationConfig.Instance; // 전역 설정 참조를 1회 캐싱 (Update마다 getter 호출 방지)
         trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
+        trackingTarget.SetParent(transform, false); // 스테이션 자식으로 배치(하이러키 정리, 함께 파괴)
 
         if (robotArm != null && stationPilePos != null)
         {
@@ -50,24 +59,48 @@ public class StationController : MonoBehaviour
 
     private void OnTriggerEnter(Collider other)
     {
-        if (currentState != StationState.Idle) return;
         if (other.TryGetComponent<CarController>(out var car) == false) return;
 
-        targetCarPart = car.GetUnassembledPart(targetPartType);
-        if (targetCarPart != null)
-        {
-            currentCar = car;
-            StartAssembly();
-        }
+        // 진입 차량을 작업존 목록에 등록. (스테이션이 바쁘면 대기, 비면 TryBeginAssembly가 잡음)
+        if (!carsInZone.Contains(car)) carsInZone.Add(car);
+
+        if (!manualMode) TryBeginAssembly();
     }
 
     private void OnTriggerExit(Collider other)
     {
-        if (manualMode) return; // 수동 모드에서는 PhysX 이벤트 무시
         if (other.TryGetComponent<CarController>(out var car) == false) return;
 
+        carsInZone.Remove(car);
+
+        if (manualMode) return; // 수동 모드에서는 PhysX 이벤트 무시
+
+        // 체결 중이던 차량이 작업존을 벗어남 → 체결 포기 후 제자리 복귀
         if (car == currentCar)
+        {
             ResetStation();
+            TryBeginAssembly(); // 아직 작업존에 남은 다른 차량이 있으면 즉시 재시도
+        }
+    }
+
+    /// <summary>스테이션이 비어 있으면(Idle) 작업존 안 차량 중 이 공정의 미체결 파츠가 있는 차량으로 조립 시작.</summary>
+    private void TryBeginAssembly()
+    {
+        if (currentState != StationState.Idle || robotArm == null) return;
+
+        // 풀로 반환됐거나 파괴된 차량 정리
+        carsInZone.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy);
+
+        foreach (CarController car in carsInZone)
+        {
+            AssemblyPart part = car.GetUnassembledPart(targetPartType);
+            if (part == null) continue; // 해당 차량은 이 공정 파츠가 없거나 이미 체결됨
+
+            currentCar = car;
+            targetCarPart = part;
+            StartAssembly();
+            return;
+        }
     }
 
     private void Update()
@@ -76,34 +109,43 @@ public class StationController : MonoBehaviour
 
         if (currentState != StationState.Cooldown && (currentCar == null || targetCarPart == null))
         {
+            bool wasManual = manualMode;
             ResetStation();
+            if (!wasManual) TryBeginAssembly();
             return;
         }
 
         switch (currentState)
         {
             case StationState.Assembling:
-                // 로봇팔 끝(Rig_End)이 파츠에 충분히 근접했을 때만 체결 진행
-                bool armReached = false;
-                if (robotArm.endEffector != null)
-                {
-                    float dist = Vector3.Distance(robotArm.endEffector.position, trackingTarget.position);
-                    armReached = dist <= assembleReachThreshold;
-                }
-
-                if (armReached)
-                {
-                    float nextProgress = targetCarPart.assemblyProgress - (assembleSpeed * Time.deltaTime);
-                    targetCarPart.UpdateProgress(nextProgress);
-                }
-
-                // 파츠의 현재 위치를 실시간으로 추적 (체결 진행 여부와 무관하게 항상 업데이트)
+                // [연출] 로봇팔이 파츠를 향해 계속 따라가도록 추적 타겟 갱신
                 trackingTarget.position = targetCarPart.GetArmLookWorldPos();
 
-                if (targetCarPart.assemblyProgress <= 0f)
+                // [판정] 로봇팔 끝(Rig_End=endEffector)이 파츠 ArmLookTarget에 충분히 닿았을 때만 체결 진행.
+                // 작업존에 들어와도 팔이 아직 못 닿았으면 대기(준비)하고, 닿으면 체결값 증가,
+                // 차량이 멀어져 거리가 벌어지면 다시 증가가 멈춘다. 완성 시간 = requiredWork / assembleSpeed
+                float reachDist = robotArm.endEffector != null
+                    ? Vector3.Distance(robotArm.endEffector.position, targetCarPart.GetArmLookWorldPos())
+                    : float.MaxValue;
+
+                // 히스테리시스: 가까워지면 물리고(engage), 확실히 멀어질 때만 푼다(release).
+                // → 경계선에서 ON/OFF 토글되며 생기는 덜덜거림(떨림) 방지.
+                if (!reachEngaged)
+                {
+                    if (reachDist <= config.assembleReachThreshold) reachEngaged = true;
+                }
+                else
+                {
+                    if (reachDist > config.assembleReachThreshold + config.reachReleaseMargin) reachEngaged = false;
+                }
+
+                if (reachEngaged)
+                    targetCarPart.AddWork(config.assembleSpeed * Time.deltaTime);
+
+                if (targetCarPart.IsAssembled)
                 {
                     targetCarPart.ClearRuntimeDetached(); // 런타임 오버라이드 먼저 해제
-                    targetCarPart.UpdateProgress(0f);      // 완전히 체결 완료 위치에 고정
+                    targetCarPart.SetAssembled();          // 완전히 체결 완료 위치에 고정
                     Debug.Log($"[{gameObject.name}] ✅ {targetCarPart.name} 체결 완전 성공!");
 
                     targetCarPart = null;
@@ -119,7 +161,11 @@ public class StationController : MonoBehaviour
             case StationState.Cooldown:
                 cooldownTimer -= Time.deltaTime;
                 if (cooldownTimer <= 0f)
+                {
                     currentState = StationState.Idle;
+                    // 쿨다운 후에도 작업존에 남아있는 차량이 있으면 다음 체결 시도
+                    if (!manualMode) TryBeginAssembly();
+                }
                 break;
         }
     }
@@ -129,9 +175,9 @@ public class StationController : MonoBehaviour
     {
         // 1. 런타임 분리 위치를 stationPilePos로 오버라이드
         targetCarPart.SetRuntimeDetachedPose(stationPilePos.position, stationPilePos.rotation);
-        // 2. stationPilePos 위치로 이동 (UpdateProgress 내부에서 assemblyProgress==1 → SetActive(false) 호출됨)
-        targetCarPart.UpdateProgress(1f);
-        // 3. 위치 확정 후 활성화 (UpdateProgress의 SetActive(false)를 덮어씀)
+        // 2. 분리 위치(work=0 = pile)로 이동 (SetDetached 내부에서 SetActive(false) 호출됨)
+        targetCarPart.SetDetached();
+        // 3. 위치 확정 후 활성화 (SetDetached의 SetActive(false)를 덮어씀)
         targetCarPart.SetActive(true);
 
         // 스테이션 파일 메시 숨김 (파츠 오브젝트가 그 자리에 있으므로)
@@ -141,6 +187,7 @@ public class StationController : MonoBehaviour
         trackingTarget.position = targetCarPart.GetArmLookWorldPos();
         if (robotArm != null) robotArm.SetTarget(trackingTarget);
 
+        reachEngaged = false; // 새 체결은 팔이 닿기 전(미engage) 상태에서 시작
         currentState = StationState.Assembling;
     }
 
@@ -157,6 +204,7 @@ public class StationController : MonoBehaviour
 
         currentCar = null;
         manualMode = false;
+        reachEngaged = false;
         currentState = StationState.Idle;
     }
 
@@ -218,5 +266,26 @@ public class StationController : MonoBehaviour
         currentCar = targetCar;
         targetCarPart = part;
         StartAssembly();
+    }
+
+    // 작업존(트리거 BoxCollider)을 씬 뷰에 박스로 표시. 크기/위치 조정을 눈으로 보며 할 수 있다.
+    private void OnDrawGizmos()
+    {
+        if (!drawWorkZoneGizmo) return;
+        if (!TryGetComponent<BoxCollider>(out var box)) return;
+
+        // 콜라이더는 로컬 좌표(center/size) 기준이므로 트랜스폼 행렬을 적용
+        Matrix4x4 old = Gizmos.matrix;
+        Gizmos.matrix = transform.localToWorldMatrix;
+
+        Gizmos.color = workZoneColor;
+        Gizmos.DrawWireCube(box.center, box.size);
+
+        Color fill = workZoneColor;
+        fill.a = 0.12f;
+        Gizmos.color = fill;
+        Gizmos.DrawCube(box.center, box.size);
+
+        Gizmos.matrix = old;
     }
 }

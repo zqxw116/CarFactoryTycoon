@@ -16,6 +16,7 @@ MonoBehaviour:
   partConfigs:
   - type: 0
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0, y: 0, z: 0}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 0, y: 0, z: 0}
@@ -24,14 +25,16 @@ MonoBehaviour:
     mid2Rot: {x: 0, y: 0, z: 0}
   - type: 2
     armSide: 0
+    requiredWork: 50
     assembledPos: {x: -0.013540268, y: 0.5145526, z: 0.5731125}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -0.226, y: 0.5145526, z: -0.31}
+    midPos: {x: -0.89825255, y: 0.5145526, z: -1.7919062}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.93, y: 0.5145526, z: -0.31}
+    mid2Pos: {x: -2.1160398, y: 0.5145526, z: 0.5837005}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 27
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0, y: 0.78725576, z: 2.523632}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 0, y: 0.78725576, z: 3.082}
@@ -40,6 +43,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 26
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0.7651005, y: 0.5254, z: -1.9640007}
     assembledRot: {x: -0, y: 180, z: 0}
     midPos: {x: 0.7651005, y: 0.5254, z: -2.67}
@@ -48,6 +52,7 @@ MonoBehaviour:
     mid2Rot: {x: 0, y: 0, z: 0}
   - type: 25
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: -0.7651005, y: 0.5254, z: -1.9640007}
     assembledRot: {x: -0, y: 180, z: 0}
     midPos: {x: -0.7651005, y: 0.5254, z: -2.299}
@@ -56,6 +61,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 24
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: -0.74404335, y: 0.98193014, z: -1.9137878}
     assembledRot: {x: -0, y: 180, z: 0}
     midPos: {x: -0.74404335, y: 0.98193014, z: -2.368}
@@ -64,6 +70,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 23
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0.74404716, y: 0.98193014, z: -1.9137878}
     assembledRot: {x: -0, y: 180, z: 0}
     midPos: {x: 0.74404716, y: 0.98193014, z: -2.342}
@@ -72,6 +79,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 22
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0.6687757, y: 0.78769225, z: 2.0308988}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 0.6687757, y: 0.78769225, z: 2.640004}
@@ -80,6 +88,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 21
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: -0.6687724, y: 0.7876923, z: 2.030895}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -0.6687724, y: 0.7876923, z: 2.64}
@@ -88,6 +97,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 20
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0.82852364, y: 1.1983644, z: 0.84272766}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.27, y: 1.1983644, z: 0.84272766}
@@ -96,6 +106,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 19
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: -0.8285122, y: 1.1983644, z: 0.84272766}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -1.289, y: 1.1983644, z: 0.84272766}
@@ -104,14 +115,16 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 18
     armSide: 0
+    requiredWork: 50
     assembledPos: {x: 0, y: 1.1002625, z: 1.184803}
     assembledRot: {x: 0, y: -5.0888875e-14, z: 0}
-    midPos: {x: 0, y: 1.51, z: 1.184803}
+    midPos: {x: 0.21040192, y: 1.51, z: 2.0504484}
     midRot: {x: 0, y: -5.0888875e-14, z: 0}
-    mid2Pos: {x: -1.373, y: 1.51, z: 2.045}
+    mid2Pos: {x: -1.3962053, y: 1.51, z: 2.4672713}
     mid2Rot: {x: 0, y: -5.0888875e-14, z: 0}
   - type: 17
     armSide: 0
+    requiredWork: 0
     assembledPos: {x: 0, y: 1.5977572, z: -1.4576073}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 0, y: 1.5977572, z: -1.946}
@@ -120,14 +133,16 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 76.89999, z: 0}
   - type: 16
     armSide: 0
+    requiredWork: 10
     assembledPos: {x: 0, y: 0.1924607, z: 2.1506844}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0, y: 0.1924607, z: 2.63}
+    midPos: {x: 0.28886372, y: 0.1924607, z: 2.63}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.34, y: 0.1924607, z: 2.96}
+    mid2Pos: {x: -1.34, y: 0.1924607, z: 3.446559}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 15
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: -0.8977871, y: 0.38079593, z: -1.2596283}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -1.31, y: 0.38079593, z: -1.2596283}
@@ -136,6 +151,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 14
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: -0.89777946, y: 0.38079593, z: 1.6514626}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -1.31, y: 0.38079593, z: 1.6514626}
@@ -144,6 +160,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 13
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: 0.8977871, y: 0.38079593, z: -1.2596283}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.31, y: 0.38079593, z: -1.2596283}
@@ -152,6 +169,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 12
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: 0.8977833, y: 0.38079593, z: 1.6514626}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.31, y: 0.38079593, z: 1.6514626}
@@ -160,6 +178,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 11
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: 0.9284992, y: 0.290456, z: 0.4680977}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.58, y: 0.290456, z: 0.4680977}
@@ -168,22 +187,25 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 10
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: -0.9284954, y: 0.290456, z: 0.4680977}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.58, y: 0.290456, z: 0.4680977}
+    midPos: {x: -1.3263557, y: 0.290456, z: 1.3513539}
     midRot: {x: -0, y: 0, z: 0}
     mid2Pos: {x: -1.87, y: 0.290456, z: 1.5}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 9
     armSide: 0
+    requiredWork: 10
     assembledPos: {x: 0, y: 1.104219, z: 1.4715347}
     assembledRot: {x: 308.59998, y: 0, z: 0}
     midPos: {x: 0, y: 1.25, z: 2.12}
     midRot: {x: 308.59998, y: 0, z: 0}
     mid2Pos: {x: -1.652, y: 1.25, z: 2.484}
-    mid2Rot: {x: 329.83, y: 28.909996, z: -0.00000049377445}
+    mid2Rot: {x: 329.83, y: 0, z: -0.00000049377445}
   - type: 8
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: 0.81500435, y: 1.2556942, z: -0.7802658}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.11, y: 1.2556942, z: -0.7802658}
@@ -192,14 +214,16 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 7
     armSide: 0
+    requiredWork: 100
     assembledPos: {x: -0.8150043, y: 1.2556942, z: -0.7802658}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.11, y: 1.2556942, z: -0.7802658}
+    midPos: {x: -1.0249553, y: 1.2556942, z: 0.1078925}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.58, y: 1.2556942, z: 0.23}
+    mid2Pos: {x: -1.6189432, y: 1.2556942, z: 1.1608945}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 6
     armSide: 0
+    requiredWork: 70
     assembledPos: {x: -0.47009087, y: 0.46858943, z: 0.54359055}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -1.498, y: 0.46858943, z: 0.54359055}
@@ -208,6 +232,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 5
     armSide: 0
+    requiredWork: 70
     assembledPos: {x: 0.4700909, y: 0.46858943, z: 0.54359055}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.498, y: 0.46858943, z: 0.54359055}
@@ -216,17 +241,19 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 4
     armSide: 0
+    requiredWork: 20
     assembledPos: {x: 0, y: 0.9234956, z: 1.3514252}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0, y: 1.484, z: 1.3514252}
+    midPos: {x: 0, y: 1.6320304, z: 1.8236016}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.65, y: 1.484, z: 1.98}
-    mid2Rot: {x: -0, y: 24.860004, z: 0}
+    mid2Pos: {x: -1.65, y: 0.6343118, z: 2.5925794}
+    mid2Rot: {x: -0, y: 0, z: 0}
   - type: 3
     armSide: 0
+    requiredWork: 10
     assembledPos: {x: 0, y: 0.348, z: 1.8600006}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0, y: 1.111, z: 1.8600006}
+    midPos: {x: 0.113759905, y: 1.111, z: 3.0962498}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -0.92, y: 1.111, z: 2.987}
+    mid2Pos: {x: -1.1772442, y: 1.111, z: 3.2267032}
     mid2Rot: {x: -0, y: 0, z: 0}
