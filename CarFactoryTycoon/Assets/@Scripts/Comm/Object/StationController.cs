@@ -28,6 +28,13 @@ public class StationController : MonoBehaviour
     public bool drawWorkZoneGizmo = true;
     public Color workZoneColor = new Color(0f, 1f, 0.4f, 1f);
 
+    [Header("대기 위치 기즈모 (PilePos / EndPos)")]
+    [Tooltip("씬 뷰에서 PilePos(파츠 대기)·EndPos(로봇팔 대기) 위치를 구로 표시. 핸들로 드래그 편집 가능")]
+    public bool drawRestGizmo = true;
+    public float restGizmoRadius = 0.15f;
+    public Color pilePosColor = new Color(1f, 0.6f, 0.1f, 1f); // 주황: 파츠 대기장소
+    public Color endPosColor = new Color(0.2f, 0.6f, 1f, 1f);  // 파랑: 로봇팔 대기장소
+
     [Header("현재 공정 상태")]
     public StationState currentState = StationState.Idle;
 
@@ -269,7 +276,7 @@ public class StationController : MonoBehaviour
     }
 
     // 작업존(트리거 BoxCollider)을 씬 뷰에 박스로 표시. 크기/위치 조정을 눈으로 보며 할 수 있다.
-    private void OnDrawGizmos()
+    private void DrawWorkZoneGizmo()
     {
         if (!drawWorkZoneGizmo) return;
         if (!TryGetComponent<BoxCollider>(out var box)) return;
@@ -287,5 +294,32 @@ public class StationController : MonoBehaviour
         Gizmos.DrawCube(box.center, box.size);
 
         Gizmos.matrix = old;
+    }
+
+    // PilePos(파츠 대기)·EndPos(로봇팔 대기) 위치를 씬 뷰에 구로 표시.
+    // 실제 드래그 편집은 StationControllerEditor.OnSceneGUI의 위치 핸들이 담당.
+    private void OnDrawGizmos()
+    {
+        DrawWorkZoneGizmo();
+        DrawRestGizmos();
+    }
+
+    private void DrawRestGizmos()
+    {
+        if (!drawRestGizmo) return;
+
+        if (stationPilePos != null)
+        {
+            Gizmos.color = pilePosColor;
+            Gizmos.DrawWireSphere(stationPilePos.position, restGizmoRadius);
+            Gizmos.DrawLine(transform.position, stationPilePos.position);
+        }
+
+        if (endPos != null)
+        {
+            Gizmos.color = endPosColor;
+            Gizmos.DrawWireSphere(endPos.position, restGizmoRadius);
+            Gizmos.DrawLine(transform.position, endPos.position);
+        }
     }
 }

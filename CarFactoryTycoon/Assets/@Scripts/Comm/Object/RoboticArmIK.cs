@@ -47,6 +47,29 @@ public class RoboticArmIK : MonoBehaviour
     public void SetTarget(Transform _transform) => target = _transform;
     public void SetEndEffect(Transform _transform) => endEffector = _transform;
 
+    /// <summary>
+    /// 팔의 뿌리 위치(basePos)와 최대 도달 반경(maxReach)을 계산해 반환한다.
+    /// maxReach = 관절 간 거리 합 + 마지막 관절→엔드이펙터 거리.
+    /// 관절/엔드이펙터가 미설정이면 false.
+    /// </summary>
+    public bool TryGetReach(out Vector3 basePos, out float maxReach)
+    {
+        basePos = transform.position;
+        maxReach = 0f;
+        if (joints == null || joints.Length == 0 || endEffector == null || joints[0].bone == null)
+            return false;
+
+        float total = 0f;
+        for (int i = 0; i < joints.Length - 1; i++)
+            if (joints[i].bone != null && joints[i + 1].bone != null)
+                total += Vector3.Distance(joints[i].bone.position, joints[i + 1].bone.position);
+        total += Vector3.Distance(joints[joints.Length - 1].bone.position, endEffector.position);
+
+        basePos = joints[0].bone.position;
+        maxReach = total;
+        return true;
+    }
+
     [ContextMenu("★ [PM 추천] 순수 IK + 완벽 각도 제한 세팅")]
     public void AutoSetupBasic()
     {
@@ -189,17 +212,7 @@ public class RoboticArmIK : MonoBehaviour
         if (joints == null || joints.Length == 0 || endEffector == null) return;
 
         // 1. 전체 최대 사거리 계산 및 표시 (구체)
-        float totalLength = 0;
-        for (int i = 0; i < joints.Length - 1; i++)
-        {
-            if (joints[i].bone != null && joints[i + 1].bone != null)
-                totalLength += Vector3.Distance(joints[i].bone.position, joints[i + 1].bone.position);
-        }
-        // 마지막 뼈에서 엔드이펙터까지의 거리 추가
-        totalLength += Vector3.Distance(joints[joints.Length - 1].bone.position, endEffector.position);
-
-        // 첫 번째 관절(뿌리) 위치 기준
-        Vector3 basePos = joints[0].bone.position;
+        if (!TryGetReach(out Vector3 basePos, out float totalLength)) return;
 
         // 최대 사거리 구체 그리기
         Gizmos.color = new Color(0, 1, 1, 0.2f); // 반투명한 사이언 색상
