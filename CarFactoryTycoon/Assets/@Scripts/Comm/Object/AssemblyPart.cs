@@ -42,8 +42,11 @@ public class AssemblyPart : MonoBehaviour
     [Tooltip("미설정 시 오브젝트 중심을 바라봄. 자식 오브젝트로 배치해 파츠 회전에 함께 따라가도록 설정.")]
     public Transform armLookTarget;
 
-    [Header("자동 분리 설정")]
-    public float explodeDistance = 3f;
+    [Header("월드 조립 (로봇팔 pile → 차량 부착점)")]
+    [Tooltip("부착점에서 바깥쪽으로 밀어낸 '진입점'까지의 거리. 마지막 구간은 진입점→부착점 직선이라 차체를 뚫지 않는다.")]
+    public float entryDistance = 1.2f;
+    [Tooltip("진입 방향 수동 지정(로컬). 0이면 차량중심→부착점 방향으로 자동 계산. 문/바퀴처럼 특정 방향 삽입이 필요할 때만 설정.")]
+    public Vector3 approachDirLocalOverride = Vector3.zero;
 
     private Transform cachedParent;
 
@@ -51,6 +54,13 @@ public class AssemblyPart : MonoBehaviour
     private bool hasRuntimeDetached = false;
     private Vector3 runtimeDetachedLocalPos;
     private Vector3 runtimeDetachedLocalRot; // Euler 각도 (로컬)
+
+    // 월드 조립 상태: BeginWorldAssembly()로 시작. 시작점(pile)은 월드 고정,
+    // 부착점은 매 프레임 차량을 따라 재계산되어 움직이는 차에 정확히 붙는다.
+    private bool assembling = false;
+    private Vector3 pileWorldPos;
+    private Quaternion pileWorldRot = Quaternion.identity;
+    private Transform frameCenter; // 진입 방향 자동계산용 차량 중심("Frame")
 
     public void SetActive(bool _isActive) => this.gameObject.SetActive(_isActive);
 
@@ -77,8 +87,21 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>완전 분리 상태(work=0)로 되돌리고 오브젝트를 비활성화한다.</summary>
     public void Reset()
     {
+        assembling = false; // 월드 보간 중단
         ClearRuntimeDetached();
         SetDetached(); // work=0 → SetActive(false)
+    }
+
+    /// <summary>
+    /// 월드 조립을 시작한다. 부품은 pile(로봇팔 대기위치, 월드 고정)에서 출발해
+    /// 진입점을 거쳐 차량 부착점(매 프레임 차량 추적)으로 이동한다.
+    /// 호출 후 SetWork/AddWork로 진행도를 올리면 위치가 갱신된다.
+    /// </summary>
+    public void BeginWorldAssembly(Vector3 worldPilePos, Quaternion worldPileRot)
+    {
+        pileWorldPos = worldPilePos;
+        pileWorldRot = worldPileRot;
+        assembling = true;
     }
 
     /// <summary>스테이션의 stationPilePos 월드 좌표를 분리 시작 위치로 오버라이드한다.</summary>
@@ -127,14 +150,22 @@ public class AssemblyPart : MonoBehaviour
     public void SetWork(float work)
     {
         currentWork = Mathf.Clamp(work, 0f, requiredWork);
-        ApplyLocalPose(Fill);
+
+        if (assembling) ApplyWorldPose(Fill); // pile(월드) → 진입점 → 차량 부착점
+        else            ApplyLocalPose(Fill); // 차량 로컬 베지어 (에디터 프리뷰/비조립 상태)
 
         // 완전 분리(work=0)면 숨기고, 그 외에는 표시
         if (currentWork <= 0f) SetActive(false);
         else if (!gameObject.activeSelf) SetActive(true);
     }
 
-    public void SetAssembled() => SetWork(requiredWork); // 체결 완료
+    // 체결 완료: 월드 보간을 끝내고 차량 로컬 부착좌표에 고정한다.
+    // (이후엔 차량 자식으로서 재계산 없이 차를 따라다닌다)
+    public void SetAssembled()
+    {
+        assembling = false;
+        SetWork(requiredWork); // assembling=false → ApplyLocalPose(1) = assembledPos에 정확히 고정
+    }
     public void SetDetached()  => SetWork(0f);           // 완전 분리(숨김)
 
     /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>
@@ -149,6 +180,44 @@ public class AssemblyPart : MonoBehaviour
 
         transform.localPosition = localPos;
         transform.localRotation = Quaternion.Euler(localRot);
+    }
+
+    /// <summary>
+    /// 월드 공간 보간: pile(월드 고정) → 진입점 → 부착점(차량 추적).
+    /// 진입점은 부착점을 차량 바깥으로 밀어낸 점이라, 마지막 구간이 직선 삽입이 되어 차체를 뚫지 않는다.
+    /// 부착점/진입점은 매 프레임 차량 트랜스폼으로 재계산되므로 움직이는 차에 정확히 붙는다.
+    /// </summary>
+    private void ApplyWorldPose(float fill)
+    {
+        if (cachedParent == null) cachedParent = transform.parent;
+        if (cachedParent == null) { ApplyLocalPose(fill); return; } // 안전장치
+
+        Vector3 entryLocal = assembledPos + GetApproachDirLocal() * entryDistance;
+
+        Vector3 worldStart = pileWorldPos;
+        Vector3 worldEntry = cachedParent.TransformPoint(entryLocal);
+        Vector3 worldEnd   = cachedParent.TransformPoint(assembledPos);
+
+        // p0=pile, p1=p2=entry → 곡선이 진입점 쪽으로 휜 뒤 entry→attach 직선으로 꽂힌다.
+        Vector3 worldPos = CubicBezier(worldStart, worldEntry, worldEntry, worldEnd, fill);
+        transform.position = worldPos;
+
+        Quaternion worldEndRot = cachedParent.rotation * Quaternion.Euler(assembledRot);
+        transform.rotation = Quaternion.Slerp(pileWorldRot, worldEndRot, fill);
+    }
+
+    /// <summary>진입 방향(로컬). override가 있으면 그것을, 없으면 차량중심→부착점 방향을 쓴다.</summary>
+    private Vector3 GetApproachDirLocal()
+    {
+        if (approachDirLocalOverride != Vector3.zero) return approachDirLocalOverride.normalized;
+
+        if (frameCenter == null) frameCenter = FindCenterObject("Frame");
+        Vector3 centerLocal = Vector3.zero;
+        if (frameCenter != null && cachedParent != null)
+            centerLocal = cachedParent.InverseTransformPoint(frameCenter.position);
+
+        Vector3 dir = assembledPos - centerLocal;
+        return dir.sqrMagnitude < 1e-6f ? Vector3.up : dir.normalized;
     }
 
     /// <summary>큐빅 베지어: t=0 → p0, t=1 → p3. p1·p2는 제어 핸들.</summary>
@@ -246,23 +315,6 @@ public class AssemblyPart : MonoBehaviour
         AssetDatabase.SaveAssets();
         Debug.Log($"[{myType}] 설계도 저장 완료!");
 #endif
-    }
-
-    [ContextMenu("4. [자동화] 방사형 중간 위치 계산 및 저장")]
-    public void AutoSetMidPosition()
-    {
-        Transform centerObj = FindCenterObject("Frame");
-        if (centerObj == null) return;
-
-        Vector3 direction = (transform.position - centerObj.position).normalized;
-        if (direction == Vector3.zero) direction = Vector3.up;
-        direction.y += 0.5f;
-
-        transform.position = centerObj.position + (direction * explodeDistance);
-        midPos = transform.localPosition;
-        midRot = assembledRot + new Vector3(Random.Range(-20f, 20f), Random.Range(-20f, 20f), Random.Range(-20f, 20f));
-
-        SetWork(requiredWork * 0.5f);
     }
 
     private Transform FindCenterObject(string targetName)

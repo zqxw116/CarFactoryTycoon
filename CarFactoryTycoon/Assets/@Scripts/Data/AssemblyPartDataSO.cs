@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>라인 진행 방향 기준 로봇팔 배치 방향</summary>
-public enum ArmSide { Left, Right }
+/// <summary>로봇팔이 라인의 어느 쪽에 배치되는지(라인 진행 방향 기준 좌/우).</summary>
+public enum RobotLineSideType { Left, Right }
 
 [System.Serializable]
 public struct PartConfig
@@ -11,7 +11,7 @@ public struct PartConfig
 
     [Header("로봇팔 배치")]
     [Tooltip("라인 진행 방향 기준으로 로봇팔이 왼쪽에 배치될지 오른쪽에 배치될지 지정")]
-    public ArmSide armSide;
+    public RobotLineSideType robotLineSide;
 
     [Header("난이도")]
     [Tooltip("이 부품 체결에 필요한 총 작업량. 옆면(문/바퀴)은 크게, 범퍼처럼 사거리 체류가 짧은 앞면은 작게.")]

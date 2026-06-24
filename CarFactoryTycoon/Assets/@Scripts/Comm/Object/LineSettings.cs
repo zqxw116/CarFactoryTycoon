@@ -13,6 +13,9 @@ public class LineSettings : MonoBehaviour
     [Header("배치할 로봇팔 목록")]
     public List<Transform> arms = new List<Transform>();
 
+    [Tooltip("arms와 1:1 대응되는 로봇팔별 라인 좌/우 배치. 미설정 항목은 인덱스 짝/홀로 기본값(짝=Left/아래, 홀=Right/위).")]
+    public List<RobotLineSideType> armSides = new List<RobotLineSideType>();
+
     [Header("배치 설정")]
     public Vector2 startXZ = Vector2.zero;          // 시작 (X, Z)
     public Direction direction = Direction.Left;    // 진행 방향(왼쪽=-X / 오른쪽=+X)

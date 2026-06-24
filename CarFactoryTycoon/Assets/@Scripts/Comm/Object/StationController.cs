@@ -1,6 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
+
 public class StationController : MonoBehaviour
 {
     public enum StationState { Idle, Assembling, Cooldown }
@@ -23,6 +27,24 @@ public class StationController : MonoBehaviour
 
     private Transform trackingTarget;
 
+
+    [Header("라인 좌/우 배치 (상위 LineSettings 기준)")]
+    [Tooltip("인스펙터에서 값을 바꾸면 상위 LINE 오브젝트의 LineSettings 기준으로 즉시 재배치된다" +
+        " (z=startZ±zSpacing / 회전 Y=방향인지 ±90 / 작업존 center.z). PilePos·EndPos는 자식이라 회전에 함께 따라감.")]
+    public RobotLineSideType robotLineSide = RobotLineSideType.Left;
+
+    [Tooltip("이 부품 타입의 배치를 저장/불러올 SO. 컨텍스트 메뉴 '배치 저장/불러오기'에 사용.")]
+    public StationPlacementDataSO placementData;
+
+    // 인스펙터에서 robotLineSide가 바뀌었는지 감지하기 위한 마지막 적용값.
+    [SerializeField, HideInInspector] private RobotLineSideType appliedSide = RobotLineSideType.Left;
+
+    [Header("현재 공정 상태")]
+    public StationState currentState = StationState.Idle;
+
+    [SerializeField] private CarController currentCar;
+    [SerializeField] private AssemblyPart targetCarPart;
+
     [Header("작업존 기즈모 (BoxCollider = 체결 사거리)")]
     [Tooltip("씬 뷰에서 BoxCollider 범위를 박스로 표시해 배치/크기 조정을 쉽게 한다")]
     public bool drawWorkZoneGizmo = true;
@@ -35,11 +57,6 @@ public class StationController : MonoBehaviour
     public Color pilePosColor = new Color(1f, 0.6f, 0.1f, 1f); // 주황: 파츠 대기장소
     public Color endPosColor = new Color(0.2f, 0.6f, 1f, 1f);  // 파랑: 로봇팔 대기장소
 
-    [Header("현재 공정 상태")]
-    public StationState currentState = StationState.Idle;
-
-    [SerializeField] private CarController currentCar;
-    [SerializeField] private AssemblyPart targetCarPart;
 
     private float cooldownTimer = 0f;
     private bool manualMode = false;
@@ -180,11 +197,11 @@ public class StationController : MonoBehaviour
     /// <summary>파츠의 분리 위치를 stationPilePos로 설정하고 조립을 시작한다.</summary>
     private void StartAssembly()
     {
-        // 1. 런타임 분리 위치를 stationPilePos로 오버라이드
-        targetCarPart.SetRuntimeDetachedPose(stationPilePos.position, stationPilePos.rotation);
-        // 2. 분리 위치(work=0 = pile)로 이동 (SetDetached 내부에서 SetActive(false) 호출됨)
-        targetCarPart.SetDetached();
-        // 3. 위치 확정 후 활성화 (SetDetached의 SetActive(false)를 덮어씀)
+        // 1. 월드 조립 시작: pile(이 스테이션의 stationPilePos, 월드 고정)에서 출발하도록 설정
+        targetCarPart.BeginWorldAssembly(stationPilePos.position, stationPilePos.rotation);
+        // 2. work=0 = pile 위치로 이동 (SetWork 내부에서 work<=0이면 SetActive(false) 호출됨)
+        targetCarPart.SetWork(0f);
+        // 3. 위치 확정 후 활성화 (위 SetActive(false)를 덮어씀)
         targetCarPart.SetActive(true);
 
         // 스테이션 파일 메시 숨김 (파츠 오브젝트가 그 자리에 있으므로)
@@ -222,7 +239,9 @@ public class StationController : MonoBehaviour
     /// </summary>
     public void PrepareStation(PartType newType)
     {
-        manualMode = true; // OnTriggerExit로 인한 조립 취소 방지
+        // 트리거 진입으로 조립이 시작되어야 하므로 자동(비수동) 모드여야 한다.
+        // manualMode=true면 OnTriggerEnter의 TryBeginAssembly가 막혀 체결이 영원히 시작되지 않는다.
+        manualMode = false;
 
         currentState = StationState.Idle;
         currentCar = null;
@@ -274,6 +293,150 @@ public class StationController : MonoBehaviour
         targetCarPart = part;
         StartAssembly();
     }
+
+    #region 좌/우 배치 & 데이터(SO)
+
+    /// <summary>상위 LINE 오브젝트의 LineSettings를 찾는다(없으면 null).</summary>
+    public LineSettings FindLine() => GetComponentInParent<LineSettings>();
+
+    /// <summary>
+    /// robotLineSide 값을 설정하면서 appliedSide도 함께 맞춘다(재배치는 호출자가 이미 끝낸 상태).
+    /// → OnValidate가 같은 배치를 다시 적용하지 않도록 한다. 배치기에서 사용.
+    /// </summary>
+    public void SetRobotLineSide(RobotLineSideType side)
+    {
+        robotLineSide = side;
+        appliedSide = side;
+    }
+
+    /// <summary>
+    /// robotLineSide에 맞춰 상위 LineSettings 기준으로 스테이션을 재배치한다.
+    /// 배치기(RobotArmPlacerWindow.PlaceLine)와 동일한 규칙:
+    ///   z(월드)  = startZ ± zSpacing   (Left=-, Right=+)
+    ///   회전 Y   = (Right? +90 : -90) × (라인 방향 Left? +1 : -1)  ← 방향 인지
+    ///   center.z = ±laneWidth × (라인 방향 Left? +1 : -1)
+    /// PilePos·EndPos는 스테이션 자식이라 회전·이동에 함께 따라가므로 별도 처리하지 않는다.
+    /// X·Y(높이)는 기존 값을 유지한다.
+    /// </summary>
+    public void ApplyLineSide()
+    {
+        LineSettings line = FindLine();
+        if (line == null)
+        {
+            Debug.LogWarning($"[{name}] 상위에서 LineSettings를 찾지 못해 재배치를 건너뜁니다.");
+            return;
+        }
+
+        bool isRight = robotLineSide == RobotLineSideType.Right;
+        float dirSign = (line.direction == LineSettings.Direction.Left) ? 1f : -1f;
+
+        // z(월드): X·Y는 유지하고 z만 라인 기준으로 재계산.
+        // 라인 좌/우는 진행 방향 기준 → 방향이 Right면 물리적 lane도 반대(dirSign).
+        Vector3 wp = transform.position;
+        wp.z = line.startXZ.y + (isRight ? line.zSpacing : -line.zSpacing) * dirSign;
+        transform.position = wp;
+
+        // 회전 Y: 방향 인지
+        float yRot = (isRight ? 90f : -90f) * dirSign;
+        transform.rotation = Quaternion.Euler(0f, yRot, 0f);
+
+        // 작업존 center.z: z·회전과 달리 dirSign을 곱하지 않는다(방향 Right여도 반대로 뒤집지 않음).
+        if (TryGetComponent<BoxCollider>(out var box))
+        {
+            Vector3 c = box.center;
+            c.z = isRight ? line.laneWidth : -line.laneWidth;
+            box.center = c;
+        }
+
+        appliedSide = robotLineSide;
+    }
+
+    /// <summary>SO 배치 데이터를 현재 스테이션에 그대로 적용한다(절대값 세팅).</summary>
+    public void ApplyPlacement(StationPlacement placement)
+    {
+        transform.localPosition = placement.stationLocalPos;
+        transform.localEulerAngles = placement.stationEuler;
+
+        if (stationPilePos != null) stationPilePos.localPosition = placement.pileLocalPos;
+        if (endPos != null) endPos.localPosition = placement.endLocalPos;
+
+        if (TryGetComponent<BoxCollider>(out var box))
+        {
+            box.center = placement.boxCenter;
+            box.size = placement.boxSize;
+        }
+
+        robotLineSide = placement.robotLineSide;
+        appliedSide = placement.robotLineSide;
+    }
+
+    /// <summary>현재 스테이션 상태로부터 배치 데이터 구조체를 만든다.</summary>
+    public StationPlacement BuildPlacement()
+    {
+        var placement = new StationPlacement
+        {
+            type = targetPartType,
+            robotLineSide = robotLineSide,
+            stationLocalPos = transform.localPosition,
+            stationEuler = transform.localEulerAngles,
+            pileLocalPos = stationPilePos != null ? stationPilePos.localPosition : Vector3.zero,
+            endLocalPos = endPos != null ? endPos.localPosition : Vector3.zero,
+        };
+        if (TryGetComponent<BoxCollider>(out var box))
+        {
+            placement.boxCenter = box.center;
+            placement.boxSize = box.size;
+        }
+        return placement;
+    }
+
+#if UNITY_EDITOR
+    // 인스펙터에서 robotLineSide를 바꾸면 상위 LineSettings 기준으로 즉시 재배치.
+    private void OnValidate()
+    {
+        if (robotLineSide == appliedSide) return;
+        appliedSide = robotLineSide;
+
+        // OnValidate 도중 Transform을 직접 바꾸면 경고가 날 수 있어 다음 에디터 틱으로 미룬다.
+        EditorApplication.delayCall += () =>
+        {
+            if (this == null) return;
+            Undo.RecordObject(transform, "Apply Robot Line Side");
+            ApplyLineSide();
+            EditorUtility.SetDirty(this);
+        };
+    }
+
+    [ContextMenu("배치 저장 (현재 → SO)")]
+    public void SavePlacementToSO()
+    {
+        if (placementData == null) { Debug.LogError($"[{name}] placementData(SO)가 없습니다!"); return; }
+        if (targetPartType == PartType.None) { Debug.LogError($"[{name}] targetPartType이 None이라 저장할 수 없습니다."); return; }
+
+        placementData.Set(BuildPlacement());
+        EditorUtility.SetDirty(placementData);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"[{name}] {targetPartType} 배치 저장 완료! (robotLineSide={robotLineSide})");
+    }
+
+    [ContextMenu("배치 불러오기 (SO → 현재)")]
+    public void LoadPlacementFromSO()
+    {
+        if (placementData == null) { Debug.LogError($"[{name}] placementData(SO)가 없습니다!"); return; }
+        if (!placementData.Has(targetPartType))
+        {
+            Debug.LogWarning($"[{name}] SO에 {targetPartType} 배치 데이터가 없습니다.");
+            return;
+        }
+
+        Undo.RecordObject(transform, "Load Station Placement");
+        ApplyPlacement(placementData.GetPlacement(targetPartType));
+        EditorUtility.SetDirty(this);
+        Debug.Log($"[{name}] {targetPartType} 배치 불러오기 완료! (robotLineSide={robotLineSide})");
+    }
+#endif
+
+    #endregion
 
     // 작업존(트리거 BoxCollider)을 씬 뷰에 박스로 표시. 크기/위치 조정을 눈으로 보며 할 수 있다.
     private void DrawWorkZoneGizmo()
