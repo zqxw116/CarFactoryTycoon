@@ -26,15 +26,17 @@ public class AssemblyPart : MonoBehaviour
     public bool IsAssembled => currentWork >= requiredWork;
     public bool IsDetached  => currentWork <= 0f;
 
-    [Header("[0.0] 체결 완료 좌표")]
+    [Header("체결 완료 좌표 (차량 로컬, fill=1)")]
     public Vector3 assembledPos;
     public Vector3 assembledRot;
 
-    [Header("[0.3] 첫 번째 중간 꺾임 좌표 (mid2 → 여기 → 체결완료)")]
+    [Header("베지어 제어 핸들 — 부착점 쪽 (통과점 아님, 차량 로컬)")]
     public Vector3 midPos;
     public Vector3 midRot;
 
-    [Header("[0.6] 두 번째 중간 꺾임 좌표 (stationPilePos → 여기 → mid)")]
+    [Header("베지어 제어 핸들 — pile 쪽 (통과점 아님, 차량 로컬)")]
+    [Tooltip("런타임 곡선은 스테이션 stationPilePos(월드)에서 출발: pile → mid2 → mid → 부착점." +
+        " 에디터 프리뷰(ApplyLocalPose)에서는 mid2가 시작점을 겸한다. 둘 다 zero면 자동 진입점 사용.")]
     public Vector3 mid2Pos;
     public Vector3 mid2Rot;
 
@@ -49,11 +51,6 @@ public class AssemblyPart : MonoBehaviour
     public Vector3 approachDirLocalOverride = Vector3.zero;
 
     private Transform cachedParent;
-
-    // 런타임 분리 위치 (스테이션 stationPilePos로부터 오버라이드)
-    private bool hasRuntimeDetached = false;
-    private Vector3 runtimeDetachedLocalPos;
-    private Vector3 runtimeDetachedLocalRot; // Euler 각도 (로컬)
 
     // 월드 조립 상태: BeginWorldAssembly()로 시작. 시작점(pile)은 월드 고정,
     // 부착점은 매 프레임 차량을 따라 재계산되어 움직이는 차에 정확히 붙는다.
@@ -88,7 +85,6 @@ public class AssemblyPart : MonoBehaviour
     public void Reset()
     {
         assembling = false; // 월드 보간 중단
-        ClearRuntimeDetached();
         SetDetached(); // work=0 → SetActive(false)
     }
 
@@ -104,38 +100,9 @@ public class AssemblyPart : MonoBehaviour
         assembling = true;
     }
 
-    /// <summary>스테이션의 stationPilePos 월드 좌표를 분리 시작 위치로 오버라이드한다.</summary>
-    public void SetRuntimeDetachedPose(Vector3 worldPos, Quaternion worldRot)
-    {
-        if (cachedParent == null) cachedParent = transform.parent;
-        if (cachedParent != null)
-        {
-            runtimeDetachedLocalPos = cachedParent.InverseTransformPoint(worldPos);
-            runtimeDetachedLocalRot = (Quaternion.Inverse(cachedParent.rotation) * worldRot).eulerAngles;
-        }
-        else
-        {
-            runtimeDetachedLocalPos = worldPos;
-            runtimeDetachedLocalRot = worldRot.eulerAngles;
-        }
-        hasRuntimeDetached = true;
-    }
-
-    /// <summary>런타임 오버라이드를 해제하고 SO 기본값을 사용하도록 되돌린다.</summary>
-    public void ClearRuntimeDetached() => hasRuntimeDetached = false;
-
-
-    /// <summary>로봇팔이 가져다 놓아야 할 '최종(체결)' 월드 좌표</summary>
-    public Vector3 GetWorldAssembledPos() => GetWorldPosFromLocal(assembledPos);
-
     /// <summary>로봇팔이 바라봐야 할 월드 좌표. armLookTarget 미설정 시 오브젝트 중심 반환.</summary>
     public Vector3 GetArmLookWorldPos() => armLookTarget != null ? armLookTarget.position : transform.position;
 
-    private Vector3 GetWorldPosFromLocal(Vector3 localPos)
-    {
-        if (cachedParent == null) cachedParent = transform.parent;
-        return cachedParent != null ? cachedParent.TransformPoint(localPos) : transform.position;
-    }
 
     #endregion
 
@@ -168,39 +135,55 @@ public class AssemblyPart : MonoBehaviour
     }
     public void SetDetached()  => SetWork(0f);           // 완전 분리(숨김)
 
+    // 조립 중에는 매 프레임 포즈 재계산이 필요하다.
+    // 파츠는 차량의 자식이라, 체결이 멈춘 동안(AddWork 미호출) 차량이 움직이면
+    // 마지막으로 계산된 로컬 위치 그대로 딸려간다 → fill=0이어도 pile(월드 고정)에 붙잡아 둔다.
+    // 차량 이동(Update) 이후에 계산되도록 LateUpdate 사용.
+    private void LateUpdate()
+    {
+        if (assembling) ApplyWorldPose(Fill);
+    }
+
     /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>
     private void ApplyLocalPose(float fill)
     {
-        // fill: 0 → pile(분리), 1 → assembled(체결완료)
-        Vector3 pileLocalPos = hasRuntimeDetached ? runtimeDetachedLocalPos : mid2Pos;
-        Vector3 pileLocalRot = hasRuntimeDetached ? runtimeDetachedLocalRot : mid2Rot;
-
-        Vector3 localPos = CubicBezier(pileLocalPos, mid2Pos, midPos, assembledPos, fill);
-        Vector3 localRot = CubicBezier(pileLocalRot, mid2Rot, midRot, assembledRot, fill);
+        // fill: 0 → mid2(시작점 겸 pile 쪽 핸들), 1 → assembled(체결완료)
+        // 에디터 프리뷰/완료 고정용 로컬 곡선 — 런타임 곡선은 ApplyWorldPose(시작점=stationPilePos)가 담당.
+        Vector3 localPos = CubicBezier(mid2Pos, mid2Pos, midPos, assembledPos, fill);
+        Vector3 localRot = CubicBezier(mid2Rot, mid2Rot, midRot, assembledRot, fill);
 
         transform.localPosition = localPos;
         transform.localRotation = Quaternion.Euler(localRot);
     }
 
     /// <summary>
-    /// 월드 공간 보간: pile(월드 고정) → 진입점 → 부착점(차량 추적).
-    /// 진입점은 부착점을 차량 바깥으로 밀어낸 점이라, 마지막 구간이 직선 삽입이 되어 차체를 뚫지 않는다.
-    /// 부착점/진입점은 매 프레임 차량 트랜스폼으로 재계산되므로 움직이는 차에 정확히 붙는다.
+    /// 월드 공간 보간: pile(월드 고정) → 제어 핸들 → 부착점(차량 추적).
+    /// 저작된 midPos/mid2Pos(차량 로컬)가 있으면 그대로 월드 제어 핸들로 사용해 저작 경로를 따라가고,
+    /// 없으면 부착점을 차량 바깥으로 밀어낸 자동 진입점을 쓴다.
+    /// 핸들/부착점은 매 프레임 차량 트랜스폼으로 재계산되므로 움직이는 차에 정확히 붙는다.
     /// </summary>
     private void ApplyWorldPose(float fill)
     {
         if (cachedParent == null) cachedParent = transform.parent;
         if (cachedParent == null) { ApplyLocalPose(fill); return; } // 안전장치
 
-        Vector3 entryLocal = assembledPos + GetApproachDirLocal() * entryDistance;
-
         Vector3 worldStart = pileWorldPos;
-        Vector3 worldEntry = cachedParent.TransformPoint(entryLocal);
         Vector3 worldEnd   = cachedParent.TransformPoint(assembledPos);
 
-        // p0=pile, p1=p2=entry → 곡선이 진입점 쪽으로 휜 뒤 entry→attach 직선으로 꽂힌다.
-        Vector3 worldPos = CubicBezier(worldStart, worldEntry, worldEntry, worldEnd, fill);
-        transform.position = worldPos;
+        Vector3 p1, p2;
+        if (midPos != Vector3.zero || mid2Pos != Vector3.zero)
+        {
+            p1 = cachedParent.TransformPoint(mid2Pos); // pile 쪽 핸들
+            p2 = cachedParent.TransformPoint(midPos);  // 부착점 쪽 핸들
+        }
+        else
+        {
+            // 저작 핸들이 없는 부품: 자동 진입점(부착점에서 바깥 법선으로 entryDistance만큼)
+            Vector3 entryLocal = assembledPos + GetApproachDirLocal() * entryDistance;
+            p1 = p2 = cachedParent.TransformPoint(entryLocal);
+        }
+
+        transform.position = CubicBezier(worldStart, p1, p2, worldEnd, fill);
 
         Quaternion worldEndRot = cachedParent.rotation * Quaternion.Euler(assembledRot);
         transform.rotation = Quaternion.Slerp(pileWorldRot, worldEndRot, fill);
@@ -265,30 +248,6 @@ public class AssemblyPart : MonoBehaviour
         if (config.requiredWork > 0f) requiredWork = config.requiredWork;
     }
 
-    [ContextMenu("Step 1. 현재 위치를 [체결 완료(0.0)]로 저장")]
-    public void SaveAsAssembled()
-    {
-        assembledPos = transform.localPosition;
-        assembledRot = transform.localEulerAngles;
-        ApplyToSO();
-    }
-
-    [ContextMenu("Step 2. 현재 위치를 [첫 번째 중간 꺾임(0.3)]로 저장")]
-    public void SaveAsMid()
-    {
-        midPos = transform.localPosition;
-        midRot = transform.localEulerAngles;
-        ApplyToSO();
-    }
-
-    [ContextMenu("Step 2-2. 현재 위치를 [두 번째 중간 꺾임(0.6)]로 저장")]
-    public void SaveAsMid2()
-    {
-        mid2Pos = transform.localPosition;
-        mid2Rot = transform.localEulerAngles;
-        ApplyToSO();
-    }
-
     [ContextMenu("Step 3. !!! [최종 저장] 인스펙터 값을 설계도(SO)에 굽기")]
     public void ApplyToSO()
     {
@@ -337,21 +296,59 @@ public class AssemblyPart : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         if (transform.parent == null) return;
-        Vector3 p0 = transform.parent.TransformPoint(assembledPos); // 체결 완료 (0.0)
-        Vector3 p1 = transform.parent.TransformPoint(midPos);       // 첫 번째 중간 꺾임 (0.333)
-        Vector3 p2 = transform.parent.TransformPoint(mid2Pos);      // 두 번째 중간 꺾임 (0.667)
+        Vector3 wAssembled = transform.parent.TransformPoint(assembledPos); // 체결 완료 (fill=1)
+        Gizmos.color = Color.green; Gizmos.DrawWireSphere(wAssembled, 0.05f);
 
-        // 제어점만 표시. 실제 이동 경로(베지어 곡선)는 AssemblyPartEditor의 OnSceneGUI가 그린다.
-        Gizmos.color = Color.green;   Gizmos.DrawWireSphere(p0, 0.05f);
-        Gizmos.color = Color.yellow;  Gizmos.DrawWireSphere(p1, 0.05f);
-        Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(p2, 0.05f);
-        // p2 → stationPilePos 구간은 런타임에 결정되므로 에디터에서 표시 불가
+        if (assembling)
+        {
+            // 런타임 월드 곡선: pile(스테이션 stationPilePos 스냅샷) → mid2 → mid → 부착점.
+            // ApplyWorldPose와 동일한 제어점을 그려 실제 이동 경로를 보여준다(차량 이동 따라 매 프레임 갱신).
+            Vector3 p1, p2;
+            if (midPos != Vector3.zero || mid2Pos != Vector3.zero)
+            {
+                p1 = transform.parent.TransformPoint(mid2Pos);
+                p2 = transform.parent.TransformPoint(midPos);
+            }
+            else
+            {
+                Vector3 entryLocal = assembledPos + GetApproachDirLocal() * entryDistance;
+                p1 = p2 = transform.parent.TransformPoint(entryLocal);
+            }
+
+            Gizmos.color = new Color(1f, 0.6f, 0.1f, 1f); // 주황: 시작점 = stationPilePos (스테이션 기즈모와 동일 색)
+            Gizmos.DrawWireSphere(pileWorldPos, 0.05f);
+            Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(p1, 0.05f); // mid2 핸들
+            Gizmos.color = Color.yellow;  Gizmos.DrawWireSphere(p2, 0.05f); // mid 핸들
+
+            Gizmos.color = Color.cyan;
+            DrawBezierGizmo(pileWorldPos, p1, p2, wAssembled);
+        }
+        else
+        {
+            // 에디터 저작 프리뷰: 차량 로컬 제어 핸들만 표시.
+            // 저작 곡선(베지어)은 AssemblyPartEditor의 OnSceneGUI가 그린다.
+            Gizmos.color = Color.yellow;  Gizmos.DrawWireSphere(transform.parent.TransformPoint(midPos), 0.05f);
+            Gizmos.color = Color.magenta; Gizmos.DrawWireSphere(transform.parent.TransformPoint(mid2Pos), 0.05f);
+        }
 
         if (armLookTarget != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawWireSphere(armLookTarget.position, 0.07f);
             Gizmos.DrawLine(transform.position, armLookTarget.position);
+        }
+    }
+
+    /// <summary>기즈모용 베지어 폴리라인 (Gizmos.color 사용).</summary>
+    private static void DrawBezierGizmo(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3)
+    {
+        const int SEGMENTS = 24;
+        Vector3 prev = p0;
+        for (int i = 1; i <= SEGMENTS; i++)
+        {
+            Vector3 next = CubicBezier(p0, p1, p2, p3, i / (float)SEGMENTS);
+            Gizmos.DrawLine(prev, next);
+            prev = next;
         }
     }
 

@@ -152,54 +152,94 @@ public class RoboticArmIK : MonoBehaviour
 
                 if (bone == null) continue;
 
-                // [핵심 로직] 이번 루프에서 관절이 움직일 수 있는 '최대 각도(스피드 제한)' 계산
-                // 공식: (기본속도 * 업그레이드계수 * 프레임시간) / 반복횟수
+                // 이번 반복에서 이 관절이 회전할 수 있는 최대 각도
+                // baseSpeed(초당 회전 속도) * trackingMultiplier(속도 보정 계수) * Time.deltaTime(프레임 시간) * iterations(반복 횟수만큼 나눠서 한 번의 회전량을 줄임)
                 float maxStep = (joint.baseSpeed * trackingMultiplier * Time.deltaTime) / iterations;
 
-                // 1. 수평 유지 모드 (Rig_Arm_5)
+                // 수평 유지용 관절 처리
                 if (joint.keepLevel)
                 {
+                    // 월드 기준 위쪽(Vector3.up)이 현재 bone의 로컬 기준으로 어느 방향인지 변환
                     Vector3 currentLocalSky = bone.InverseTransformDirection(Vector3.up);
+
+                    // 회전축(axis) 방향 성분을 제거해서 axis에 수직인 평면 위의 방향만 남김
+                    // 제어할 수 없는 방향을 제거하고, 이 관절이 실제로 회전해서 맞출 수 있는 방향만 남기는 코드
                     currentLocalSky = Vector3.ProjectOnPlane(currentLocalSky, axis).normalized;
 
+                    // 투영 결과가 너무 작으면 방향 계산이 불안정하므로 제외
                     if (currentLocalSky.sqrMagnitude > 0.001f && joint.initialLocalSky.sqrMagnitude > 0.001f)
                     {
+                        // 초기 수평 기준 방향과 현재 수평 방향의 차이 각도를 구함
+                        // axis를 기준으로 시계/반시계 방향까지 포함해서 signed angle 계산
                         float angle = Vector3.SignedAngle(joint.initialLocalSky, currentLocalSky, axis);
 
-                        // [스피드 제한 적용] 한 번에 다 돌지 못하고 최대 스피드(maxStep) 만큼만 돌아감!
+                        // 한 프레임/한 반복에서 너무 많이 회전하지 않도록 속도 제한
                         angle = Mathf.Clamp(angle, -maxStep, maxStep);
 
+                        // 제한된 보정 각도를 현재 관절 각도에 누적
                         joint.currentAngle += angle;
 
+                        // 관절 각도 제한을 사용하는 경우 min/max 범위 안으로 제한
                         if (joint.useLimits)
                             joint.currentAngle = Mathf.Clamp(joint.currentAngle, joint.minAngle, joint.maxAngle);
 
+                        // 초기 회전값을 기준으로 axis 방향 회전만 적용
                         bone.localRotation = joint.zeroRotation * Quaternion.AngleAxis(joint.currentAngle, axis);
                     }
+
+                    // keepLevel 관절은 여기서 처리 끝
                     continue;
                 }
 
                 // 2. 일반 IK 추적 모드
+
+                // endEffector와 target의 월드 위치를 현재 관절 bone 기준 로컬 위치로 변환
                 Vector3 localEffector = bone.InverseTransformPoint(endEffector.position);
                 Vector3 localTarget = bone.InverseTransformPoint(target.position);
 
+                // 관절 회전축(axis) 방향 성분은 제거하고,
+                // 이 관절이 실제로 회전해서 맞출 수 있는 평면 위 방향만 남김
                 Vector3 projEffector = Vector3.ProjectOnPlane(localEffector, axis).normalized;
                 Vector3 projTarget = Vector3.ProjectOnPlane(localTarget, axis).normalized;
 
+                // 투영된 방향이 유효할 때만 각도 계산
                 if (projEffector.sqrMagnitude > 0.001f && projTarget.sqrMagnitude > 0.001f)
                 {
+                    // 현재 endEffector 방향에서 target 방향으로 가기 위해
+                    // axis 기준으로 몇 도 회전해야 하는지 계산
                     float angle = Vector3.SignedAngle(projEffector, projTarget, axis);
 
-                    // [스피드 제한 적용] 타겟이 아무리 멀어도 최대 스피드(maxStep) 만큼만 쫓아감!
+                    // 관절 제한이 있을 때,
+                    // 최단 회전 방향이 제한 밖으로 나가면 반대 방향으로 돌아갈 수 있는지 확인
+                    if (joint.useLimits)
+                    {
+                        float desired = joint.currentAngle + angle;
+
+                        if (desired < joint.minAngle || desired > joint.maxAngle)
+                        {
+                            // 같은 목표 방향을 향하는 반대 회전 경로
+                            float altAngle = angle > 0f ? angle - 360f : angle + 360f;
+                            float altDesired = joint.currentAngle + altAngle;
+
+                            // 반대 경로가 제한 범위 안이면 그 방향으로 회전
+                            if (altDesired >= joint.minAngle && altDesired <= joint.maxAngle)
+                                angle = altAngle;
+                        }
+                    }
+
+                    // 이번 반복에서 회전 가능한 최대 각도만큼만 적용
                     angle = Mathf.Clamp(angle, -maxStep, maxStep);
 
+                    // 현재 관절 각도에 회전량 누적
                     joint.currentAngle += angle;
 
+                    // 최종 관절 각도를 제한 범위 안으로 보정
                     if (joint.useLimits)
                     {
                         joint.currentAngle = Mathf.Clamp(joint.currentAngle, joint.minAngle, joint.maxAngle);
                     }
 
+                    // 초기 회전값 기준으로 axis 방향 currentAngle만큼 회전 적용
                     bone.localRotation = joint.zeroRotation * Quaternion.AngleAxis(joint.currentAngle, axis);
                 }
             }

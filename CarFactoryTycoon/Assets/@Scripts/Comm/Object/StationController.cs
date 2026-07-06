@@ -25,19 +25,25 @@ public class StationController : MonoBehaviour
     [Tooltip("씬에 배치된 스테이션 파츠 오브젝트 (코드로 생성하지 않음)")]
     public GameObject stationPileMesh;
 
-    private Transform trackingTarget;
+    public Transform trackingTarget;
 
 
     [Header("라인 좌/우 배치 (상위 LineSettings 기준)")]
     [Tooltip("인스펙터에서 값을 바꾸면 상위 LINE 오브젝트의 LineSettings 기준으로 즉시 재배치된다" +
-        " (z=startZ±zSpacing / 회전 Y=방향인지 ±90 / 작업존 center.z). PilePos·EndPos는 자식이라 회전에 함께 따라감.")]
+        " (z=startZ±zSpacing / 회전 Y=방향인지 ±90 / 작업존 center.x·z). PilePos·EndPos는 자식이라 회전에 함께 따라감.")]
     public RobotLineSideType robotLineSide = RobotLineSideType.Left;
+
+    [Tooltip("라인 파생 작업존 center 기본값(x=zSpacing, y=0.5, z=±laneWidth)에 더해지는 부품별 추가 오프셋." +
+        " x·y는 그대로 더하고, z는 robotLineSide 부호에 맞춰 대칭으로 더한다(+z = laneWidth가 커지는 방향)." +
+        " 스테이션 회전이 라인 방향/side를 이미 보정하므로 어느 라인에 배치해도 같은 의미로 동작한다.")]
+    public Vector3 boxCenterOffset = Vector3.zero;
 
     [Tooltip("이 부품 타입의 배치를 저장/불러올 SO. 컨텍스트 메뉴 '배치 저장/불러오기'에 사용.")]
     public StationPlacementDataSO placementData;
 
-    // 인스펙터에서 robotLineSide가 바뀌었는지 감지하기 위한 마지막 적용값.
+    // 인스펙터에서 robotLineSide/boxCenterOffset이 바뀌었는지 감지하기 위한 마지막 적용값.
     [SerializeField, HideInInspector] private RobotLineSideType appliedSide = RobotLineSideType.Left;
+    [SerializeField, HideInInspector] private Vector3 appliedBoxCenterOffset = Vector3.zero;
 
     [Header("현재 공정 상태")]
     public StationState currentState = StationState.Idle;
@@ -60,7 +66,8 @@ public class StationController : MonoBehaviour
 
     private float cooldownTimer = 0f;
     private bool manualMode = false;
-    private bool reachEngaged = false; // 팔이 닿아 체결이 물린 상태(히스테리시스용)
+    private bool reachEngaged = false;     // 팔이 threshold 이내로 한 번 도달했는지 (최초 캐치 latch)
+    private float reachWorkFactor = 0f;    // 현재 거리 기반 체결 속도 배율 0~1 (기즈모 표시용)
 
     // 현재 작업존(트리거) 안에 들어와 있는 차량들. 스테이션이 비면 이 중에서 다음 대상을 고른다.
     private readonly List<CarController> carsInZone = new List<CarController>();
@@ -73,6 +80,7 @@ public class StationController : MonoBehaviour
         config = StationConfig.Instance; // 전역 설정 참조를 1회 캐싱 (Update마다 getter 호출 방지)
         trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
         trackingTarget.SetParent(transform, false); // 스테이션 자식으로 배치(하이러키 정리, 함께 파괴)
+        trackingTarget.rotation = Quaternion.identity; // 스테이션이 라인 좌/우에 따라 Y ±90° 회전돼 있어도 상속받지 않도록 월드 회전 고정
 
         if (robotArm != null && stationPilePos != null)
         {
@@ -152,24 +160,28 @@ public class StationController : MonoBehaviour
                     ? Vector3.Distance(robotArm.endEffector.position, targetCarPart.GetArmLookWorldPos())
                     : float.MaxValue;
 
-                // 히스테리시스: 가까워지면 물리고(engage), 확실히 멀어질 때만 푼다(release).
-                // → 경계선에서 ON/OFF 토글되며 생기는 덜덜거림(떨림) 방지.
-                if (!reachEngaged)
-                {
-                    if (reachDist <= config.assembleReachThreshold) reachEngaged = true;
-                }
-                else
-                {
-                    if (reachDist > config.assembleReachThreshold + config.reachReleaseMargin) reachEngaged = false;
-                }
+                // 최초 캐치(latch): 팔 끝이 threshold 이내로 실제 도달해야 체결이 시작된다.
+                // (스폰 직후 대기위치가 어중간하게 가까우면 감속 구간의 부분 속도만으로
+                //  팔이 오기도 전에 슬금슬금 시작되는 것 방지)
+                if (!reachEngaged && reachDist <= config.assembleReachThreshold) reachEngaged = true;
 
-                if (reachEngaged)
-                    targetCarPart.AddWork(config.assembleSpeed * Time.deltaTime);
+                // 소프트 게이트: threshold 이내=전속(1), threshold+margin 이상=정지(0), 사이는 선형 감속.
+                // 이진 ON/OFF 게이트는 파츠가 팔보다 빠를 때 '전진→정지→전진' 스텝이 반복되며
+                // 파츠·팔이 함께 덜덜거림 — 거리에 비례해 체결 속도를 줄이면 파츠가
+                // 팔이 따라오는 속도로 자동 수렴해 연속적으로 부드럽게 움직인다.
+                reachWorkFactor = reachEngaged
+                    ? 1f - Mathf.InverseLerp(
+                        config.assembleReachThreshold,
+                        config.assembleReachThreshold + config.reachReleaseMargin,
+                        reachDist)
+                    : 0f;
+
+                if (reachWorkFactor > 0f)
+                    targetCarPart.AddWork(config.assembleSpeed * reachWorkFactor * Time.deltaTime);
 
                 if (targetCarPart.IsAssembled)
                 {
-                    targetCarPart.ClearRuntimeDetached(); // 런타임 오버라이드 먼저 해제
-                    targetCarPart.SetAssembled();          // 완전히 체결 완료 위치에 고정
+                    targetCarPart.SetAssembled(); // 완전히 체결 완료 위치에 고정
                     Debug.Log($"[{gameObject.name}] ✅ {targetCarPart.name} 체결 완전 성공!");
 
                     targetCarPart = null;
@@ -211,7 +223,8 @@ public class StationController : MonoBehaviour
         trackingTarget.position = targetCarPart.GetArmLookWorldPos();
         if (robotArm != null) robotArm.SetTarget(trackingTarget);
 
-        reachEngaged = false; // 새 체결은 팔이 닿기 전(미engage) 상태에서 시작
+        reachEngaged = false; // 새 체결은 팔이 threshold 이내로 도달(최초 캐치)해야 시작
+        reachWorkFactor = 0f;
         currentState = StationState.Assembling;
     }
 
@@ -229,6 +242,7 @@ public class StationController : MonoBehaviour
         currentCar = null;
         manualMode = false;
         reachEngaged = false;
+        reachWorkFactor = 0f;
         currentState = StationState.Idle;
     }
 
@@ -253,7 +267,7 @@ public class StationController : MonoBehaviour
         if (robotArm != null)
         {
             robotArm.targetPartType = newType;
-            robotArm.SetTarget(stationPilePos);
+            robotArm.SetTarget(GetRestTarget()); // 대기는 EndPos(로봇팔 대기 위치)에서 — 파츠가 나올 PilePos와 겹치지 않게
         }
     }
 
@@ -285,7 +299,7 @@ public class StationController : MonoBehaviour
         if (part == null)
         {
             Debug.LogWarning($"[{gameObject.name}] {newType} 파츠를 차량에서 찾을 수 없습니다.");
-            if (robotArm != null) robotArm.SetTarget(stationPilePos);
+            if (robotArm != null) robotArm.SetTarget(GetRestTarget());
             return;
         }
 
@@ -298,6 +312,23 @@ public class StationController : MonoBehaviour
 
     /// <summary>상위 LINE 오브젝트의 LineSettings를 찾는다(없으면 null).</summary>
     public LineSettings FindLine() => GetComponentInParent<LineSettings>();
+
+    /// <summary>작업존 박스 center의 라인 기준 기본 높이.</summary>
+    public const float BoxCenterBaseY = 0.5f;
+
+    /// <summary>
+    /// 라인 설정과 side로부터 작업존 박스 center를 계산한다 — 배치기(ApplyWorkZone)와 공용 공식.
+    /// 기본값 (zSpacing, BoxCenterBaseY, ±laneWidth)에 부품별 offset을 더한다:
+    /// x·y는 그대로, z는 side 부호에 맞춰 대칭(+offset.z = laneWidth가 커지는 방향).
+    /// </summary>
+    public static Vector3 GetLineBoxCenter(LineSettings line, bool isRight, Vector3 offset)
+    {
+        float sideSign = isRight ? 1f : -1f;
+        return new Vector3(
+            line.zSpacing + offset.x,
+            BoxCenterBaseY + offset.y,
+            sideSign * (line.laneWidth + offset.z));
+    }
 
     /// <summary>
     /// robotLineSide 값을 설정하면서 appliedSide도 함께 맞춘다(재배치는 호출자가 이미 끝낸 상태).
@@ -314,7 +345,7 @@ public class StationController : MonoBehaviour
     /// 배치기(RobotArmPlacerWindow.PlaceLine)와 동일한 규칙:
     ///   z(월드)  = startZ ± zSpacing   (Left=-, Right=+)
     ///   회전 Y   = (Right? +90 : -90) × (라인 방향 Left? +1 : -1)  ← 방향 인지
-    ///   center.z = ±laneWidth × (라인 방향 Left? +1 : -1)
+    ///   center.x = zSpacing / center.z = ±laneWidth (작업존을 차선 위로)
     /// PilePos·EndPos는 스테이션 자식이라 회전·이동에 함께 따라가므로 별도 처리하지 않는다.
     /// X·Y(높이)는 기존 값을 유지한다.
     /// </summary>
@@ -340,68 +371,64 @@ public class StationController : MonoBehaviour
         float yRot = (isRight ? 90f : -90f) * dirSign;
         transform.rotation = Quaternion.Euler(0f, yRot, 0f);
 
-        // 작업존 center.z: z·회전과 달리 dirSign을 곱하지 않는다(방향 Right여도 반대로 뒤집지 않음).
+        // 작업존 center = 라인 파생 기본값 + 부품별 boxCenterOffset (배치기와 공용 공식).
+        // center.z는 z·회전과 달리 dirSign을 곱하지 않는다(방향 Right여도 반대로 뒤집지 않음).
         if (TryGetComponent<BoxCollider>(out var box))
-        {
-            Vector3 c = box.center;
-            c.z = isRight ? line.laneWidth : -line.laneWidth;
-            box.center = c;
-        }
+            box.center = GetLineBoxCenter(line, isRight, boxCenterOffset);
 
         appliedSide = robotLineSide;
+        appliedBoxCenterOffset = boxCenterOffset;
     }
 
-    /// <summary>SO 배치 데이터를 현재 스테이션에 그대로 적용한다(절대값 세팅).</summary>
+    /// <summary>
+    /// SO 배치 데이터(씬 독립 값)를 현재 스테이션에 적용한다:
+    /// PilePos·EndPos 로컬, 작업존 size·boxCenterOffset, robotLineSide.
+    /// 스테이션 루트 위치·회전과 작업존 center는 라인 파생값이라 건드리지 않는다 —
+    /// 이어서 ApplyLineSide()를 호출해 현재 씬의 LINE 기준으로 마저 배치할 것(center에 offset 반영).
+    /// </summary>
     public void ApplyPlacement(StationPlacement placement)
     {
-        transform.localPosition = placement.stationLocalPos;
-        transform.localEulerAngles = placement.stationEuler;
-
         if (stationPilePos != null) stationPilePos.localPosition = placement.pileLocalPos;
         if (endPos != null) endPos.localPosition = placement.endLocalPos;
 
+        boxCenterOffset = placement.boxCenterOffset; // center는 ApplyLineSide가 offset 포함 공식으로 계산
         if (TryGetComponent<BoxCollider>(out var box))
-        {
-            box.center = placement.boxCenter;
             box.size = placement.boxSize;
-        }
 
         robotLineSide = placement.robotLineSide;
         appliedSide = placement.robotLineSide;
     }
 
-    /// <summary>현재 스테이션 상태로부터 배치 데이터 구조체를 만든다.</summary>
+    /// <summary>현재 스테이션 상태로부터 배치 데이터 구조체(씬 독립 값)를 만든다.</summary>
     public StationPlacement BuildPlacement()
     {
         var placement = new StationPlacement
         {
             type = targetPartType,
             robotLineSide = robotLineSide,
-            stationLocalPos = transform.localPosition,
-            stationEuler = transform.localEulerAngles,
             pileLocalPos = stationPilePos != null ? stationPilePos.localPosition : Vector3.zero,
             endLocalPos = endPos != null ? endPos.localPosition : Vector3.zero,
+            boxCenterOffset = boxCenterOffset,
         };
         if (TryGetComponent<BoxCollider>(out var box))
-        {
-            placement.boxCenter = box.center;
             placement.boxSize = box.size;
-        }
         return placement;
     }
 
 #if UNITY_EDITOR
-    // 인스펙터에서 robotLineSide를 바꾸면 상위 LineSettings 기준으로 즉시 재배치.
+    // 인스펙터에서 robotLineSide/boxCenterOffset을 바꾸면 상위 LineSettings 기준으로 즉시 재배치.
     private void OnValidate()
     {
-        if (robotLineSide == appliedSide) return;
+        if (robotLineSide == appliedSide && boxCenterOffset == appliedBoxCenterOffset) return;
         appliedSide = robotLineSide;
+        appliedBoxCenterOffset = boxCenterOffset;
 
         // OnValidate 도중 Transform을 직접 바꾸면 경고가 날 수 있어 다음 에디터 틱으로 미룬다.
         EditorApplication.delayCall += () =>
         {
             if (this == null) return;
             Undo.RecordObject(transform, "Apply Robot Line Side");
+            if (TryGetComponent<BoxCollider>(out var workZoneBox)) Undo.RecordObject(workZoneBox, "Apply Robot Line Side");
             ApplyLineSide();
             EditorUtility.SetDirty(this);
         };
@@ -429,8 +456,15 @@ public class StationController : MonoBehaviour
             return;
         }
 
-        Undo.RecordObject(transform, "Load Station Placement");
-        ApplyPlacement(placementData.GetPlacement(targetPartType));
+        // ctrl + z 가능하게 — ApplyPlacement(파일/엔드/박스/side) + ApplyLineSide(루트)가 건드리는 대상 전부 기록
+        var undoTargets = new List<Object> { transform, this };
+        if (stationPilePos != null) undoTargets.Add(stationPilePos);
+        if (endPos != null) undoTargets.Add(endPos);
+        if (TryGetComponent<BoxCollider>(out var workZoneBox)) undoTargets.Add(workZoneBox);
+        Undo.RecordObjects(undoTargets.ToArray(), "Load Station Placement");
+
+        ApplyPlacement(placementData.GetPlacement(targetPartType)); // 씬 독립 값 적용
+        ApplyLineSide();                                            // 루트 z/회전·작업존 center.x/z는 현재 LINE 기준
         EditorUtility.SetDirty(this);
         Debug.Log($"[{name}] {targetPartType} 배치 불러오기 완료! (robotLineSide={robotLineSide})");
     }
@@ -465,6 +499,26 @@ public class StationController : MonoBehaviour
     {
         DrawWorkZoneGizmo();
         DrawRestGizmos();
+        DrawReachGizmo();
+    }
+
+    // 체결 거리 게이트 디버그: Assembling 중 팔 끝(endEffector)↔파츠 ArmLookTarget 거리를
+    // 선 + 거리 라벨로 표시. 물림(reachEngaged)=초록 / 풀림=빨강 — 게이트가 실제로 보고 있는 거리 확인용.
+    private void DrawReachGizmo()
+    {
+        if (currentState != StationState.Assembling || targetCarPart == null) return;
+        if (robotArm == null || robotArm.endEffector == null) return;
+
+        Vector3 tip = robotArm.endEffector.position;
+        Vector3 look = targetCarPart.GetArmLookWorldPos();
+
+        Gizmos.color = reachWorkFactor > 0f ? Color.green : Color.red;
+        Gizmos.DrawLine(tip, look);
+        Gizmos.DrawWireSphere(look, 0.05f);
+#if UNITY_EDITOR
+        string state = !reachEngaged ? "대기(미도달)" : $"{reachWorkFactor * 100f:F0}%";
+        Handles.Label((tip + look) * 0.5f, $"{Vector3.Distance(tip, look):F2}m {state}");
+#endif
     }
 
     private void DrawRestGizmos()

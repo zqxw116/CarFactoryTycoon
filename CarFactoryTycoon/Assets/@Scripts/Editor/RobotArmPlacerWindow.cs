@@ -24,6 +24,7 @@ public class RobotArmPlacerWindow : EditorWindow
     private const string GROUP_NAME = "GameObjectGroup";
     private const string PREF_BOX_SIZE = "RobotArmPlacer.BoxSize"; // 공용 박스 크기 저장 키
     private const string PREF_PLACEMENT_SO = "RobotArmPlacer.PlacementSO"; // 배치 데이터 SO GUID 저장 키
+    private const string PREF_APPLY_SO = "RobotArmPlacer.ApplyPlacementSO"; // SO 배치값 자동 적용 여부 저장 키
 
     // 데이터는 씬의 LineSettings 컴포넌트가 보관. 폴드아웃은 창 UI 상태(비영속).
     private readonly LineSettings[] lines = new LineSettings[LINE_COUNT];
@@ -37,6 +38,10 @@ public class RobotArmPlacerWindow : EditorWindow
     // 배치 시 각 StationController에 바인딩하고 배치 데이터를 굽는 SO. GUID로 EditorPrefs 영속.
     private StationPlacementDataSO placementData;
 
+    // 배치 시 SO의 부품별 씬 독립 값(Pile/End/작업존 size·center.y)을 함께 적용할지. EditorPrefs 영속.
+    // 좌/우(robotLineSide)는 SO가 아니라 창에서 고른 armSides가 최종이다.
+    private bool applyPlacementFromSO = true;
+
     [MenuItem("Tools/CarFactory/로봇팔 배치기")]
     private static void Open() => GetWindow<RobotArmPlacerWindow>("로봇팔 배치기");
 
@@ -45,6 +50,7 @@ public class RobotArmPlacerWindow : EditorWindow
         for (int i = 0; i < LINE_COUNT; i++) { foldout[i] = true; armsFoldout[i] = true; }
         LoadBoxSize();
         LoadPlacementSO();
+        applyPlacementFromSO = EditorPrefs.GetBool(PREF_APPLY_SO, true);
         AutoAssignLines();
         SceneView.duringSceneGui += OnSceneGUI;
     }
@@ -134,6 +140,14 @@ public class RobotArmPlacerWindow : EditorWindow
         placementData = (StationPlacementDataSO)EditorGUILayout.ObjectField(
             "배치 데이터 SO (배치 시 참조만 바인딩)", placementData, typeof(StationPlacementDataSO), false);
         if (EditorGUI.EndChangeCheck()) SavePlacementSO();
+
+        using (new EditorGUI.DisabledScope(placementData == null))
+        {
+            EditorGUI.BeginChangeCheck();
+            applyPlacementFromSO = EditorGUILayout.ToggleLeft(
+                "SO 배치값 자동 적용 (부품별 Pile/End/작업존 크기·오프셋 — 좌/우는 아래 목록이 최종)", applyPlacementFromSO);
+            if (EditorGUI.EndChangeCheck()) EditorPrefs.SetBool(PREF_APPLY_SO, applyPlacementFromSO);
+        }
 
         EditorGUILayout.Space();
 
@@ -389,10 +403,31 @@ public class RobotArmPlacerWindow : EditorWindow
             StationController station = ResolveStation(arm);
             if (station != null)
             {
+                // SO의 부품별 씬 독립 값(Pile/End/작업존 size·boxCenterOffset)을 함께 적용할지.
+                bool hasSOPlacement = applyPlacementFromSO && placementData != null && placementData.Has(station.targetPartType);
+                StationPlacement soPlacement = hasSOPlacement
+                    ? placementData.GetPlacement(station.targetPartType)
+                    : default;
+                // 작업존 center 오프셋: SO 우선, 없으면 스테이션이 들고 있는 현재값 유지.
+                Vector3 centerOffset = hasSOPlacement ? soPlacement.boxCenterOffset : station.boxCenterOffset;
+
                 Undo.RecordObject(station.transform, "Rotate Station");
                 station.transform.rotation = Quaternion.Euler(0f, yRot, 0f);
                 EditorUtility.SetDirty(station.transform);
-                ApplyWorkZone(station.transform, line, isRight, boxSize);
+                ApplyWorkZone(station.transform, line, isRight, boxSize, centerOffset);
+
+                // ApplyWorkZone 뒤 → SO의 박스 크기가 공용 boxSize를 덮어쓰고(center는 위에서 오프셋 포함 계산),
+                // SetRobotLineSide 앞 → 좌/우는 창에서 고른 armSides가 최종이 되게 한다.
+                if (hasSOPlacement)
+                {
+                    var undoTargets = new List<Object> { station };
+                    if (station.stationPilePos != null) undoTargets.Add(station.stationPilePos);
+                    if (station.endPos != null) undoTargets.Add(station.endPos);
+                    if (station.TryGetComponent<BoxCollider>(out var zoneBox)) undoTargets.Add(zoneBox);
+                    Undo.RecordObjects(undoTargets.ToArray(), "Apply Station Placement");
+
+                    station.ApplyPlacement(soPlacement);
+                }
 
                 // 선택된 방향을 StationController에 기록 → 인스펙터 robotLineSide와 동기화.
                 Undo.RecordObject(station, "Set Robot Line Side");
@@ -412,7 +447,9 @@ public class RobotArmPlacerWindow : EditorWindow
         }
 
         Debug.Log($"[로봇팔 배치기] {line.name} - {placed}개 배치 완료." +
-            (placementData != null ? $" (배치 데이터 SO '{placementData.name}' 참조 바인딩, 저장 안 함)" : ""));
+            (placementData != null
+                ? $" (배치 데이터 SO '{placementData.name}' 참조 바인딩{(applyPlacementFromSO ? " + 배치값 적용" : "")}, 저장 안 함)"
+                : ""));
     }
 
     /// <summary>
@@ -437,7 +474,7 @@ public class RobotArmPlacerWindow : EditorWindow
     }
 
     /// <summary>StationController의 작업존 BoxCollider(전체 공용 size)와 center를 라인 폭/방향에 맞게 설정.</summary>
-    private static void ApplyWorkZone(Transform station, LineSettings line, bool isRight, Vector3 size)
+    private static void ApplyWorkZone(Transform station, LineSettings line, bool isRight, Vector3 size, Vector3 centerOffset)
     {
         if (!station.TryGetComponent<BoxCollider>(out var box))
             box = Undo.AddComponent<BoxCollider>(station.gameObject);
@@ -446,10 +483,9 @@ public class RobotArmPlacerWindow : EditorWindow
         box.isTrigger = true;
         box.size = size;
 
-        // center.x: Z 지그재그 간격으로 적용
-        // center.z: (Right? +폭 : -폭). z·회전과 달리 dirSign을 곱하지 않는다(방향 Right여도 반전 안 함).
-        float centerZ = isRight ? line.laneWidth : -line.laneWidth;
-        box.center = new Vector3(line.zSpacing, 0.5f, centerZ);
+        // center = 라인 파생 기본값(zSpacing, 0.5, ±laneWidth) + 부품별 오프셋.
+        // StationController.ApplyLineSide와 공용 공식(GetLineBoxCenter) — 두 경로가 항상 같은 결과를 낸다.
+        box.center = StationController.GetLineBoxCenter(line, isRight, centerOffset);
         EditorUtility.SetDirty(box);
     }
 }

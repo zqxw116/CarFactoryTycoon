@@ -418,17 +418,24 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StationController
   targetPartType: 19
-  assembleSpeed: 6
-  assembleReachThreshold: 0.3
   robotArm: {fileID: 5702668385078735360}
   stationPilePos: {fileID: 1775557700971855134}
   endPos: {fileID: 5843692551589706330}
   stationPileMesh: {fileID: 0}
-  drawWorkZoneGizmo: 1
-  workZoneColor: {r: 0, g: 1, b: 0.4, a: 1}
+  robotLineSide: 0
+  boxCenterOffset: {x: 0, y: 0, z: 0}
+  placementData: {fileID: 0}
+  appliedSide: 0
+  appliedBoxCenterOffset: {x: 0, y: 0, z: 0}
   currentState: 0
   currentCar: {fileID: 0}
   targetCarPart: {fileID: 0}
+  drawWorkZoneGizmo: 1
+  workZoneColor: {r: 0, g: 1, b: 0.4, a: 1}
+  drawRestGizmo: 1
+  restGizmoRadius: 0.15
+  pilePosColor: {r: 1, g: 0.6, b: 0.1, a: 1}
+  endPosColor: {r: 0.2, g: 0.6, b: 1, a: 1}
 --- !u!65 &1826364891762734486
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -594,8 +601,8 @@ MonoBehaviour:
     rotationAxis: {x: 0, y: 0, z: 1}
     baseSpeed: 180
     useLimits: 1
-    minAngle: -180
-    maxAngle: 0
+    minAngle: -150
+    maxAngle: -20
     keepLevel: 0
     zeroRotation: {x: 0, y: 0, z: 0, w: 0}
     currentAngle: 0
@@ -606,7 +613,7 @@ MonoBehaviour:
     baseSpeed: 180
     useLimits: 1
     minAngle: 130
-    maxAngle: 180
+    maxAngle: 175
     keepLevel: 1
     zeroRotation: {x: 0, y: 0, z: 0, w: 0}
     currentAngle: 0

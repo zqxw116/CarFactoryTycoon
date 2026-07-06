@@ -177,7 +177,6 @@ public class CarController : MonoBehaviour
                 if (partIdx >= 0 && partIdx < targetIdx)
                 {
                     // 이전 공정: 체결 완료(work=requiredWork), 활성화
-                    part.ClearRuntimeDetached();
                     part.SetActive(true);
                     part.SetAssembled();
                 }
