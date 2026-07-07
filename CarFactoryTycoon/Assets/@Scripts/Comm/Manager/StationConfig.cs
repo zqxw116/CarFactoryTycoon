@@ -26,5 +26,10 @@ public class StationConfig : MonoSingleton<StationConfig>
     [Tooltip("threshold부터 (threshold+margin)까지 체결 속도가 선형으로 0까지 감속되는 완충 구간(m). 팔이 처지면 파츠가 자동으로 느려져 스텝 끊김 없이 수렴")]
     public float reachReleaseMargin = 0.1f;
 
+    [Tooltip("로봇팔이 추적하는 가상 타겟(trackingTarget)의 이동 속도(유닛/초). 타겟을 순간이동시키지 않고" +
+        " 목표(파츠/EndPos)까지 미끄러뜨려 복귀/전환 시 팔끝 경로를 통제한다." +
+        " 팔의 실제 추적 속도보다 넉넉히 빠르게 — 너무 느리면 팔이 파츠에 늦게 도달해 누락 밸런스에 영향을 준다.")]
+    public float trackingTargetSpeed = 4f;
+
     public override void Init() { }
 }

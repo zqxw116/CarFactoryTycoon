@@ -56,7 +56,10 @@ public class AssemblyPart : MonoBehaviour
     // 부착점은 매 프레임 차량을 따라 재계산되어 움직이는 차에 정확히 붙는다.
     private bool assembling = false;
     private Vector3 pileWorldPos;
-    private Quaternion pileWorldRot = Quaternion.identity;
+    // 시작 회전 = 부착(도착) 회전 × 이 오프셋 — 월드 절대값이 아니라 도착 회전 기준 상대값.
+    // 차량/라인 진행 방향과 무관하게 "부착 방향에서 몇 도 꺾여서 시작"이라는 의미가 유지된다.
+    // identity면 회전 연출 없음(처음부터 부착 방향).
+    private Quaternion pileRotOffset = Quaternion.identity;
     private Transform frameCenter; // 진입 방향 자동계산용 차량 중심("Frame")
 
     public void SetActive(bool _isActive) => this.gameObject.SetActive(_isActive);
@@ -91,12 +94,13 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>
     /// 월드 조립을 시작한다. 부품은 pile(로봇팔 대기위치, 월드 고정)에서 출발해
     /// 진입점을 거쳐 차량 부착점(매 프레임 차량 추적)으로 이동한다.
+    /// startRotOffset = 부착(도착) 회전 기준 시작 회전 오프셋 (identity = 회전 연출 없음).
     /// 호출 후 SetWork/AddWork로 진행도를 올리면 위치가 갱신된다.
     /// </summary>
-    public void BeginWorldAssembly(Vector3 worldPilePos, Quaternion worldPileRot)
+    public void BeginWorldAssembly(Vector3 worldPilePos, Quaternion startRotOffset)
     {
         pileWorldPos = worldPilePos;
-        pileWorldRot = worldPileRot;
+        pileRotOffset = startRotOffset;
         assembling = true;
     }
 
@@ -185,8 +189,10 @@ public class AssemblyPart : MonoBehaviour
 
         transform.position = CubicBezier(worldStart, p1, p2, worldEnd, fill);
 
+        // 회전: 시작 = 도착 회전 × 오프셋(도착 기준 상대값) → 차량이 어느 방향으로 달리든
+        // "부착 방향에서 pileRotOffset만큼 꺾인 상태 → 부착 방향" 보간이 일관되게 유지된다.
         Quaternion worldEndRot = cachedParent.rotation * Quaternion.Euler(assembledRot);
-        transform.rotation = Quaternion.Slerp(pileWorldRot, worldEndRot, fill);
+        transform.rotation = Quaternion.Slerp(worldEndRot * pileRotOffset, worldEndRot, fill);
     }
 
     /// <summary>진입 방향(로컬). override가 있으면 그것을, 없으면 차량중심→부착점 방향을 쓴다.</summary>

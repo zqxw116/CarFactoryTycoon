@@ -56,6 +56,12 @@ public class StationController : MonoBehaviour
     public bool drawWorkZoneGizmo = true;
     public Color workZoneColor = new Color(0f, 1f, 0.4f, 1f);
 
+    [Header("복귀 경로 미리보기 기즈모")]
+    [Tooltip("플레이 중, '지금 이 순간 복귀를 시작하면' 팔끝(endEffector)이 그리게 될 경로를 시뮬레이션해 표시." +
+        " 가상 타겟 슬라이드 + IK 관절 속도제한/리밋까지 실제와 동일 로직으로 미래 프레임을 계산한다." +
+        " 노랑(시작)→파랑(도착) 그라데이션, 경로 최저점은 빨간 구+높이 라벨.")]
+    public bool drawReturnPreviewGizmo = true;
+
     [Header("대기 위치 기즈모 (PilePos / EndPos)")]
     [Tooltip("씬 뷰에서 PilePos(파츠 대기)·EndPos(로봇팔 대기) 위치를 구로 표시. 핸들로 드래그 편집 가능")]
     public bool drawRestGizmo = true;
@@ -78,15 +84,28 @@ public class StationController : MonoBehaviour
     private void Start()
     {
         config = StationConfig.Instance; // 전역 설정 참조를 1회 캐싱 (Update마다 getter 호출 방지)
-        trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
-        trackingTarget.SetParent(transform, false); // 스테이션 자식으로 배치(하이러키 정리, 함께 파괴)
-        trackingTarget.rotation = Quaternion.identity; // 스테이션이 라인 좌/우에 따라 Y ±90° 회전돼 있어도 상속받지 않도록 월드 회전 고정
 
         if (robotArm != null && stationPilePos != null)
         {
-            robotArm.SetTarget(GetRestTarget());
+            // 팔은 항상 가상 타겟(trackingTarget)만 추적한다 — 목표 전환은 타겟 자체의
+            // 연속 이동(UpdateTrackingTarget)으로 처리해 팔끝 경로를 통제.
+            robotArm.SetTarget(EnsureTrackingTarget());
             robotArm.targetPartType = this.targetPartType;
         }
+    }
+
+    /// <summary>가상 타겟을 (없으면 생성해) 반환한다. 생성 시 대기 위치(EndPos)에서 시작.</summary>
+    private Transform EnsureTrackingTarget()
+    {
+        if (trackingTarget == null)
+        {
+            trackingTarget = new GameObject($"{gameObject.name}_TrackingTarget").transform;
+            trackingTarget.SetParent(transform, false); // 스테이션 자식으로 배치(하이러키 정리, 함께 파괴)
+            trackingTarget.rotation = Quaternion.identity; // 스테이션이 라인 좌/우에 따라 Y ±90° 회전돼 있어도 상속받지 않도록 월드 회전 고정
+            Transform rest = GetRestTarget();
+            if (rest != null) trackingTarget.position = rest.position;
+        }
+        return trackingTarget;
     }
 
     private void OnTriggerEnter(Collider other)
@@ -137,22 +156,19 @@ public class StationController : MonoBehaviour
 
     private void Update()
     {
-        if (currentState == StationState.Idle || robotArm == null) return;
+        if (robotArm == null) return;
 
-        if (currentState != StationState.Cooldown && (currentCar == null || targetCarPart == null))
+        // 체결 중 차량/파츠 참조가 사라졌으면(풀 반환 등) 리셋 후 재시도
+        if (currentState == StationState.Assembling && (currentCar == null || targetCarPart == null))
         {
             bool wasManual = manualMode;
             ResetStation();
             if (!wasManual) TryBeginAssembly();
-            return;
         }
 
         switch (currentState)
         {
             case StationState.Assembling:
-                // [연출] 로봇팔이 파츠를 향해 계속 따라가도록 추적 타겟 갱신
-                trackingTarget.position = targetCarPart.GetArmLookWorldPos();
-
                 // [판정] 로봇팔 끝(Rig_End=endEffector)이 파츠 ArmLookTarget에 충분히 닿았을 때만 체결 진행.
                 // 작업존에 들어와도 팔이 아직 못 닿았으면 대기(준비)하고, 닿으면 체결값 증가,
                 // 차량이 멀어져 거리가 벌어지면 다시 증가가 멈춘다. 완성 시간 = requiredWork / assembleSpeed
@@ -188,7 +204,7 @@ public class StationController : MonoBehaviour
                     currentCar = null;
 
                     if (stationPileMesh) stationPileMesh.SetActive(true);
-                    robotArm.SetTarget(GetRestTarget());
+                    // 대기 위치 복귀는 UpdateTrackingTarget의 가상 타겟 슬라이드가 처리 (goal이 EndPos로 전환)
                     cooldownTimer = 1.0f;
                     currentState = StationState.Cooldown;
                 }
@@ -204,13 +220,42 @@ public class StationController : MonoBehaviour
                 }
                 break;
         }
+
+        UpdateTrackingTarget();
+    }
+
+    // 가상 타겟 슬라이드: 팔이 추적하는 점을 순간이동 없이 목표(체결 중=파츠 ArmLookTarget,
+    // 그 외=EndPos)로 연속 이동시킨다. 타겟이 한 프레임에 점프하면 CCD IK가 큰 오차를
+    // 제멋대로의 관절 원호로 메우며 팔끝이 바닥을 뚫거나 위로 휘두른다 — 팔이 추적하는
+    // 점 자체를 미끄러뜨리면 팔끝 경로가 직선에 가깝게 통제된다.
+    // 복귀 중 새 체결이 시작돼도 현재 위치에서 새 목표로 방향만 꺾는다(모든 전환 공통).
+    private void UpdateTrackingTarget()
+    {
+        if (trackingTarget == null) return;
+
+        Vector3 goal = (currentState == StationState.Assembling && targetCarPart != null)
+            ? targetCarPart.GetArmLookWorldPos()
+            : GetRestTarget().position;
+
+        trackingTarget.position = Vector3.MoveTowards(
+            trackingTarget.position, goal, config.trackingTargetSpeed * Time.deltaTime);
     }
 
     /// <summary>파츠의 분리 위치를 stationPilePos로 설정하고 조립을 시작한다.</summary>
     private void StartAssembly()
     {
         // 1. 월드 조립 시작: pile(이 스테이션의 stationPilePos, 월드 고정)에서 출발하도록 설정
-        targetCarPart.BeginWorldAssembly(stationPilePos.position, stationPilePos.rotation);
+        // 시작 회전 오프셋 = stationPilePos.localRotation (배치 SO의 pileLocalEuler로 부품별 저장/적용).
+        // '부착(도착) 회전 기준 상대값'이라 차량/라인 진행 방향과 무관하게 같은 연출 —
+        // 예: Y=90이면 "부착 방향에서 90도 꺾여서 시작", 0이면 회전 연출 없음.
+        // 저작값은 Left 스테이션 기준 — Right는 Y 부호를 반전해야 반대로 돌아 로봇팔을 뚫지 않는다.
+        Quaternion startRotOffset = stationPilePos.localRotation;
+        if (robotLineSide == RobotLineSideType.Right)
+        {
+            Vector3 e = startRotOffset.eulerAngles;
+            startRotOffset = Quaternion.Euler(e.x, -e.y, e.z);
+        }
+        targetCarPart.BeginWorldAssembly(stationPilePos.position, startRotOffset);
         // 2. work=0 = pile 위치로 이동 (SetWork 내부에서 work<=0이면 SetActive(false) 호출됨)
         targetCarPart.SetWork(0f);
         // 3. 위치 확정 후 활성화 (위 SetActive(false)를 덮어씀)
@@ -219,9 +264,9 @@ public class StationController : MonoBehaviour
         // 스테이션 파일 메시 숨김 (파츠 오브젝트가 그 자리에 있으므로)
         if (stationPileMesh) stationPileMesh.SetActive(false);
 
-        // 로봇팔이 파츠를 추적하도록 설정
-        trackingTarget.position = targetCarPart.GetArmLookWorldPos();
-        if (robotArm != null) robotArm.SetTarget(trackingTarget);
+        // 로봇팔이 가상 타겟을 추적하도록 설정 — 타겟 위치는 텔레포트하지 않는다.
+        // UpdateTrackingTarget이 현재 위치에서 파츠를 향해 미끄러뜨린다(복귀 도중 진입 포함).
+        if (robotArm != null) robotArm.SetTarget(EnsureTrackingTarget());
 
         reachEngaged = false; // 새 체결은 팔이 threshold 이내로 도달(최초 캐치)해야 시작
         reachWorkFactor = 0f;
@@ -231,7 +276,7 @@ public class StationController : MonoBehaviour
     private void ResetStation()
     {
         if (stationPileMesh) stationPileMesh.SetActive(true);
-        if (robotArm != null) robotArm.SetTarget(GetRestTarget());
+        if (robotArm != null) robotArm.SetTarget(EnsureTrackingTarget()); // 복귀 이동은 가상 타겟 슬라이드가 처리
 
         if (targetCarPart != null)
         {
@@ -267,7 +312,7 @@ public class StationController : MonoBehaviour
         if (robotArm != null)
         {
             robotArm.targetPartType = newType;
-            robotArm.SetTarget(GetRestTarget()); // 대기는 EndPos(로봇팔 대기 위치)에서 — 파츠가 나올 PilePos와 겹치지 않게
+            robotArm.SetTarget(EnsureTrackingTarget()); // 대기는 EndPos에서 — 가상 타겟이 EndPos로 슬라이드 (파츠가 나올 PilePos와 겹치지 않게)
         }
     }
 
@@ -299,7 +344,7 @@ public class StationController : MonoBehaviour
         if (part == null)
         {
             Debug.LogWarning($"[{gameObject.name}] {newType} 파츠를 차량에서 찾을 수 없습니다.");
-            if (robotArm != null) robotArm.SetTarget(GetRestTarget());
+            if (robotArm != null) robotArm.SetTarget(EnsureTrackingTarget());
             return;
         }
 
@@ -382,13 +427,17 @@ public class StationController : MonoBehaviour
 
     /// <summary>
     /// SO 배치 데이터(씬 독립 값)를 현재 스테이션에 적용한다:
-    /// PilePos·EndPos 로컬, 작업존 size·boxCenterOffset, robotLineSide.
+    /// PilePos 로컬 위치·회전(파츠 시작 회전), EndPos 로컬, 작업존 size·boxCenterOffset, robotLineSide.
     /// 스테이션 루트 위치·회전과 작업존 center는 라인 파생값이라 건드리지 않는다 —
     /// 이어서 ApplyLineSide()를 호출해 현재 씬의 LINE 기준으로 마저 배치할 것(center에 offset 반영).
     /// </summary>
     public void ApplyPlacement(StationPlacement placement)
     {
-        if (stationPilePos != null) stationPilePos.localPosition = placement.pileLocalPos;
+        if (stationPilePos != null)
+        {
+            stationPilePos.localPosition = placement.pileLocalPos;
+            stationPilePos.localRotation = Quaternion.Euler(placement.pileLocalEuler); // 파츠 시작 회전 (StartAssembly가 읽음)
+        }
         if (endPos != null) endPos.localPosition = placement.endLocalPos;
 
         boxCenterOffset = placement.boxCenterOffset; // center는 ApplyLineSide가 offset 포함 공식으로 계산
@@ -407,6 +456,7 @@ public class StationController : MonoBehaviour
             type = targetPartType,
             robotLineSide = robotLineSide,
             pileLocalPos = stationPilePos != null ? stationPilePos.localPosition : Vector3.zero,
+            pileLocalEuler = stationPilePos != null ? stationPilePos.localEulerAngles : Vector3.zero,
             endLocalPos = endPos != null ? endPos.localPosition : Vector3.zero,
             boxCenterOffset = boxCenterOffset,
         };
@@ -500,6 +550,51 @@ public class StationController : MonoBehaviour
         DrawWorkZoneGizmo();
         DrawRestGizmos();
         DrawReachGizmo();
+        DrawReturnPreviewGizmo();
+    }
+
+    // 복귀 경로 미리보기: 지금 이 자세에서 복귀(가상 타겟이 EndPos로 슬라이드)를 시작하면
+    // 팔끝이 실제로 그리게 될 경로를 IK 시뮬레이션으로 계산해 표시.
+    // 바닥 뚫기/휘두름이 '어느 구간에서, 얼마나' 생기는지 눈으로 확인하는 용도.
+    private static readonly List<Vector3> previewPath = new List<Vector3>(128); // 재사용 버퍼 (기즈모 계산용)
+
+    private void DrawReturnPreviewGizmo()
+    {
+        if (!drawReturnPreviewGizmo || !Application.isPlaying) return;
+        if (robotArm == null || robotArm.endEffector == null || trackingTarget == null || config == null) return;
+        Transform rest = GetRestTarget();
+        if (rest == null) return;
+
+        const float dt = 1f / 30f;
+        const int steps = 120; // 4초 분량
+
+        // 가상 타겟 슬라이드까지 실제 복귀와 동일하게 시뮬레이션
+        Vector3 simTracker = trackingTarget.position;
+        Vector3 goal = rest.position;
+        robotArm.SimulateTrajectory(_ =>
+        {
+            simTracker = Vector3.MoveTowards(simTracker, goal, config.trackingTargetSpeed * dt);
+            return simTracker;
+        }, dt, steps, previewPath);
+
+        if (previewPath.Count < 2) return;
+
+        // 노랑(시작=현재 팔끝) → 파랑(도착) 그라데이션 폴리라인
+        int lowestIdx = 0;
+        for (int i = 1; i < previewPath.Count; i++)
+        {
+            Gizmos.color = Color.Lerp(Color.yellow, Color.cyan, (float)i / (previewPath.Count - 1));
+            Gizmos.DrawLine(previewPath[i - 1], previewPath[i]);
+            if (previewPath[i].y < previewPath[lowestIdx].y) lowestIdx = i;
+        }
+
+        // 경로 최저점 표시 — 바닥(y=0 근처) 아래로 파고드는 깊이를 바로 읽을 수 있게
+        Vector3 lowest = previewPath[lowestIdx];
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(lowest, 0.08f);
+#if UNITY_EDITOR
+        Handles.Label(lowest, $"최저점 y={lowest.y:F2}");
+#endif
     }
 
     // 체결 거리 게이트 디버그: Assembling 중 팔 끝(endEffector)↔파츠 ArmLookTarget 거리를
@@ -530,6 +625,8 @@ public class StationController : MonoBehaviour
             Gizmos.color = pilePosColor;
             Gizmos.DrawWireSphere(stationPilePos.position, restGizmoRadius);
             Gizmos.DrawLine(transform.position, stationPilePos.position);
+            // 파츠 시작 회전(pileLocalEuler) 방향 표시 — forward 방향선
+            Gizmos.DrawRay(stationPilePos.position, stationPilePos.forward * restGizmoRadius * 3f);
         }
 
         if (endPos != null)

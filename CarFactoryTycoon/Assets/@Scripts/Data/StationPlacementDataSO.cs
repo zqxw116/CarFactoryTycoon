@@ -20,6 +20,10 @@ public struct StationPlacement
 
     [Header("대기 위치 (스테이션 로컬)")]
     public Vector3 pileLocalPos;   // 파츠 대기
+    [Tooltip("파츠 시작 회전 오프셋(stationPilePos 로컬 오일러) — '부착(도착) 회전 기준 상대값'." +
+        " 예: Y=90이면 부착 방향에서 90도 꺾인 상태로 시작해 부착 방향으로 회전하며 도착. (0,0,0)이면 회전 연출 없음." +
+        " 차량/라인 진행 방향과 무관하게 같은 연출. Left 기준 저작 — Right 스테이션은 Y 부호가 자동 반전된다.")]
+    public Vector3 pileLocalEuler; // 파츠 시작 회전 오프셋 (도착 기준 상대)
     public Vector3 endLocalPos;    // 로봇팔 대기
 
     [Header("작업존 (BoxCollider) — center는 라인 파생 기본값 + 오프셋으로 계산")]

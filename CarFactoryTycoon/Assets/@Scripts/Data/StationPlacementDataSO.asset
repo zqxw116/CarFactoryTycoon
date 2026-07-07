@@ -23,33 +23,33 @@ MonoBehaviour:
   - type: 3
     robotLineSide: 1
     pileLocalPos: {x: 0.048696287, y: 0.5034237, z: 2.2421649}
-    endLocalPos: {x: -1.6316581, y: 1.4309831, z: -0.118588805}
+    endLocalPos: {x: 1.0353209, y: 2.1287687, z: -1.118752}
     boxCenterOffset: {x: 0, y: 0, z: 0}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 1.85}
   - type: 4
     robotLineSide: 0
     pileLocalPos: {x: 0.073394544, y: 1.0493662, z: -2.5453422}
-    endLocalPos: {x: -1.6958224, y: 1.4461112, z: -1.3485866}
+    endLocalPos: {x: 1.3258301, y: 2.1327047, z: 0.19249463}
     boxCenterOffset: {x: 0, y: 0, z: 0.63}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 1.64}
   - type: 5
     robotLineSide: 1
-    pileLocalPos: {x: 0.014144661, y: 0.5, z: 1.8885539}
-    endLocalPos: {x: -1.2706723, y: 0.84266174, z: 1.1537286}
+    pileLocalPos: {x: 0.52241975, y: 0.5, z: 2.1246367}
+    endLocalPos: {x: 1.3262699, y: 1.3237748, z: -0.7617141}
     boxCenterOffset: {x: 0, y: 0, z: 0}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 1.8}
   - type: 7
     robotLineSide: 0
     pileLocalPos: {x: 0.41377884, y: 0.7099296, z: -1.5964754}
     endLocalPos: {x: -0.68663174, y: 0.9279388, z: -1.6579745}
     boxCenterOffset: {x: 0, y: 0, z: -1.61}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 1.46}
   - type: 8
     robotLineSide: 1
     pileLocalPos: {x: 0.3217776, y: 0.85669243, z: 2.179883}
     endLocalPos: {x: -1.3818837, y: 1.5402966, z: 1.9044162}
     boxCenterOffset: {x: 0, y: 0, z: -2.72}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 1.33}
   - type: 9
     robotLineSide: 0
     pileLocalPos: {x: 0.3321555, y: 0.5, z: 2.2472384}

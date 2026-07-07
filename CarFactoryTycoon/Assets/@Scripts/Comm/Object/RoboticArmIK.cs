@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 
@@ -114,6 +115,8 @@ public class RoboticArmIK : MonoBehaviour
         Debug.Log("[RoboticArmIK] 각도 제한 및 모터 속도(Base Speed) 세팅이 완료되었습니다!");
     }
 
+    private bool jointsInitialized = false; // Start()에서 zeroRotation 세팅 완료 여부 (시뮬레이션 가드)
+
     void Start()
     {
         foreach (var joint in joints)
@@ -136,12 +139,21 @@ public class RoboticArmIK : MonoBehaviour
                 joint.initialLocalSky = Vector3.ProjectOnPlane(joint.initialLocalSky, joint.rotationAxis).normalized;
             }
         }
+        jointsInitialized = true;
     }
 
     void LateUpdate()
     {
         if (target == null || endEffector == null || joints.Length == 0) return;
+        SolveStep(target.position, Time.deltaTime);
+    }
 
+    /// <summary>
+    /// CCD IK 1프레임 분량을 계산해 관절 트랜스폼에 적용한다.
+    /// LateUpdate(실제 추적)와 SimulateTrajectory(미래 경로 시뮬레이션)가 공용으로 사용.
+    /// </summary>
+    public void SolveStep(Vector3 targetPos, float deltaTime)
+    {
         for (int i = 0; i < iterations; i++)
         {
             for (int j = joints.Length - 1; j >= 0; j--)
@@ -154,7 +166,7 @@ public class RoboticArmIK : MonoBehaviour
 
                 // 이번 반복에서 이 관절이 회전할 수 있는 최대 각도
                 // baseSpeed(초당 회전 속도) * trackingMultiplier(속도 보정 계수) * Time.deltaTime(프레임 시간) * iterations(반복 횟수만큼 나눠서 한 번의 회전량을 줄임)
-                float maxStep = (joint.baseSpeed * trackingMultiplier * Time.deltaTime) / iterations;
+                float maxStep = (joint.baseSpeed * trackingMultiplier * deltaTime) / iterations;
 
                 // 수평 유지용 관절 처리
                 if (joint.keepLevel)
@@ -195,7 +207,7 @@ public class RoboticArmIK : MonoBehaviour
 
                 // endEffector와 target의 월드 위치를 현재 관절 bone 기준 로컬 위치로 변환
                 Vector3 localEffector = bone.InverseTransformPoint(endEffector.position);
-                Vector3 localTarget = bone.InverseTransformPoint(target.position);
+                Vector3 localTarget = bone.InverseTransformPoint(targetPos);
 
                 // 관절 회전축(axis) 방향 성분은 제거하고,
                 // 이 관절이 실제로 회전해서 맞출 수 있는 평면 위 방향만 남김
@@ -243,6 +255,42 @@ public class RoboticArmIK : MonoBehaviour
                     bone.localRotation = joint.zeroRotation * Quaternion.AngleAxis(joint.currentAngle, axis);
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// 현재 자세에서 출발해 미래 프레임을 시뮬레이션하고 팔끝(endEffector) 경로를 path에 담는다.
+    /// 실제 추적과 동일한 SolveStep을 관절 트랜스폼에 직접 돌린 뒤 원상복구하므로
+    /// 속도 제한·리밋·keepLevel까지 포함한 '진짜 그리게 될 경로'가 나온다.
+    /// targetAt(step) = 각 스텝의 타겟 위치(움직이는 가상 타겟 시뮬레이션용). 플레이 중에만 유효.
+    /// </summary>
+    public void SimulateTrajectory(System.Func<int, Vector3> targetAt, float deltaTime, int steps, List<Vector3> path)
+    {
+        path.Clear();
+        if (!jointsInitialized || endEffector == null || joints == null || joints.Length == 0) return;
+
+        // 관절 상태 스냅샷 (시뮬레이션이 실제 트랜스폼을 돌리므로 끝나면 복구)
+        int n = joints.Length;
+        float[] savedAngles = new float[n];
+        Quaternion[] savedRots = new Quaternion[n];
+        for (int i = 0; i < n; i++)
+        {
+            savedAngles[i] = joints[i].currentAngle;
+            savedRots[i] = joints[i].bone != null ? joints[i].bone.localRotation : Quaternion.identity;
+        }
+
+        path.Add(endEffector.position);
+        for (int s = 0; s < steps; s++)
+        {
+            SolveStep(targetAt(s), deltaTime);
+            path.Add(endEffector.position);
+        }
+
+        // 원상복구
+        for (int i = 0; i < n; i++)
+        {
+            joints[i].currentAngle = savedAngles[i];
+            if (joints[i].bone != null) joints[i].bone.localRotation = savedRots[i];
         }
     }
     #if UNITY_EDITOR
