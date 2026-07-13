@@ -148,3 +148,137 @@
 - [ ] 행거 이동 (라인 사이 곡선 구간 개별 이송 연출)
 - [ ] 판매 / 업그레이드 UI 배선
 - [ ] AI NPC (누락 자동 보완), 피버타임, 라인 고장, 보스 차량
+
+## 6. 바퀴 리프트 공정 + 라인 정체(트래픽) 설계 (2026-07-12)
+
+> 바퀴 4개는 흐르면서 체결하지 않는다. 전용 리프트 공정에 차량이 **정지** →
+> 리프트가 차를 들어올림 → 로봇팔 동시 작업(고정 시간창) → 내려서 재출발.
+> 시간창 안에 못 끝낸 바퀴는 **안 붙은 채 출고**(부분 체결 = 부드러운 실패).
+
+### 6-1. 라인 정체 방식 = 어큐뮬레이션 (결정)
+
+현재 CarController는 차간 인지 없이 각자 `pathProgress`를 증가시키는 개별 이동.
+정지 차량이 생기면 뒷차 처리가 필요 — 후보 3안 비교:
+
+| 방식 | 동작 | 판정 |
+|---|---|---|
+| ① 블록 신호식 | 정지구간 점유 시 상류 차량 전부 그 자리 정지 (7m 간격 유지한 채) | ✗ 라인 버퍼 낭비, 띄엄띄엄 멈춰 어색 |
+| ② **어큐뮬레이션 (채택)** | 뒷차는 앞차 꽁무니 **minGap까지 접근 후 정지**. 줄서기 발생 | ✓ 실제 공장 컨베이어와 동일, 줄서는 시각 압박 = 업그레이드 동기 |
+| ③ 추종 모델(IDM류) | 앞차 속도 매칭 감속 | ✗ 과설계. 1D 단일 라인엔 불필요 |
+
+- **minGap = 5m** (차량 길이 4.5 + 여유 0.5, 호길이 기준). 스폰 피치 7m(속도×스폰주기)는
+  흐를 때의 간격일 뿐 불변량 아님 — 정지구간 앞에서 5m로 압축되는 게 의도된 그림.
+- **감속 밴드 decelBand = 2m**: gap 7m→5m 구간에서 속도 100%→0 선형 감속
+  (`speedFactor = clamp01((gap − minGap) / decelBand)`). 하드 클램프의 급정거 방지.
+  체결 소프트 게이트와 동일 패턴이라 튜닝 감각 공유.
+- 리프트에서 방출된 뒤 하류 간격은 속도×리프트사이클로 재배열됨 — 자연스러운 현상, 방치.
+
+### 6-2. LineTrafficManager (신규, MonoSingleton)
+
+- **활성 차량 리스트를 pathProgress 내림차순 유지.** 스폰은 항상 라인 시작(꼬리)이고
+  추월이 없으므로 정렬은 스폰 시 꼬리 삽입만으로 유지 (재정렬 불필요).
+- 등록/해제: `CarController.SetPath`에서 Register, 출고/`CarPool.Return`에서 Unregister.
+- **이동 주도권을 매니저로 이관**: 매 프레임 선두→후미 순서로 `car.MoveStep(maxProgress)` 호출.
+  `maxProgress = 앞차.pathProgress − minGap/splineLength` (선두는 1f).
+  선두부터 갱신하므로 같은 프레임 값 기준 클램프 = 1프레임 지연/스크립트 실행순서 이슈 없음.
+- CarController는 **매니저 없으면 기존 자율 이동 폴백** (TestPartsScene 등 기존 씬 무변경).
+- **스폰 가드**: `CarSpawner.SpawnCar` 시 시작점 앞 minGap 이내에 차가 있으면 스폰 보류
+  (타이머 리셋 안 함 → 자리 나면 즉시 스폰). 큐가 스포너까지 차면 자연 스로틀 = 정체의 최종 비용.
+
+### 6-3. WheelStation (리프트 공정, 신규)
+
+상태기계: `Idle → Entering → Raising → Working → Lowering → Releasing → Idle`
+
+- **위치**: `liftProgress`(스플라인 진행도 0~1)로 정의. Idle일 때 차가 `pathProgress ≥ liftProgress`
+  도달하면 캡처: liftProgress로 스냅 + `isMoving = false`. 트래픽 관점에선 그냥 "멈춘 선두"라
+  뒷차 줄서기는 6-2가 자동 처리 — 리프트는 뒷차를 전혀 몰라도 됨.
+- **승강 연출**: `isMoving=false`면 SnapToProgress가 안 돌아 transform이 자유 →
+  리프트가 차량 Y를 직접 DOTween 애니메이션 (기계 메시도 함께 상승). 내릴 때 원위치 복원.
+- **로봇팔 4개 직접 오케스트레이션**: 트리거 진입 의존 X. Working 진입 시 WheelStation이
+  각 StationController에 체결 시작 명령(동시 시작 연출 보장), **시간창 T 종료 시 미완료
+  스테이션 강제 ResetStation**. 차량이 정지 상태라 dist≈0 → 기존 소프트 게이트가 전속 체결
+  (게이트/AddWork 코드 재사용, 수정 불필요).
+- **부분 체결**: T 안에 끝난 바퀴만 IsAssembled. 미체결 바퀴는 빠진 채 출고 = 시각적 재미 +
+  판매가 감액 (현재 all-or-nothing 출고판정 → 부품 수 비례 감액으로 확장 필요).
+- **초기 가동 팔 2개(앞바퀴)** → 업그레이드로 4개 해금.
+
+### 6-4. 업그레이드 레버 / 파급효과
+
+- 레버: ①리프트 승강 속도(사이클 오버헤드) ②시간창 T ③동시 가동 팔 수 2→4
+  ④assembleSpeed 배율 ⑤(후반) 듀얼 리프트 = 병목 근본 해소 고가 목표.
+- 처리량 = min(스폰율, 1/리프트사이클). 라인속도 업그레이드할수록 리프트가 병목으로
+  부상 → 병목 옮겨가기 순환 완성.
+- ⚠️ **이머전트 효과**: 정체로 멈춘 차가 일반 스테이션 작업존 안에 서 있으면 그 부품은
+  전속 체결됨(정지 = dist≈0). "정체 = 처리량↓ 품질↑" 트레이드오프 — 일단 의도된 재미로
+  수용, 밸런스 문제 시 재검토.
+- 구현 순서 제안: ⑴ LineTrafficManager + CarController.MoveStep 분리 (리프트 없이도
+  정체 동작 단독 검증 가능 — 차 하나 isMoving=false로 수동 정지시켜 테스트)
+  ⑵ WheelStation 상태기계+승강 ⑶ 부분 체결 출고판정 확장 ⑷ 업그레이드 배선.
+
+### 6-5. 구현 완료 (2026-07-13) — ⑴⑵ 코드 완료, ⑶⑷ 미착수
+
+- **신규 `LineTrafficManager.cs`** (Comm/Manager): 설계 6-2대로. `minGap=5`/`decelBand=2` +
+  `minApproachFactor=0.15`(감속 바닥 속도 — 순수 선형 감속은 지수 수렴이라 영원히 도착 안 함,
+  바닥 속도 + 클램프 정지로 유한 시간 도킹). 게이트 정지점은 게이트 −1cm(`GateStopOffset`) —
+  정확히 게이트 위에 세우면 '통과' 판정돼 캡처 없이 지나가는 경계 버그 방지.
+  InitManager가 씬에 없으면 자동 생성(씬에 직접 배치하면 튜닝값 오버라이드 가능).
+- **`CarController.cs`**: `MoveAlongSpline` → `MoveStep(speedFactor, maxProgress)`로 일반화
+  (자율 이동 = `MoveStep(1,1)` 폴백). `SplineLength`/`IsDriving`/`SetProgress` 공개.
+  SetPath에서 트래픽 등록, OnDisable(풀 반환)에서 해제.
+- **`CarSpawner.cs`**: `SpawnCar()` bool 반환 — 출발점 앞 minGap 안에 차 있으면 스폰 보류
+  (타이머 유지 → 자리 나면 즉시 스폰).
+- **신규 `WheelStation.cs`** (Comm/Object): 설계 6-3대로. 게이트 등록, `autoProgressFromPosition`
+  (오브젝트 위치→최근접 스플라인 지점, CarSpawner와 동일 패턴), 승강은 수동 SmoothStep 타이머
+  (DOTween 불필요), `SetPartTypeAndStart`로 팔 일괄 시작(manualMode라 트리거 무관),
+  조기 완료 감지(Assembling 팔 없으면 즉시 하강), 시간창 종료 시 `ResetStation`으로 포기.
+  바퀴 다 붙은 차는 리프트 없이 통과. 기즈모: 정지 지점 차량 박스(대기=청록/작업=주황)+승강선.
+- **`StationController.ResetStation`** private→public (WheelStation의 포기 처리용).
+
+**씬 셋업 (Car_Factory 3):**
+1. 빈 오브젝트에 `WheelStation` 추가, 라인 3 옆 원하는 정지 지점에 배치 (autoProgress가 최근접
+   스플라인 지점을 잡음 — 기즈모 청록 차량 박스로 확인).
+2. 바퀴 4개 `StationController`를 `wheelStations` 배열에 연결 — **타입 지정/배치는 6-6의
+   자동 배치가 처리** (배열 순서 = 앞우/뒤우/앞좌/뒤좌).
+3. ⚠️ **바퀴 스테이션에는 작업존 BoxCollider(트리거)를 두지 말 것** — 시작 직후엔 manualMode가
+   아니라서 지나가는/줄 선 차량의 트리거 진입이 조기 체결을 시작시킨다. 리프트가 직접
+   오케스트레이션하므로 콜라이더 자체가 불필요. (6-6 자동 배치가 콜라이더를 자동으로 끔)
+4. `workWindow`(기본 6초) vs 바퀴 requiredWork/assembleSpeed로 성공/누락 밸런스 조정.
+   `activeArmCount`=2로 낮추면 뒷바퀴 누락 상태를 바로 재현 가능.
+
+**미착수(다음):** ⑶ 부분 체결 출고판정 — 현재 IsNotSuccessParts는 all-or-nothing(불량품이면
+판매금 0). 미체결 부품 수 비례 감액으로 확장 필요. ⑷ 업그레이드 배선(팔 수/승강속도/시간창).
+
+### 6-6. 테스트 편의 보강 + 바퀴 스테이션 자동 배치 (2026-07-13 ~ 07-14)
+
+**7/13 — WheelStation 테스트 지원:**
+- **캡처존 기즈모**: 게이트 직전 `CaptureEpsilon`(0.05→0.1로 상향) 구간을 마젠타 와이어박스로
+  표시 — 트래픽 정지점(게이트 −1cm)이 이 안에 들어와야 캡처된다.
+- **플레이 중 게이트 이동**: Idle 상태에서 transform 이동 감지 시 liftProgress 재계산
+  (사이클 중엔 고정) — 정지 지점을 플레이 중에 옮겨가며 테스트 가능.
+- **통과 사유 경고로그**: "작업할 바퀴 없음 → 통과"에 wheelStations 개수 포함 — 배열 미연결 /
+  트리거 조기 체결 / 캡처 실패를 콘솔에서 구분.
+- **차량 프리팹 교체**: CarModel_Origin.prefab을 Resources/Prefabs/로 이동,
+  CarPool이 이것을 로드하도록 교체(구 CarModel 대체).
+
+**7/14 — 바퀴 스테이션 4개 자동 배치 (`WheelStation.PlaceWheelStations`):**
+- `wheelStations` 인스펙터 바인딩(또는 `stationAxialOffset` 변경) 시 OnValidate가 자동 실행.
+  컨텍스트 메뉴 "바퀴 스테이션 자동 배치"로 수동 실행도 가능. (Undo 미지원 — 재배치로 복구)
+- 배열 순서대로 `targetPartType` = 앞우41/뒤우42/앞좌43/뒤좌44 자동 지정 (robotArm 포함).
+- **좌/우(lane)**: 배치 SO(placementData)의 robotLineSide 우선(ApplyPlacement 전체 적용),
+  SO에 없으면 바퀴 이름의 좌/우 폴백. ⚠️ SO의 42=Left/43=Right 어긋남은 교정(재저장) 필요.
+- **X(라인 방향)**: 리프트 중심 기준 앞바퀴 +`stationAxialOffset`(기본 1.5m)/뒷바퀴 − 대칭.
+  z·회전·작업존 center는 ApplyLineSide가 현재 LINE 기준으로 계산.
+- **계층**: WheelStation이 LINE 자식이면 스테이션들을 WheelStation 자식으로 편입 —
+  SetActive 토글에 팔 4개가 함께 켜지고 꺼진다. 작업존 BoxCollider는 자동 비활성화.
+
+**7/14 — TestPartsScene 바퀴 리프트 테스트 (드롭다운 전환):**
+- `AssemblyTestManager.wheelStation` 필드 추가: 바퀴 4종 선택 시 일반 station 비활성화 +
+  WheelStation 활성화(그 외 부품은 반대). 전환 전 `CancelCycle()`로 잡고 있던 차량 정리
+  (차량 리셋 후 정리하면 캡처 시점 위치로 역텔레포트되는 버그 방지).
+- `TestCarLooper.useManagedDrive`: 바퀴 테스트 시 차량 이동을 SetPath→LineTrafficManager에
+  이관 — 게이트 감속 정지/캡처가 실제 라인과 동일하게 동작. 진행도 0.97에서 루프 재시작
+  (1.0의 출고/풀 반환 로직 진입 전 가로챔). 일반 부품은 기존 직접 구동 유지.
+- `WheelStation` Start→OnEnable 재구성: SetActive 재활성화 시 게이트 재등록
+  (기존엔 Start 1회 등록이라 껐다 켜면 차량이 그냥 통과). OnDisable = CancelCycle + 등록 해제.
+- 파츠 상태는 기존 시맨틱 유지: **41(앞우) 선택 = 바퀴 4개 전부 테스트**,
+  44(뒤좌) 선택 = 그 바퀴 하나만 (이전 바퀴는 체결 완료 상태).

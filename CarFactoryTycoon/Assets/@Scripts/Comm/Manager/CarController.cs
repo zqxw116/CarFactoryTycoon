@@ -23,6 +23,16 @@ public class CarController : MonoBehaviour
     public int sellPrice = 100;
     private bool _finished = false;
 
+    // LineTrafficManager(정체 관리)가 있으면 이동을 매니저가 MoveStep으로 구동한다.
+    // 없으면(TestPartsScene 등) 기존대로 Update에서 자율 이동.
+    private bool _managed = false;
+
+    /// <summary>스플라인 실제 길이(m). 트래픽 매니저가 간격(m)↔진행도 환산에 사용.</summary>
+    public float SplineLength => splineLength;
+
+    /// <summary>지금 스스로 전진해야 하는 상태인지 (리프트 캡처 등으로 멈추면 false — 장애물로만 남는다).</summary>
+    public bool IsDriving => isMoving && !_finished && targetSpline != null;
+
     [SerializeField]private SerializedDictionary<PartGroup, List<AssemblyPart>> dicListParts = new SerializedDictionary<PartGroup, List<AssemblyPart>>();
 
     private void Awake()
@@ -65,6 +75,18 @@ public class CarController : MonoBehaviour
             ResetParts();                 // 재사용 시 이전 체결 상태 초기화
             SnapToProgress(pathProgress); // 출발 지점으로 즉시 배치 (원점에서 한 프레임 보이는 것 방지)
         }
+
+        // 트래픽 매니저가 있으면 등록 — 이후 이동은 매니저가 선두→후미 순서로 구동한다
+        _managed = LineTrafficManager.Instance != null;
+        if (_managed) LineTrafficManager.Instance.Register(this);
+    }
+
+    // 풀 반환(SetActive(false))·파괴 시 트래픽 목록에서 해제
+    private void OnDisable()
+    {
+        if (_managed && LineTrafficManager.Instance != null)
+            LineTrafficManager.Instance.Unregister(this);
+        _managed = false;
     }
 
     /// <summary>주어진 진행도(0~1) 지점으로 위치·회전을 즉시 적용한다.</summary>
@@ -85,17 +107,28 @@ public class CarController : MonoBehaviour
 
     private void Update()
     {
-        // 1. 이동 로직: 스플라인이 할당되어 있고, 이동 스위치가 켜져 있을 때만 작동
+        if (_managed) return; // LineTrafficManager가 MoveStep으로 구동 (차간 간격/게이트 클램프 포함)
+
+        // 자율 이동 폴백: 스플라인이 할당되어 있고, 이동 스위치가 켜져 있을 때만 작동
         if (isMoving && targetSpline != null && splineLength > 0f)
         {
-            MoveAlongSpline();
+            MoveStep(1f, 1f);
         }
     }
 
-    private void MoveAlongSpline()
+    /// <summary>
+    /// 한 프레임 이동. LineTrafficManager가 선두→후미 순서로 호출한다.
+    /// speedFactor: 감속 배율(0~1, 앞차/게이트 접근 시), maxProgress: 넘을 수 없는 진행도(앞차−minGap, 게이트 등).
+    /// </summary>
+    public void MoveStep(float speedFactor, float maxProgress)
     {
+        if (_finished || !isMoving || targetSpline == null || splineLength <= 0f) return;
+
         // 속도를 실제 스플라인 길이로 나누어 진행도(0~1)를 증가시킴
-        pathProgress += (moveSpeed / splineLength) * Time.deltaTime;
+        float next = pathProgress + (moveSpeed * speedFactor / splineLength) * Time.deltaTime;
+
+        // 제약(앞차 꽁무니/게이트)을 넘지 못하게 클램프. 이미 제약보다 앞서 있으면 후진하지 않고 정지.
+        pathProgress = Mathf.Min(next, Mathf.Max(pathProgress, maxProgress));
 
         // 라인 끝에 도달하면 출고 처리 후 풀로 반환 (파괴하지 않고 재사용)
         if (pathProgress >= 1f)
@@ -131,6 +164,16 @@ public class CarController : MonoBehaviour
     public void SetPosition(Vector3 pos)
     {
         transform.position = pos;
+    }
+
+    /// <summary>
+    /// 진행도를 외부에서 직접 지정하고 그 지점으로 스냅한다.
+    /// WheelStation이 방출 시 차량을 게이트 진행도 위로 올려(통과 처리) 게이트 클램프에서 풀 때 사용.
+    /// </summary>
+    public void SetProgress(float progress)
+    {
+        pathProgress = Mathf.Clamp01(progress);
+        SnapToProgress(pathProgress);
     }
 
     public bool IsNotSuccessParts()

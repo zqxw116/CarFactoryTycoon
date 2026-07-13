@@ -22,6 +22,11 @@ public class InitManager : MonoBehaviour
         // 돈 UI (자금 변동을 화면에 표시 + 트윈 연출). EconomyManager 이후에 초기화.
         MoneyUI.Instance.Init();
 
+        // 라인 트래픽(차간 간격/정체/게이트). 씬에 직접 배치돼 있으면(튜닝값 오버라이드) 그것을 쓰고,
+        // 없으면 기본값으로 생성. 이 매니저가 없는 씬(TestPartsScene 등)은 차량이 자율 이동한다.
+        if (FindFirstObjectByType<LineTrafficManager>() == null)
+            new GameObject("LineTrafficManager").AddComponent<LineTrafficManager>();
+
         // CarPool은 생성 차량 계층 정리를 위해 GameObjectGroup 아래 별도 오브젝트로 생성.
         CreateCarPool();
     }

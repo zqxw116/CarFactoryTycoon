@@ -25,12 +25,12 @@ MonoBehaviour:
     mid2Rot: {x: 0, y: 0, z: 0}
   - type: 2
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 20
     assembledPos: {x: -0.01354027, y: 0.5145526, z: 0.5731283}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.2489973, y: 0.5145526, z: -1.9652392}
+    midPos: {x: -1.7797872, y: 0.5145526, z: -2.4725199}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.9201845, y: 0.5145526, z: 1.3900923}
+    mid2Pos: {x: -1.9203795, y: 0.5145526, z: 1.3901898}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 27
     robotLineSide: 0
@@ -70,43 +70,43 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 23
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0.74404716, y: 0.98193014, z: -1.9137878}
+    requiredWork: 15
+    assembledPos: {x: 0.74405545, y: 0.9819301, z: -1.913789}
     assembledRot: {x: -0, y: 180, z: 0}
-    midPos: {x: 0.74404716, y: 0.98193014, z: -2.342}
+    midPos: {x: 0.39015365, y: 0.9819301, z: -2.715546}
     midRot: {x: -0, y: 180, z: 0}
-    mid2Pos: {x: 1.255, y: 0.98193014, z: -2.342}
+    mid2Pos: {x: 1.2550167, y: 0.9819301, z: -2.3420005}
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 22
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0.6687757, y: 0.78769225, z: 2.0308988}
+    requiredWork: 15
+    assembledPos: {x: 0.66877586, y: 0.78769225, z: 2.030948}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0.6687757, y: 0.78769225, z: 2.640004}
+    midPos: {x: 0.3184722, y: 0.78769225, z: 3.8810518}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: 1.12, y: 0.78769225, z: 2.85}
+    mid2Pos: {x: 1.1200246, y: 0.78769225, z: 2.850049}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 21
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: -0.6687724, y: 0.7876923, z: 2.030895}
+    requiredWork: 15
+    assembledPos: {x: -0.6687897, y: 0.7876923, z: 2.0309641}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -0.6687724, y: 0.7876923, z: 2.64}
+    midPos: {x: -0.48609388, y: 0.7876923, z: 3.6124554}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.23, y: 0.7876923, z: 2.6}
+    mid2Pos: {x: -1.2300346, y: 0.7876923, z: 2.600069}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 20
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0.82852364, y: 1.1983644, z: 0.84272766}
+    requiredWork: 18
+    assembledPos: {x: 0.8285823, y: 1.1983644, z: 0.84277225}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 1.27, y: 1.1983644, z: 0.84272766}
+    midPos: {x: 1.1457648, y: 1.1983644, z: 0.8427708}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: 1.42, y: 1.1983644, z: 1.91}
+    mid2Pos: {x: 1.4200739, y: 1.1983644, z: 1.9101325}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 19
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: -0.8285122, y: 1.1983644, z: 0.84272766}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -1.289, y: 1.1983644, z: 0.84272766}
@@ -115,7 +115,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 18
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: 0, y: 1.1002625, z: 1.184803}
     assembledRot: {x: 0, y: -5.0888875e-14, z: 0}
     midPos: {x: 0.21040192, y: 1.51, z: 2.0504484}
@@ -124,7 +124,7 @@ MonoBehaviour:
     mid2Rot: {x: 0, y: -5.0888875e-14, z: 0}
   - type: 17
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: 0, y: 1.5977572, z: -1.4576073}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: -0.34608972, y: 1.5977572, z: -2.432112}
@@ -133,52 +133,52 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 76.89999, z: 0}
   - type: 16
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0, y: 0.1924607, z: 2.1506844}
+    requiredWork: 15
+    assembledPos: {x: -2.842171e-14, y: 0.19246069, z: 2.1513345}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0.28886372, y: 0.1924607, z: 2.63}
+    midPos: {x: -0.4016083, y: 1.6539963, z: 3.8272283}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.34, y: 0.1924607, z: 3.446559}
+    mid2Pos: {x: 2.4322863, y: 0.29675567, z: 2.763283}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 15
     robotLineSide: 0
     requiredWork: 10
-    assembledPos: {x: -0.8977871, y: 0.38079593, z: -1.2596283}
+    assembledPos: {x: -0.8978137, y: 0.3807959, z: -1.259655}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.31, y: 0.38079593, z: -1.2596283}
+    midPos: {x: -1.4440817, y: 0.3807959, z: -1.2596285}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.31, y: 0.38079593, z: -2.68}
+    mid2Pos: {x: -1.3100268, y: 0.3807959, z: -2.6800532}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 14
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: -0.89777946, y: 0.38079593, z: 1.6514626}
+    requiredWork: 15
+    assembledPos: {x: -0.8978114, y: 0.3807959, z: 1.6515265}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.31, y: 0.38079593, z: 1.6514626}
+    midPos: {x: -1.3210999, y: 0.3807959, z: 1.651463}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.31, y: 0.38079593, z: 2.68}
+    mid2Pos: {x: -1.3100319, y: 0.3807959, z: 2.6800642}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 13
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: 0.8977871, y: 0.38079593, z: -1.2596283}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 1.31, y: 0.38079593, z: -1.2596283}
+    midPos: {x: 1.49, y: 0.38079593, z: -1.2596283}
     midRot: {x: -0, y: 0, z: 0}
     mid2Pos: {x: 1.31, y: 0.38079593, z: -2.68}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 12
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0.8977833, y: 0.38079593, z: 1.6514626}
+    requiredWork: 15
+    assembledPos: {x: 0.89837, y: 0.3807959, z: 1.6525784}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 1.31, y: 0.38079593, z: 1.6514626}
+    midPos: {x: 1.32, y: 0.3807959, z: 1.652578}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: 1.31, y: 0.38079593, z: 2.68}
+    mid2Pos: {x: 1.9371634, y: 0.3807959, z: 3.4875827}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 11
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: 0.9284992, y: 0.290456, z: 0.4680977}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 1.58, y: 0.290456, z: 0.4680977}
@@ -187,48 +187,48 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 10
     robotLineSide: 0
-    requiredWork: 100
-    assembledPos: {x: -0.9284954, y: 0.290456, z: 0.4680977}
+    requiredWork: 15
+    assembledPos: {x: -0.9285302, y: 0.290456, z: 0.46809787}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.3263557, y: 0.290456, z: 1.3513539}
+    midPos: {x: -1.798742, y: 0.290456, z: 0.28597522}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.87, y: 0.290456, z: 1.5}
+    mid2Pos: {x: -1.8700696, y: 0.290456, z: 1.5000696}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 9
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: 0, y: 1.104219, z: 1.4715347}
+    requiredWork: 15
+    assembledPos: {x: -1.4210855e-14, y: 1.104219, z: 1.4716212}
     assembledRot: {x: 308.59998, y: 0, z: 0}
-    midPos: {x: 0, y: 1.25, z: 2.12}
+    midPos: {x: 0.5159821, y: 2.594288, z: 2.1033623}
     midRot: {x: 308.59998, y: 0, z: 0}
-    mid2Pos: {x: -1.652, y: 1.25, z: 2.484}
+    mid2Pos: {x: -1.652173, y: 1.25, z: 2.484173}
     mid2Rot: {x: 329.83, y: 0, z: -0.00000049377445}
   - type: 8
     robotLineSide: 0
     requiredWork: 15
-    assembledPos: {x: 0.8150313, y: 1.2556942, z: -0.78026605}
+    assembledPos: {x: 0.8151858, y: 1.2556942, z: -0.78042054}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 1.532509, y: 1.3120567, z: -0.9016527}
+    midPos: {x: 1.2514089, y: 1.3120567, z: -0.8191724}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: 1.5800383, y: 1.2556942, z: 0.4654559}
+    mid2Pos: {x: 2.0999327, y: 1.2556942, z: 1.0768969}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 7
     robotLineSide: 0
     requiredWork: 15
-    assembledPos: {x: -0.8151127, y: 1.2556942, z: -0.7803092}
+    assembledPos: {x: -0.8151399, y: 1.2556942, z: -0.7803364}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.329897, y: 1.2556942, z: -0.062360644}
+    midPos: {x: -1.418612, y: 1.2556942, z: -0.6836208}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.6191058, y: 1.2556942, z: 0.48617864}
+    mid2Pos: {x: -1.6191602, y: 1.2556942, z: 0.48617864}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 6
     robotLineSide: 0
-    requiredWork: 10
-    assembledPos: {x: -0.47009087, y: 0.46858943, z: 0.54359055}
+    requiredWork: 15
+    assembledPos: {x: -0.470101, y: 0.46858943, z: 0.5436007}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: -1.498, y: 0.46858943, z: 0.54359055}
+    midPos: {x: -1.6001675, y: 0.46858943, z: 0.10612869}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.7756983, y: 0.46858943, z: 2.4413064}
+    mid2Pos: {x: -1.7757388, y: 0.46858943, z: 2.441347}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 5
     robotLineSide: 0
@@ -242,18 +242,18 @@ MonoBehaviour:
   - type: 4
     robotLineSide: 0
     requiredWork: 15
-    assembledPos: {x: 0, y: 0.9234956, z: 1.3514252}
+    assembledPos: {x: -1.4210855e-14, y: 0.9234956, z: 1.3515536}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0, y: 1.6320304, z: 1.8236016}
+    midPos: {x: -0.08079577, y: 2.0155401, z: 3.2921867}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.65, y: 0.6343118, z: 2.5925794}
+    mid2Pos: {x: -2.320169, y: 0.6343118, z: 0.069550276}
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 3
     robotLineSide: 0
     requiredWork: 9
-    assembledPos: {x: 0, y: 0.348, z: 1.8600006}
+    assembledPos: {x: -2.842171e-14, y: 0.348, z: 1.8601437}
     assembledRot: {x: -0, y: 0, z: 0}
-    midPos: {x: 0.113759905, y: 1.111, z: 3.0962498}
+    midPos: {x: 0.11375977, y: 1.111, z: 2.987337}
     midRot: {x: -0, y: 0, z: 0}
-    mid2Pos: {x: -1.1772442, y: 1.111, z: 3.2267032}
+    mid2Pos: {x: 1.8466574, y: 1.4407086, z: 2.676931}
     mid2Rot: {x: -0, y: 0, z: 0}

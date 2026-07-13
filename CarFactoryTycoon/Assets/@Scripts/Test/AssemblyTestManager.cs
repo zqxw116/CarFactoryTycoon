@@ -41,6 +41,11 @@ public class AssemblyTestManager : GameObjectSingleton<AssemblyTestManager>
     [Tooltip("할당하면 파츠 선택 시 차량을 시작 위치로 리셋한다")]
     public TestCarLooper looper;
 
+    [Header("바퀴 리프트 테스트 (선택)")]
+    [Tooltip("할당하면 바퀴(Wheel_*) 부품 선택 시 일반 스테이션 대신 이 리프트 공정이 활성화되고," +
+        " 차량은 매니저 구동(게이트 정지/캡처)으로 전환된다. 다른 부품 선택 시 다시 비활성화.")]
+    public WheelStation wheelStation;
+
     private void Start()
     {
         RunTest(PartType.Frame_1);
@@ -56,14 +61,27 @@ public class AssemblyTestManager : GameObjectSingleton<AssemblyTestManager>
     {
         if (targetType == PartType.None || car == null || station == null) return;
 
+        bool isWheelTest = wheelStation != null && IsWheelType(targetType);
+
+        // 리프트가 차량을 잡고 있으면 먼저 내려놓는다 — 차량 리셋(텔레포트) 후에 정리하면
+        // 캡처 시점 위치(carBasePos)로 차량이 되돌아가 버린다
+        if (wheelStation != null) wheelStation.CancelCycle();
+
         // 1. 루프 연동: 현재 파츠 기록 + 차량 시작 위치로 리셋
+        //    바퀴 테스트는 게이트 정지/캡처가 필요해 매니저 구동(SetPath)으로 전환한다
         if (looper != null)
         {
             looper.SetCurrentPart(targetType);
+            looper.useManagedDrive = isWheelTest;
             looper.ResetToStart();
         }
 
         car.SetCurretParts(targetType);
+
+        // 2. 스테이션 전환: 바퀴 = WheelStation(리프트 공정), 그 외 = 일반 스테이션
+        if (wheelStation != null) wheelStation.gameObject.SetActive(isWheelTest);
+        station.gameObject.SetActive(!isWheelTest);
+        if (isWheelTest) return; // 체결은 WheelStation이 바퀴 스테이션 4개를 직접 오케스트레이션
 
 
         // 3. 부품 타입에 맞춰 로봇팔(스테이션) 재배치.
@@ -87,6 +105,10 @@ public class AssemblyTestManager : GameObjectSingleton<AssemblyTestManager>
         // 4. 스테이션 준비 (조립은 차량이 트리거에 진입할 때 OnTriggerEnter에서 시작됨)
         station.PrepareStation(targetType);
     }
+
+    private static bool IsWheelType(PartType type) =>
+        type == PartType.Wheel_FrontRight_41 || type == PartType.Wheel_BehindRight_42 ||
+        type == PartType.Wheel_FrontLeft_43 || type == PartType.Wheel_BehindLeft_44;
 
     // ─────────────────────────────────────────────
     // 스테이션 좌/우 배치

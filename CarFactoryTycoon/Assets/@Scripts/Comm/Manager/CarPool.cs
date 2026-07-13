@@ -8,7 +8,7 @@ using UnityEngine;
 public class CarPool : GameObjectSingleton<CarPool>
 {
     // 인스펙터 노출 없이 InitManager가 코드로 생성하므로 기본값 사용.
-    private const string prefabResourcePath = "Prefabs/CarModel";
+    private const string prefabResourcePath = "Prefabs/CarModel_Origin";
     private const int prewarmCount = 5;
 
     private GameObject carPrefab;

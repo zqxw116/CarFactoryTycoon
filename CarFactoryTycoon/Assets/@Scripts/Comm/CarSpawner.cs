@@ -46,21 +46,29 @@ public class CarSpawner : MonoBehaviour
 
         if (timer >= spawnInterval)
         {
-            SpawnCar();
-            timer = 0f;
+            // 스폰 실패(출발 자리에 차가 밀려 있음) 시 타이머를 유지 — 자리가 나면 즉시 스폰된다.
+            // 큐가 스포너까지 차면 생산이 자연히 멈추는 것이 정체의 최종 비용.
+            if (SpawnCar()) timer = 0f;
         }
     }
 
-    public void SpawnCar()
+    /// <summary>차량을 스폰한다. 출발 지점이 정체로 막혀 있으면 스폰하지 않고 false를 반환.</summary>
+    public bool SpawnCar()
     {
-        if (mainLineSpline == null || CarPool.Instance == null) return;
-
-        CarController car = CarPool.Instance.Get();
-        if (car == null) return;
+        if (mainLineSpline == null || CarPool.Instance == null) return false;
 
         // 스포너 위치에서 가장 가까운 스플라인 지점(진행도)을 출발점으로 사용
         float startProgress = GetNearestProgress();
+
+        // 스폰 가드: 출발 지점 앞 minGap 안에 차량이 있으면 보류 (겹침 방지)
+        if (LineTrafficManager.Instance != null && !LineTrafficManager.Instance.CanSpawnAt(startProgress))
+            return false;
+
+        CarController car = CarPool.Instance.Get();
+        if (car == null) return false;
+
         car.SetPath(mainLineSpline, globalLineSpeed * SpeedMultiplier, startProgress);
+        return true;
     }
 
     /// <summary>스포너 위치에 가장 가까운 스플라인 위의 진행도(0~1)를 반환.</summary>

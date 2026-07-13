@@ -28,7 +28,7 @@ Transform:
   m_GameObject: {fileID: 1139039719072431397}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.8977871, y: 0.38079593, z: -1.2596283}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -107,7 +107,8 @@ MonoBehaviour:
   masterData: {fileID: 0}
   myGroup: 2
   myType: 0
-  assemblyProgress: 0
+  requiredWork: 50
+  currentWork: 0
   assembledPos: {x: -0.8977871, y: 0.38079593, z: -1.2596283}
   assembledRot: {x: -0, y: 0, z: 0}
   midPos: {x: 0, y: 0, z: 0}
@@ -115,7 +116,8 @@ MonoBehaviour:
   mid2Pos: {x: 0, y: 0, z: 0}
   mid2Rot: {x: 0, y: 0, z: 0}
   armLookTarget: {fileID: 4259678045112574714}
-  explodeDistance: 3
+  entryDistance: 1.2
+  approachDirLocalOverride: {x: 0, y: 0, z: 0}
 --- !u!1 &5237256093334956111
 GameObject:
   m_ObjectHideFlags: 0
@@ -141,7 +143,7 @@ Transform:
   m_GameObject: {fileID: 5237256093334956111}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: -0.127, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

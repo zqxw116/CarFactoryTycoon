@@ -273,7 +273,11 @@ public class StationController : MonoBehaviour
         currentState = StationState.Assembling;
     }
 
-    private void ResetStation()
+    /// <summary>
+    /// 진행 중인 체결을 포기하고 대기 상태로 되돌린다 (파츠 숨김·파일 메시 복원·팔 복귀).
+    /// 내부 트리거 이탈 처리 외에, WheelStation이 시간창 종료 시 미완료 체결을 끊을 때도 호출한다.
+    /// </summary>
+    public void ResetStation()
     {
         if (stationPileMesh) stationPileMesh.SetActive(true);
         if (robotArm != null) robotArm.SetTarget(EnsureTrackingTarget()); // 복귀 이동은 가상 타겟 슬라이드가 처리
