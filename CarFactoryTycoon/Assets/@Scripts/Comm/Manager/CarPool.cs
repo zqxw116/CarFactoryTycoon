@@ -40,6 +40,9 @@ public class CarPool : GameObjectSingleton<CarPool>
         GameObject go = Instantiate(carPrefab, transform);
         if (!go.TryGetComponent<CarController>(out var car))
             car = go.AddComponent<CarController>();
+        // 차체 도색(언더코트→부스 통과 시 원본색) 담당 — 스폰 즉시 검정 차체로 보이게
+        if (!go.TryGetComponent<CarPaintController>(out _))
+            go.AddComponent<CarPaintController>();
         go.SetActive(false);
         return car;
     }

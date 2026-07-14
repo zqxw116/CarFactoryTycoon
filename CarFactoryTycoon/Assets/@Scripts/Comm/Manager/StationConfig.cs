@@ -31,5 +31,9 @@ public class StationConfig : MonoSingleton<StationConfig>
         " 팔의 실제 추적 속도보다 넉넉히 빠르게 — 너무 느리면 팔이 파츠에 늦게 도달해 누락 밸런스에 영향을 준다.")]
     public float trackingTargetSpeed = 4f;
 
+    [Header("보상")]
+    [Tooltip("파츠 하나를 체결 완료할 때마다 적립되는 재화. 미완료 포기(ResetStation 경로)는 지급되지 않는다.")]
+    public int partReward = 10;
+
     public override void Init() { }
 }

@@ -25,6 +25,7 @@ public class CarSpawner : MonoBehaviour
     private void Awake()
     {
         ResolveSpline();
+        timer = spawnInterval;
     }
 
     /// <summary>인스펙터에 연결돼 있지 않으면 씬에서 'MainSpline'을 찾는다.</summary>

@@ -89,6 +89,20 @@ public class CarController : MonoBehaviour
         _managed = false;
     }
 
+    /// <summary>
+    /// 라인 이동을 끝내고 트래픽 관리에서 벗어난다. 출고 공정(DepartureStation)처럼
+    /// 외부가 transform을 직접 움직이기 전에 호출 — 라인 끝(progress 1.0)에 남은 차가
+    /// 뒷차의 장애물로 계속 잡히는 것을 방지한다.
+    /// </summary>
+    public void LeaveLine()
+    {
+        if (_managed && LineTrafficManager.Instance != null)
+            LineTrafficManager.Instance.Unregister(this);
+        _managed = false;
+        isMoving = false;
+        targetSpline = null;
+    }
+
     /// <summary>주어진 진행도(0~1) 지점으로 위치·회전을 즉시 적용한다.</summary>
     private void SnapToProgress(float p)
     {
@@ -130,7 +144,7 @@ public class CarController : MonoBehaviour
         // 제약(앞차 꽁무니/게이트)을 넘지 못하게 클램프. 이미 제약보다 앞서 있으면 후진하지 않고 정지.
         pathProgress = Mathf.Min(next, Mathf.Max(pathProgress, maxProgress));
 
-        // 라인 끝에 도달하면 출고 처리 후 풀로 반환 (파괴하지 않고 재사용)
+        // 라인 끝에 도달하면 출고 처리 — 출고 공정이 있으면 부릉부릉 주행 후, 없으면 즉시 풀 반환
         if (pathProgress >= 1f)
         {
             pathProgress = 1f;
@@ -140,6 +154,7 @@ public class CarController : MonoBehaviour
 
                 if (IsNotSuccessParts())
                 {
+                    // 미체결 부품이 있으면 재화 없음 (파츠 보상도 체결 완료분만 이미 지급된 상태)
                     Debug.LogWarning($"<color=red>[RESULT]</color> {gameObject.name} 불량품 출고! 조립 안 된 부품 있음.");
                 }
                 else
@@ -150,10 +165,16 @@ public class CarController : MonoBehaviour
                     if (UpgradeManager.Instance != null)
                         finalPrice = Mathf.RoundToInt(sellPrice * UpgradeManager.Instance.carSellPriceMultiplier);
                     if (EconomyManager.Instance != null) EconomyManager.Instance.SellCar(finalPrice);
+                    CashPopup.Show(transform.position + Vector3.up * 1.8f, finalPrice, 1.6f);
                 }
 
-                if (CarPool.Instance != null) CarPool.Instance.Return(this);
-                else gameObject.SetActive(false);
+                // 출고 공정에 인계: 부릉부릉 → 도착 지점까지 가속 주행 → 풀 반환.
+                // 씬에 공정이 없으면 기존대로 즉시 풀 반환.
+                if (!DepartureStation.TryDepart(this))
+                {
+                    if (CarPool.Instance != null) CarPool.Instance.Return(this);
+                    else gameObject.SetActive(false);
+                }
             }
             return;
         }
@@ -203,7 +224,23 @@ public class CarController : MonoBehaviour
 
 
     public void ResetParts()
-    { foreach (var listParts in dicListParts.Values) foreach (var part in listParts) part.Reset(); }
+    {
+        foreach (var listParts in dicListParts.Values)
+        {
+            foreach (var part in listParts)
+            {
+                // 차체(Body)는 로봇팔 체결 공정이 아니라 도색 부스(PaintBooth) 담당 —
+                // 스폰 직후부터 보여야 하므로 숨기지 않고 체결 완료 상태로 둔다.
+                // (색은 CarPaintController가 언더코트 → 부스 통과 시 원본색으로 처리)
+                if (part.myGroup == PartGroup.Body)
+                {
+                    part.SetActive(true);
+                    part.SetAssembled();
+                }
+                else part.Reset();
+            }
+        }
+    }
 
     public void SetCurretParts(PartType targetType)
     {
@@ -215,6 +252,14 @@ public class CarController : MonoBehaviour
         {
             foreach (var part in listParts)
             {
+                // 차체(Body)는 도색 부스 담당 — 테스트 대상과 무관하게 항상 보이는 체결 상태 유지
+                if (part.myGroup == PartGroup.Body)
+                {
+                    part.SetActive(true);
+                    part.SetAssembled();
+                    continue;
+                }
+
                 int partIdx = Constants.GetPartTypeIndex(part.myType);
 
                 if (partIdx >= 0 && partIdx < targetIdx)

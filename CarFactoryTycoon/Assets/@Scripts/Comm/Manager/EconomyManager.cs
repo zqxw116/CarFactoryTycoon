@@ -16,11 +16,18 @@ public class EconomyManager : MonoSingleton<EconomyManager>
         // 시작 자금 등 초기화 지점 (현재는 기본값 사용)
     }
 
+    /// <summary>재화 획득 (파츠 체결 보상 등). 적립 후 변동 이벤트를 쏜다 → MoneyUI 카운트업/코인 연출.</summary>
+    public void Earn(int amount)
+    {
+        if (amount <= 0) return;
+        currentMoney += amount;
+        OnMoneyChanged?.Invoke(currentMoney, amount);
+    }
+
     /// <summary>차량 판매 수익 획득.</summary>
     public void SellCar(int price)
     {
-        currentMoney += price;
-        OnMoneyChanged?.Invoke(currentMoney, price);
+        Earn(price);
         Debug.Log($"[Economy] 차량 판매 +{price} → 잔액 {currentMoney}");
     }
 
