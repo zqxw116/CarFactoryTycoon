@@ -164,8 +164,9 @@ public class CarController : MonoBehaviour
                     int finalPrice = sellPrice;
                     if (UpgradeManager.Instance != null)
                         finalPrice = Mathf.RoundToInt(sellPrice * UpgradeManager.Instance.carSellPriceMultiplier);
-                    if (EconomyManager.Instance != null) EconomyManager.Instance.SellCar(finalPrice);
-                    CashPopup.Show(transform.position + Vector3.up * 1.8f, finalPrice, 1.6f);
+                    Vector3 rewardPos = transform.position + Vector3.up * 1.8f;
+                    if (EconomyManager.Instance != null) EconomyManager.Instance.SellCar(finalPrice, rewardPos);
+                    CashPopup.Show(rewardPos, finalPrice, 1.6f);
                 }
 
                 // 출고 공정에 인계: 부릉부릉 → 도착 지점까지 가속 주행 → 풀 반환.
@@ -215,7 +216,7 @@ public class CarController : MonoBehaviour
                 {
                     Debug.Log($"[GetUnassembledPart] {targetType} 발견 → currentWork={part.currentWork:F2}/{part.requiredWork:F0}, active={part.gameObject.activeSelf}");
                     if (!part.IsAssembled) return part;
-                    else Debug.LogWarning($"[GetUnassembledPart] {targetType} 이미 체결완료(currentWork={part.currentWork:F2}) 로 인해 null 반환!");
+                    //else Debug.LogWarning($"[GetUnassembledPart] {targetType} 이미 체결완료(currentWork={part.currentWork:F2}) 로 인해 null 반환!");
                 }
             }
         }

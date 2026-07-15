@@ -200,12 +200,13 @@ public class StationController : MonoBehaviour
                     targetCarPart.SetAssembled(); // 완전히 체결 완료 위치에 고정
                     Debug.Log($"[{gameObject.name}] ✅ {targetCarPart.name} 체결 완전 성공!");
 
-                    // 체결 보상: 완료된 파츠 위치에서 "+$" 플로팅 텍스트 + 재화 적립.
+                    // 체결 보상: 완료된 파츠 위치에서 "+$" 플로팅 텍스트 + 재화 적립(코인이 이 위치에서 재화 UI로 날아감).
                     // 미완료 포기(트리거 이탈/시간창 종료)는 ResetStation 경로라 여기를 지나지 않는다 = 지급 없음.
                     if (config.partReward > 0)
                     {
-                        EconomyManager.Instance.Earn(config.partReward);
-                        CashPopup.Show(targetCarPart.transform.position + Vector3.up * 0.5f, config.partReward);
+                        Vector3 rewardPos = targetCarPart.transform.position + Vector3.up * 0.5f;
+                        EconomyManager.Instance.Earn(config.partReward, rewardPos);
+                        CashPopup.Show(rewardPos, config.partReward);
                     }
 
                     targetCarPart = null;

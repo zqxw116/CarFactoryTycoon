@@ -34,7 +34,7 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 27
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: 0, y: 0.78725576, z: 2.523632}
     assembledRot: {x: -0, y: 0, z: 0}
     midPos: {x: 0, y: 0.78725576, z: 3.082}
@@ -43,21 +43,21 @@ MonoBehaviour:
     mid2Rot: {x: -0, y: 0, z: 0}
   - type: 26
     robotLineSide: 0
-    requiredWork: 0
-    assembledPos: {x: 0.7651005, y: 0.5254, z: -1.9640007}
+    requiredWork: 15
+    assembledPos: {x: 0.76510066, y: 0.5254, z: -1.9640006}
     assembledRot: {x: -0, y: 180, z: 0}
-    midPos: {x: 0.7651005, y: 0.5254, z: -2.67}
+    midPos: {x: 0.76510066, y: 0.5254, z: -2.6699977}
     midRot: {x: -0, y: 180, z: 0}
-    mid2Pos: {x: 0, y: 0, z: 0}
+    mid2Pos: {x: 2.6398077, y: 0, z: -2.1504552}
     mid2Rot: {x: 0, y: 0, z: 0}
   - type: 25
     robotLineSide: 0
-    requiredWork: 10
+    requiredWork: 15
     assembledPos: {x: -0.7651005, y: 0.5254, z: -1.9640007}
     assembledRot: {x: -0, y: 180, z: 0}
-    midPos: {x: -0.7651005, y: 0.5254, z: -2.299}
+    midPos: {x: -0.7651005, y: 0.5254, z: -2.304}
     midRot: {x: -0, y: 180, z: 0}
-    mid2Pos: {x: -1.113, y: 0.5254, z: -2.299}
+    mid2Pos: {x: -1.352, y: 0.5254, z: -2.304}
     mid2Rot: {x: -0, y: 180, z: 0}
   - type: 24
     robotLineSide: 0

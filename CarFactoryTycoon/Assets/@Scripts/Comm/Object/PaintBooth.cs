@@ -71,8 +71,9 @@ public class PaintBooth : MonoBehaviour
         int reward = StationConfig.Instance.partReward;
         if (reward > 0)
         {
-            EconomyManager.Instance.Earn(reward);
-            CashPopup.Show(car.transform.position + Vector3.up * 1.2f, reward);
+            Vector3 rewardPos = car.transform.position + Vector3.up * 1.2f;
+            EconomyManager.Instance.Earn(reward, rewardPos);
+            CashPopup.Show(rewardPos, reward);
         }
         Debug.Log($"[{name}] ✅ {car.name} 차체 도색 완료! (+{reward})");
     }

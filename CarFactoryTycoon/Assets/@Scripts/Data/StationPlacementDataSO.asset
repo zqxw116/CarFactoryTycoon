@@ -170,25 +170,25 @@ MonoBehaviour:
     boxSize: {x: 3, y: 0.5, z: 0.5}
   - type: 25
     robotLineSide: 0
-    pileLocalPos: {x: 0.27790573, y: 0.5, z: 1.893574}
+    pileLocalPos: {x: 0.5361139, y: 0.7807858, z: -1.401783}
     pileLocalEuler: {x: -0, y: 0, z: 0}
-    endLocalPos: {x: -0.6645945, y: 0.5, z: 1.6724055}
-    boxCenterOffset: {x: 0, y: 0, z: 0}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    endLocalPos: {x: 0.053504713, y: 1.4140012, z: 2.1224864}
+    boxCenterOffset: {x: 0, y: 0, z: -2.45}
+    boxSize: {x: 3, y: 0.5, z: 1}
   - type: 26
     robotLineSide: 1
-    pileLocalPos: {x: 0.22, y: 0.5, z: -1.85}
+    pileLocalPos: {x: 0.6166794, y: 0.5, z: 1.1996841}
     pileLocalEuler: {x: -0, y: 0, z: 0}
-    endLocalPos: {x: -0.8055743, y: 0.5, z: -1.7091411}
-    boxCenterOffset: {x: 0, y: 0, z: 0}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    endLocalPos: {x: 0.6008194, y: 0.5, z: -2.1676219}
+    boxCenterOffset: {x: 0, y: 0, z: -2.41}
+    boxSize: {x: 3, y: 0.5, z: 1}
   - type: 27
     robotLineSide: 0
-    pileLocalPos: {x: -0.19101599, y: 0.5, z: 2.0095408}
+    pileLocalPos: {x: 0.28652218, y: 0.5, z: -1.5446665}
     pileLocalEuler: {x: -0, y: 0, z: 0}
-    endLocalPos: {x: -1.1137933, y: 0.5, z: 1.718201}
+    endLocalPos: {x: 0.20837, y: 0.5, z: 1.6152804}
     boxCenterOffset: {x: 0, y: 0, z: 0}
-    boxSize: {x: 3, y: 0.5, z: 0.5}
+    boxSize: {x: 3, y: 0.5, z: 3}
   - type: 6
     robotLineSide: 0
     pileLocalPos: {x: 0.50244886, y: 0.5145526, z: -1.7457602}

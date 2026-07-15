@@ -4215,7 +4215,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7926737304555057237, guid: f267f4cfc320db543b3509bd6e7a3e83, type: 3}
       propertyPath: myType
-      value: 25
+      value: 26
       objectReference: {fileID: 0}
     - target: {fileID: 7926737304555057237, guid: f267f4cfc320db543b3509bd6e7a3e83, type: 3}
       propertyPath: midPos.x

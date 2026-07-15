@@ -6,9 +6,9 @@ using UnityEngine.UI;
 /// <summary>
 /// 자금(돈)을 화면에 표시하는 UI. EconomyManager.OnMoneyChanged를 구독해
 /// 숫자를 카운트업/다운(주르륵)으로 갱신하고, 증감 시 코인(기본 이미지) 연출을 보여준다.
-/// - 증가: 화면 하단에서 코인이 텍스트로 모여든다.
+/// - 증가: 획득 발생 위치(로봇팔 등, 월드→스크린 변환)에서 코인이 텍스트로 모여든다. 위치 없으면 화면 하단 폴백.
 /// - 감소: 텍스트에서 코인이 위로 올라가며 빠져나간다.
-/// Canvas/Text는 코드로 생성한다(씬 배치 불필요). 코인 이미지는 임시 기본 이미지(흰 박스+색).
+/// Canvas/Text는 코드로 생성한다(씬 배치 불필요). 코인 이미지는 임시 기본 이미지(흰 박스+색), 풀링 재사용.
 /// </summary>
 public class MoneyUI : MonoSingleton<MoneyUI>
 {
@@ -17,6 +17,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     private long displayed;
     private Tween countTween;
     private bool built;
+    private readonly System.Collections.Generic.Queue<Image> coinPool = new System.Collections.Generic.Queue<Image>();
 
     public override void Init()
     {
@@ -62,7 +63,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         rt.sizeDelta = new Vector2(600f, 100f);
     }
 
-    private void HandleMoneyChanged(int newAmount, int delta)
+    private void HandleMoneyChanged(int newAmount, int delta, Vector3? sourceWorldPos)
     {
         // 1) 숫자 카운트업/다운 (주르륵)
         countTween?.Kill();
@@ -82,32 +83,42 @@ public class MoneyUI : MonoSingleton<MoneyUI>
                .SetLoops(2, LoopType.Yoyo);
 
         // 2) 코인 연출
-        if (delta != 0) SpawnCoins(delta > 0);
+        if (delta != 0) SpawnCoins(delta > 0, sourceWorldPos);
     }
 
-    private void SpawnCoins(bool gain)
+    private void SpawnCoins(bool gain, Vector3? sourceWorldPos)
     {
         const int count = 6;
         Vector3 textPos = moneyText.rectTransform.position;
+
+        // 획득 발생 월드좌표 → 스크린좌표 (카메라 뒤(z<=0)면 폴백)
+        Vector3? sourceScreen = null;
+        Camera cam = Camera.main;
+        if (gain && sourceWorldPos.HasValue && cam != null)
+        {
+            Vector3 sp = cam.WorldToScreenPoint(sourceWorldPos.Value);
+            if (sp.z > 0f) sourceScreen = new Vector3(sp.x, sp.y, 0f);
+        }
+
         for (int i = 0; i < count; i++)
-            SpawnCoin(gain, textPos, i, count);
+            SpawnCoin(gain, textPos, sourceScreen, i, count);
     }
 
-    private void SpawnCoin(bool gain, Vector3 textPos, int idx, int count)
+    private void SpawnCoin(bool gain, Vector3 textPos, Vector3? sourceScreen, int idx, int count)
     {
-        var go = new GameObject("Coin");
-        go.transform.SetParent(transform, false);
-
-        var img = go.AddComponent<Image>();         // sprite 미지정 → 기본 흰 박스
-        img.color = new Color(1f, 0.82f, 0.2f, 1f); // 임시 코인색
+        Image img = coinPool.Count > 0 ? coinPool.Dequeue() : CreateCoin();
+        img.color = new Color(1f, 0.82f, 0.2f, 1f); // 임시 코인색 (재사용 시 알파 원복)
+        img.gameObject.SetActive(true);
         var rt = img.rectTransform;
-        rt.sizeDelta = new Vector2(40f, 40f);
 
         float spread = (idx - (count - 1) * 0.5f) * 60f;
         Vector3 start, end;
         if (gain)
         {
-            start = new Vector3(Screen.width * 0.5f + spread, Screen.height * 0.15f, 0f);
+            // 발생 지점 주변에 흩뿌려 출발 → 텍스트로 수렴. 위치 없으면 기존 화면 하단 폴백.
+            start = sourceScreen.HasValue
+                ? sourceScreen.Value + (Vector3)(Random.insideUnitCircle * 45f)
+                : new Vector3(Screen.width * 0.5f + spread, Screen.height * 0.15f, 0f);
             end = textPos;
         }
         else
@@ -133,7 +144,16 @@ public class MoneyUI : MonoSingleton<MoneyUI>
             // 올라가며 동시에 사라짐
             seq.Join(DOTween.To(() => img.color, c => img.color = c, clear, dur));
 
-        seq.OnComplete(() => Destroy(go));
+        seq.OnComplete(() => { img.gameObject.SetActive(false); coinPool.Enqueue(img); });
+    }
+
+    private Image CreateCoin()
+    {
+        var go = new GameObject("Coin");
+        go.transform.SetParent(transform, false);
+        var img = go.AddComponent<Image>(); // sprite 미지정 → 기본 흰 박스
+        img.rectTransform.sizeDelta = new Vector2(40f, 40f);
+        return img;
     }
 
     private static string Format(long v) => $"$ {v:N0}";
