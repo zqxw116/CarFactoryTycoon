@@ -205,6 +205,16 @@ public class CarController : MonoBehaviour
         return false;
     }
 
+    /// <summary>미체결 파츠 수를 반환한다 (방수 테스트 등 판정에 사용).</summary>
+    public int CountUnassembledParts()
+    {
+        int count = 0;
+        foreach (var listParts in dicListParts.Values)
+            foreach (var part in listParts)
+                if (!part.IsAssembled) count++;
+        return count;
+    }
+
 
     public AssemblyPart GetUnassembledPart(PartType targetType)
     {

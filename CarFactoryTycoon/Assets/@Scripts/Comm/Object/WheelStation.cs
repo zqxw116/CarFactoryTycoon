@@ -23,7 +23,7 @@ using UnityEditor;
 /// - 시간창(workWindow) 안에 못 끝낸 바퀴는 ResetStation으로 포기 — 바퀴 빠진 채 출고(부분 체결).
 /// - 방출은 SetProgress로 차량을 게이트 진행도 위에 올려 통과 처리 후 isMoving=true.
 /// </summary>
-public class WheelStation : MonoBehaviour
+public class WheelStation : MonoBehaviour, ILineGate
 {
     public enum LiftState { Idle, Raising, Working, Lowering }
 
@@ -70,6 +70,8 @@ public class WheelStation : MonoBehaviour
 
     /// <summary>트래픽 매니저가 참조하는 게이트 진행도. 이 앞의 차량은 여기를 넘지 못한다.</summary>
     public float GateProgress => liftProgress;
+    /// <summary>ILineGate: 게이트 활성 여부.</summary>
+    public bool GateEnabled => isActiveAndEnabled;
 
     private float animT = 0f;          // 승강 애니메이션 진행도(0~1)
     private float workTimer = 0f;

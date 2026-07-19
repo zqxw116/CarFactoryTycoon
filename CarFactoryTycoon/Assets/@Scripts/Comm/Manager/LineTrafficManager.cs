@@ -33,8 +33,9 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
     // 활성 차량 목록. pathProgress 내림차순(0번 = 선두). 같은 MainSpline 위라는 전제.
     private readonly List<CarController> cars = new List<CarController>();
 
-    // 라인 위 정지 공정 게이트(WheelStation 등). 게이트 앞 차량은 게이트 지점을 넘지 못한다.
-    private readonly List<WheelStation> gates = new List<WheelStation>();
+    // 라인 위 정지 공정 게이트(WheelStation, WaterTestStation 등 ILineGate 구현체).
+    // 게이트 앞 차량은 게이트 지점을 넘지 못한다.
+    private readonly List<ILineGate> gates = new List<ILineGate>();
 
     // 게이트 정지 지점을 게이트 진행도보다 살짝 앞(m)에 둔다.
     // 정확히 게이트 위에 세우면 '통과(progress ≥ gate)'로 판정돼 캡처 없이 지나가버린다 —
@@ -55,18 +56,20 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
 
     public void Unregister(CarController car) => cars.Remove(car);
 
-    public void RegisterGate(WheelStation gate)
+    public void RegisterGate(ILineGate gate)
     {
         if (gate == null || gates.Contains(gate)) return;
         gates.Add(gate);
     }
 
-    public void UnregisterGate(WheelStation gate) => gates.Remove(gate);
+    public void UnregisterGate(ILineGate gate) => gates.Remove(gate);
 
     private void Update()
     {
         // 풀로 반환됐거나 파괴된 차량 정리 (OnDisable에서 해제되지만 방어적으로 한 번 더)
         cars.RemoveAll(c => c == null || !c.gameObject.activeInHierarchy);
+        // 파괴된 게이트 정리 (ILineGate는 인터페이스라 MonoBehaviour 캐스트로 Unity null 체크)
+        gates.RemoveAll(g => (g as MonoBehaviour) == null);
 
         // 선두→후미 순서로 구동. 각 차는 '이번 프레임에 이미 이동을 마친 앞차' 기준으로 클램프된다.
         for (int i = 0; i < cars.Count; i++)
@@ -92,8 +95,11 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
             // 게이트 제약: 아직 통과하지 않은 게이트 지점에서 정지 (간격 0 — 게이트 위치에 도킹)
             for (int g = 0; g < gates.Count; g++)
             {
-                WheelStation gate = gates[g];
-                if (gate == null || !gate.isActiveAndEnabled) continue;
+                ILineGate gate = gates[g];
+                // ILineGate는 인터페이스라 Unity의 커스텀 == null 연산자가 동작하지 않음
+                // → MonoBehaviour 캐스트 후 Unity null 체크 + GateEnabled로 활성 여부 확인
+                MonoBehaviour mb = gate as MonoBehaviour;
+                if (mb == null || !gate.GateEnabled) continue;
 
                 float gateT = gate.GateProgress;
                 if (car.pathProgress >= gateT) continue; // 이미 통과(방출 직후 포함)
