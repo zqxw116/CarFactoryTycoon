@@ -1,6 +1,6 @@
 # CarFactoryTycoon — 게임 설계 & 작업 진행 노트
 
-> 최종 업데이트: 2026-06-18
+> 최종 업데이트: 2026-07-20
 
 ---
 
@@ -247,6 +247,84 @@
 
 **미착수(다음):** ⑶ 부분 체결 출고판정 — 현재 IsNotSuccessParts는 all-or-nothing(불량품이면
 판매금 0). 미체결 부품 수 비례 감액으로 확장 필요. ⑷ 업그레이드 배선(팔 수/승강속도/시간창).
+
+## 7. 도색 공정(PaintBooth) + 재화 연출 + 출고 주행(DepartureStation) (2026-07-14 ~ 07-15)
+
+> 차체(Body)는 로봇팔 체결에서 분리해 전용 도색 공정으로 전환. 동시에 재화 획득 연출을
+> 발생 위치(로봇팔·도색·출고)에서 재화 UI로 날아가는 방식으로 통일.
+
+### 7-1. PaintBooth — 차체의 '체결' 공정 (신규)
+
+- 라인 위에 세우는 트리거 박스 = "네모난 거울". 차량은 검정 언더코트 상태로 스폰되고
+  (`CarPaintController`), 부스를 통과하는 동안 **지나간 부위만 픽셀 단위로 원본색이 드러난다**
+  (월드 평면 컷오프, `CarPaintScan.shader`).
+- `OnTriggerEnter` → 부스 중심을 지나는 스캔 평면 활성(법선 = 차량 진행 방향의 반대,
+  아직 안 지난 뒤쪽이 검정으로 남도록). `OnTriggerExit` → 전체 원본색 확정 + 최초 1회만
+  `StationConfig.partReward` 지급(재통과/중복 지급 방지 = `CarPaintController.Revealed` 플래그).
+- 물리 레이어 실수 방지: Awake에서 Car 레이어와 충돌 안 하는 레이어에 배치돼 있으면
+  Station 레이어로 자동 보정 + 경고 로그.
+- `CarPaintController`: 대상 파츠(`PartGroup.Body`) 렌더러의 머티리얼을 차량별 인스턴스로
+  `CarPaintScan` 셰이더로 교체(`_BaseMap`/`_BaseColor` 등 URP Lit과 동일 프로퍼티라 텍스처 승계됨).
+  `_PaintMode`: 2=전체 언더코트 / 1=스캔 중(경계 글로우) / 0=원본색 확정. 풀 재사용 시
+  OnEnable에서 언더코트로 리셋.
+
+### 7-2. DepartureStation — 출고 주행 연출 (신규)
+
+- 라인을 완주한 차량을 즉시 소멸시키는 대신: **부릉부릉(제자리 레브 진동, 사인파 피치/롤)
+  → 가속 주행(도착 지점으로 회전+가속) → 도착 반경 진입 시 CarPool 반환**.
+- `TryDepart(car)`: 씬에 이 공정이 없으면 false → 호출자(CarController)가 기존대로 즉시 반환.
+  넘겨받는 즉시 `LeaveLine()`으로 트래픽 해제 — 출고 중인 차가 라인 끝(progress 1.0)에
+  걸려 뒷차를 막는 것 방지. 판매가/불량 판정은 CarController가 라인 끝에서 이미 처리 완료,
+  DepartureStation은 이동 연출만 담당.
+
+### 7-3. 재화 연출 통일 — CashPopup (신규) + 코인 풀링
+
+- `CashPopup` (MonoSingleton): "+$금액" 3D TextMeshPro 플로팅 텍스트. 펑 커지며 등장 →
+  위로 떠오름(DOTween) → 후반 45% 구간 페이드아웃. 텍스트 오브젝트 풀링으로 GC 없음.
+  `scale` 인자로 임팩트 차등(차량 출고 등 큰 이벤트=크게).
+- 체결 보상(로봇팔)·도색 완료(PaintBooth)·출고(DepartureStation) 등 재화 발생 지점 전부
+  `EconomyManager.Earn()` + `CashPopup.Show()` 페어로 통일. `MoneyUI` 쪽 코인 연출도
+  발생 위치 → 재화 UI로 날아가는 방식으로 개편(코인 오브젝트 풀링).
+- Car_Factory 3 씬에 DepartureStation 배치 + 배치 SO/차량 프리팹(CarModel_Origin) 튜닝,
+  FactoryObject 프리팹 추가.
+
+## 8. 방수 테스트 공정(WaterTestStation) (2026-07-20)
+
+> 5라인 첫 공정. 집게형 행거로 차량을 들어올려 수영장에 침수시킨 뒤 체결 누락(방수 실패) 여부를
+> 판정한다. WheelStation과 마찬가지로 `ILineGate` 구현 + `LineTrafficManager` 게이트 등록.
+
+- **상태 머신 12단계**: `Idle → HangerDescending → Grabbing → Lifting → TravelToPool →
+  Submerging → Testing → Emerging → TravelToLine → Lowering → Releasing → Cooldown`.
+  행거 이동은 전 구간 `MoveHangerGrabTo()`(hangerRoot를 MoveTowards, grabPoint가 목표
+  0.05m 이내 도달 시 완료) 하나로 통일.
+- **판정**: `Testing` 진입 시 `CountUnassembledParts()`로 미체결 수 확인 →
+  0=Pass / `majorDefectThreshold` 미만=MinorDefect(반액 보너스) / 이상=MajorDefect(보너스 없음).
+- **결과 분기**:
+  - Pass → `releasePoint`(게이트 이후 라인 위)에 내려놓고 `SetProgress(releaseProgress)` +
+    `isMoving=true`로 라인 정상 복귀. `releaseProgress`는 `autoProgressFromPosition` 켜져
+    있으면 releasePoint 위치에서 자동 계산.
+  - Defect → `rejectPoint`(폐기 구멍)로 이송 후 `CarPool.Return()`으로 소멸. `TravelToLine`
+    시작 시 즉시 `LeaveLine()` 호출해 뒷차가 게이트 클램프에서 풀리도록 하고, 동시에
+    `rejectDoor`(슬라이딩 문)를 `TravelToLine`~`Lowering` 구간에서 미리 열어 도착 전에
+    완전히 열리도록 함. `Cooldown`에서 문 원위치 복귀.
+- **이펙트**: 입수/출수 스플래시, 검사 중 일반 기포(+불량 시 defect 기포 추가), 불량 감지
+  스파크(failVFX, 물속에서), 통과 시 passVFX. 인스펙터 우클릭 "임시 VFX 생성" 컨텍스트
+  메뉴로 파티클 5종 + URP 재질(`Assets/@Resource/Materials/VFX/VFX_*.mat`) 자동 생성
+  (알파블렌드=물/기포, 가산합성=Pass/Fail).
+- **씬 셋업**: `HangerRoot > HangerGrabPoint`, `PoolEntryPoint`, `PoolBottomPoint`,
+  `ReleasePoint`(게이트 이후 스플라인 위), `RejectZone > RejectPoint + RejectDoor`.
+
+**미착수(다음):** 압력/고속 테스트(5라인 나머지 공정), 방수 테스트 이펙트/사운드 다듬기,
+저장/로드.
+
+## 9. 전체 다음 할 일 (2026-07-20 기준)
+
+- [x] ~~씬에서 루프 동작 확인~~ / ~~행거 이동(라인 사이 이송)~~ — WheelStation·WaterTestStation으로 구현 완료
+- [ ] 5라인 나머지 공정: 압력 테스트, 고속주행 테스트, 판매 대기
+- [ ] 부분 체결 출고판정 확장 (현재 all-or-nothing → 미체결 부품 수 비례 감액)
+- [ ] 업그레이드 UI 배선 (팔 수/승강속도/시간창/라인속도 등 — UpgradeManager 로직은 있음, UI 미연결)
+- [ ] AI NPC(누락 자동 보완), 피버타임, 라인 고장, 보스 차량
+- [ ] 사운드, 저장/로드
 
 ### 6-6. 테스트 편의 보강 + 바퀴 스테이션 자동 배치 (2026-07-13 ~ 07-14)
 

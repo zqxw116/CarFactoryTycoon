@@ -91,8 +91,8 @@ Material:
     m_Floats:
     - _AddPrecomputedVelocity: 0
     - _AlphaClip: 0
-    - _AlphaDeep: 0.792
-    - _AlphaShallow: 0.227
+    - _AlphaDeep: 0.511
+    - _AlphaShallow: 0.197
     - _AlphaToMask: 0
     - _Blend: 0
     - _BlendModePreserveSpecular: 1
@@ -137,8 +137,8 @@ Material:
     - _Surface: 0
     - _WaterBottomY: 0
     - _WaterSurfaceY: 3.64
-    - _WaveStrength: 0.242
-    - _WaveThreshold: 0.308
+    - _WaveStrength: 0.181
+    - _WaveThreshold: 0.239
     - _WorkflowMode: 1
     - _XRMotionVectorsPass: 1
     - _ZWrite: 1
