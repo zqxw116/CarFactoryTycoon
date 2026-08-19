@@ -21,6 +21,12 @@ public class AssemblyPart : MonoBehaviour
     [Header("현재 체결 값 (0:분리 → requiredWork:체결완료)")]
     public float currentWork = 0f;
 
+    [Header("품질 (체결과 별개의 축)")]
+    [Tooltip("체결 품질 0~1. 체결이 100%여도 품질이 낮을 수 있다 — 사람 작업자가 컨디션이 나쁠 때" +
+        " 붙이면 낮아지고, 로봇팔은 항상 1.0이다. 검사 공정(방수/압력/속도)이 이 값으로 불량을 판정하므로" +
+        " 전 라인 자동화 전까지 검사 공정이 안전망으로 유지된다. 런타임 값이라 SO에 저장하지 않는다.")]
+    [Range(0f, 1f)] public float quality = 1f;
+
     /// <summary>포즈 보간용 정규화 값. 0:분리(pile) → 1:체결완료(assembled)</summary>
     public float Fill => requiredWork > 0f ? Mathf.Clamp01(currentWork / requiredWork) : (currentWork > 0f ? 1f : 0f);
     public bool IsAssembled => currentWork >= requiredWork;
@@ -88,6 +94,7 @@ public class AssemblyPart : MonoBehaviour
     public void Reset()
     {
         assembling = false; // 월드 보간 중단
+        quality = 1f;       // 품질도 초기화 (차량 풀 재사용 시 이전 차량 값이 남지 않게)
         SetDetached(); // work=0 → SetActive(false)
     }
 

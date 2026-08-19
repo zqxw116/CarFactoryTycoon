@@ -69,6 +69,8 @@ public class StationController : MonoBehaviour
     public Color pilePosColor = new Color(1f, 0.6f, 0.1f, 1f); // 주황: 파츠 대기장소
     public Color endPosColor = new Color(0.2f, 0.6f, 1f, 1f);  // 파랑: 로봇팔 대기장소
 
+    [Header("기즈모")]
+    public bool drawGizmo = true;
 
     private float cooldownTimer = 0f;
     private bool manualMode = false;
@@ -560,10 +562,12 @@ public class StationController : MonoBehaviour
     // 실제 드래그 편집은 StationControllerEditor.OnSceneGUI의 위치 핸들이 담당.
     private void OnDrawGizmos()
     {
-        DrawWorkZoneGizmo();
-        DrawRestGizmos();
-        DrawReachGizmo();
-        DrawReturnPreviewGizmo();
+        if (!drawGizmo) return;
+
+        //DrawWorkZoneGizmo();
+        //DrawRestGizmos();
+        //DrawReachGizmo();
+        //DrawReturnPreviewGizmo();
     }
 
     // 복귀 경로 미리보기: 지금 이 자세에서 복귀(가상 타겟이 EndPos로 슬라이드)를 시작하면
