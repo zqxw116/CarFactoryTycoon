@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -53,6 +53,12 @@ public class WorkerStation : MonoBehaviour, ILineGate
     [Tooltip("이 공정에 배치된 작업자. 늘리면 담당 부품을 병렬로 처리해 공정 시간이 줄어든다.")]
     public Worker[] workers;
 
+    [Tooltip("차량이 게이트 이 거리(m) 앞에 들어오면 작업자가 미리 부품을 가지러 출발한다(선행 트리거)." +
+        " 차량은 그대로 게이트까지 이동해 정지하고, 더 느린 작업자가 뒤따라 도착해 체결한다 —" +
+        " 차가 다 선 뒤에야 작업자가 움직이던 어색함이 사라진다." +
+        " 0이면 기존 동작(게이트에 완전히 도착한 차량만 잡는다).")]
+    public float leadDistance = 4f;
+
     [Tooltip("부품이 등장하는 지점의 '폴백'. partStacks가 연결돼 있으면 그 재고 파일의 맨 위 부품 자리에서" +
         " 집으므로 이 값은 쓰이지 않는다. 스택을 연결하지 않은 공정에서만 사용된다(미설정 시 이 오브젝트 위치).")]
     public Transform pilePos;
@@ -65,12 +71,38 @@ public class WorkerStation : MonoBehaviour, ILineGate
     public bool drawGizmo = true;
     public Color gateColor = new Color(0.2f, 1f, 0.6f, 1f);
 
-    // 게이트 지점 바로 앞 이 거리(m) 안에 도착한 차량을 캡처 대상으로 본다 (WheelStation과 동일 기준)
-    private const float CaptureEpsilon = 0.1f;
+    // 게이트에 '도킹했다'고 보는 거리(m). 트래픽 매니저가 게이트 앞 0.01m에 세우므로 이 값이면 충분하다.
+    // leadDistance를 0으로 두면 캡처 거리도 이 값으로 떨어져 선행 트리거 이전 동작으로 롤백된다.
+    private const float MinCaptureEpsilon = 0.1f;
     private const string MainSplineName = "MainSpline";
 
     /// <summary>ILineGate: 차량이 넘지 못하는 게이트 진행도.</summary>
     public float GateProgress => gateProgress;
+
+    /// <summary>
+    /// 차량이 이 게이트에 도킹(정지)했을 때 가질 월드 위치·회전을 스플라인에서 미리 샘플링한다.
+    /// CarController.SnapToProgress와 동일한 계산식(SplineUtility.Evaluate)을 gateProgress에 적용한 것 —
+    /// 실제 정지 지점은 LineTrafficManager가 GateStopOffset(0.01m) 만큼 살짝 앞에 세우므로 오차는 무시할 수준이다.
+    /// Worker가 '차량을 따라가지 않고 도킹 예정 위치 옆에 미리 대기'하는 새 설계의 기준점.
+    /// </summary>
+    public bool TryGetDockPose(out Vector3 pos, out Quaternion rot)
+    {
+        pos = Vector3.zero;
+        rot = Quaternion.identity;
+        if (mainLineSpline == null) return false;
+
+        SplineUtility.Evaluate(mainLineSpline.Spline, gateProgress,
+            out float3 localPos, out float3 localTangent, out float3 localUp);
+        pos = mainLineSpline.transform.TransformPoint(localPos);
+
+        if (math.length(localTangent) > 0.001f)
+        {
+            Vector3 worldDir = mainLineSpline.transform.TransformDirection(localTangent);
+            Vector3 worldUp = mainLineSpline.transform.TransformDirection(localUp);
+            rot = Quaternion.LookRotation(worldDir, worldUp);
+        }
+        return true;
+    }
 
     /// <summary>ILineGate: 게이트 활성 여부. 꺼지면 차량이 그냥 통과한다.</summary>
     public bool GateEnabled => isActiveAndEnabled;
@@ -86,6 +118,10 @@ public class WorkerStation : MonoBehaviour, ILineGate
     // 차량 참조를 기억하지 않으므로 CarPool이 같은 인스턴스를 재사용해도 오판할 여지가 없다
     // ("이전에 소모한 차량과 같은 인스턴스인가"로 판정하면 재사용된 차를 같은 차로 오인한다).
     private bool[] carParticipated;
+
+    // 담당 부품이 없어 그냥 통과시킬 차량. 선행 거리에서 미리 판정한 뒤 게이트 도착까지 기다리는 동안
+    // GetUnassembledPart(호출마다 로그를 남기는 무거운 조회)를 매 프레임 다시 하지 않기 위한 캐시.
+    private CarController skipCar;
 
     private bool initialized = false;
 
@@ -184,24 +220,52 @@ public class WorkerStation : MonoBehaviour, ILineGate
         }
     }
 
-    /// <summary>게이트에 도킹한 차량을 캡처한다. 이 공정에서 붙일 부품이 없는 차는 그냥 통과시킨다.</summary>
+    /// <summary>
+    /// 게이트 앞 leadDistance 안에 들어온 차량을 캡처한다(선행 트리거). 캡처 시점에는 차량을 세우지 않는다 —
+    /// 차량은 트래픽 매니저의 게이트 클램프로 알아서 게이트에 도킹하고, 그동안 작업자는 부품을 가지러 출발한다.
+    /// 이 공정에서 붙일 부품이 없는 차는 게이트에 도착한 뒤 그냥 통과시킨다.
+    /// </summary>
     private void TryCapture()
     {
-        CarController car = LineTrafficManager.Instance.GetCarAtGate(gateProgress, CaptureEpsilon);
+        CarController car = LineTrafficManager.Instance.GetCarAtGate(gateProgress, CaptureDistance);
         if (car == null) return;
+
+        // 이미 '붙일 것 없음'으로 판정한 차 — 도킹할 때까지 재조회하지 않는다(로그·GC 폭주 방지)
+        if (car == skipCar)
+        {
+            if (!IsDocked(car)) return;
+            PassGate(car);
+            skipCar = null;
+            return;
+        }
+        skipCar = null;
 
         // 담당 부품 조회는 여기서 딱 한 번 — 이후 프레임은 pending 캐시만 본다
         BuildPending(car);
 
         if (pending.Count == 0)
         {
-            PassGate(car);
+            // 선행 거리에서 통과 처리하면 PassGate의 SetProgress가 차를 앞으로 순간이동시킨다
+            // → 실제로 게이트에 도킹한 뒤에 통과시킨다.
+            if (IsDocked(car)) PassGate(car);
+            else skipCar = car;
             return;
         }
 
         currentCar = car;
-        currentCar.isMoving = false; // 정지 — 작업자가 붙는 동안 라인에서 멈춘다
-        currentState = WorkState.Working;
+        currentState = WorkState.Working; // 정지는 게이트 도착 시점(UpdateWorking)에서 처리한다
+    }
+
+    /// <summary>캡처 대상으로 삼을 게이트 앞 거리(m). leadDistance가 0이면 도킹 판정 거리로 떨어진다.</summary>
+    private float CaptureDistance => Mathf.Max(leadDistance, MinCaptureEpsilon);
+
+    /// <summary>차량이 게이트에 도착해 사실상 멈춰 선 상태인지.</summary>
+    private bool IsDocked(CarController car)
+    {
+        if (car == null) return false;
+        float len = car.SplineLength;
+        if (len <= 0f) return true;
+        return (gateProgress - car.pathProgress) * len <= MinCaptureEpsilon;
     }
 
     private void BuildPending(CarController car)
@@ -219,6 +283,11 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
     private void UpdateWorking()
     {
+        // 0) 게이트에 도착하면 정지시킨다. 선행 캡처 시점에는 차가 아직 다가오는 중이라
+        //    여기서 세워야 "차는 계속 굴러오고 작업자는 미리 출발한다"가 성립한다.
+        //    (도킹 자체는 트래픽 매니저의 게이트 클램프가 하고, 이 플래그는 작업 중 재출발을 막는다)
+        if (currentCar.isMoving && IsDocked(currentCar)) currentCar.isMoving = false;
+
         // 1) 완료된 작업 회수 + 보상 지급
         CollectFinished();
 
@@ -227,6 +296,10 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
         // 3) 재고 부족으로 멈춘 상태를 작업자에게 알린다(머리 위 "부품없음" 표시용)
         SetStockBlocked(IsBlockedByStock());
+
+        // 3.5) 차량이 실제로 도킹(정지)했는지를 작업자들에게 알린다 —
+        //      작업자는 대기 지점에 먼저 도착해도 이 플래그가 서기 전까지 체결을 시작하지 않는다.
+        SetCarDocked(!currentCar.isMoving);
 
         // 4) 담당 부품이 전부 체결됐으면 방출
         if (pending.Count == 0 && !AnyWorkerBusy()) ReleaseCar();
@@ -238,6 +311,14 @@ public class WorkerStation : MonoBehaviour, ILineGate
         if (workers == null) return;
         for (int i = 0; i < workers.Length; i++)
             if (workers[i] != null) workers[i].stockBlocked = blocked;
+    }
+
+    /// <summary>차량이 실제로 도킹(정지)했는지를 작업자들에게 전달한다 — 체결 시작 게이트.</summary>
+    private void SetCarDocked(bool docked)
+    {
+        if (workers == null) return;
+        for (int i = 0; i < workers.Length; i++)
+            if (workers[i] != null) workers[i].carDocked = docked;
     }
 
     /// <summary>체결이 끝난 배정을 회수하고 파츠 보상을 지급한다.</summary>
@@ -312,7 +393,8 @@ public class WorkerStation : MonoBehaviour, ILineGate
                     pending[p] = entry;
                 }
 
-                if (worker.AssignWork(entry.part, pickPos, pickRot))
+                bool dockValid = TryGetDockPose(out Vector3 dockPos, out Quaternion dockRot);
+                if (worker.AssignWork(entry.part, pickPos, pickRot, dockPos, dockRot, dockValid))
                 {
                     assigned[w] = entry.part;
                     break;
@@ -356,6 +438,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
         currentCar = null;
         pending.Clear();
         SetStockBlocked(false);
+        SetCarDocked(false);
         currentState = WorkState.Idle; // 다음 대기 차량은 다음 프레임 TryCapture가 잡는다
     }
 
@@ -417,6 +500,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
         }
         pending.Clear();
         SetStockBlocked(false);
+        SetCarDocked(false);
 
         if (currentCar != null && currentCar.gameObject.activeInHierarchy)
             currentCar.isMoving = true;
@@ -428,7 +512,9 @@ public class WorkerStation : MonoBehaviour, ILineGate
     /// <summary>이 공정이 재고 부족으로 멈춘 상태인지 (라인 정지 원인 표시용).</summary>
     public bool IsBlockedByStock()
     {
-        if (currentState != WorkState.Working || AnyWorkerBusy()) return false;
+        // 상태 대신 pending으로 판정한다 — pending은 캡처~방출 사이에만 채워져 있으므로
+        // 선행 캡처로 앞당겨진 페치 단계에서도 "부품없음" 표시가 동일하게 뜬다.
+        if (pending.Count == 0 || AnyWorkerBusy()) return false;
 
         for (int i = 0; i < pending.Count; i++)
         {

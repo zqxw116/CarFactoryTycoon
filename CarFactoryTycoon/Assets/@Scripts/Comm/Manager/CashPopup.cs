@@ -19,6 +19,8 @@ public class CashPopup : MonoSingleton<CashPopup>
     public float duration = 0.8f;
     [Tooltip("텍스트 크기 (3D TMP fontSize)")]
     public float fontSize = 6f;
+    [Tooltip("연출 전체 크기 배율. 팝 곡선 비율은 유지한 채 최종 크기만 조절된다.")]
+    [SerializeField] private float sizeScale = 0.7f;
     public Color gainColor = new Color(0.35f, 1f, 0.45f, 1f);
 
     private readonly Queue<TextMeshPro> pool = new Queue<TextMeshPro>();
@@ -35,7 +37,8 @@ public class CashPopup : MonoSingleton<CashPopup>
         text.text = $"+${amount:N0}";
         text.color = gainColor; // 재사용 시 페이드로 빠진 알파도 함께 원복
         tf.position = worldPos;
-        tf.localScale = Vector3.one * (0.6f * scale);
+        float finalScale = scale * sizeScale;
+        tf.localScale = Vector3.one * (0.6f * finalScale);
         text.gameObject.SetActive(true);
 
         Camera cam = Camera.main;
@@ -43,7 +46,7 @@ public class CashPopup : MonoSingleton<CashPopup>
 
         // 펑 커지며 등장 → 위로 떠오름 → 후반 페이드아웃
         Sequence seq = DOTween.Sequence();
-        seq.Append(tf.DOScale(scale, 0.15f).SetEase(Ease.OutBack));
+        seq.Append(tf.DOScale(finalScale, 0.15f).SetEase(Ease.OutBack));
         seq.Join(tf.DOMove(worldPos + Vector3.up * riseHeight, duration).SetEase(Ease.OutCubic));
         seq.Insert(duration * 0.55f,
             DOTween.To(() => text.color.a, a => { var c = text.color; c.a = a; text.color = c; }, 0f, duration * 0.45f));

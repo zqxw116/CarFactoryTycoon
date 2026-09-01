@@ -8,7 +8,7 @@ using UnityEngine;
 /// 씬에 배치한 휴머노이드 모델(예: RobotKyle)을 사람 작업자로 한 번에 세팅하는 에디터 툴.
 ///
 /// 기존 작업자는 "빈 GameObject + 기본 Capsule 자식 / BoxCollider size(1,2,1)" 가이드 셋업 기준으로
-/// 값이 잡혀 있다(handForward 0.6 / handHeight 0.15 / workStandDistance 0.9). 실제 캐릭터 모델은
+/// 값이 잡혀 있다(handForward 0.6 / handHeight 0.15 / standOffset 1.1). 실제 캐릭터 모델은
 /// 신장·몸 두께가 다르므로 그대로 쓰면 부품이 몸에 파묻히거나 머리 위에 뜬다.
 /// 이 툴은 <b>모델의 실제 크기를 본(Humanoid)과 메시에서 교차 실측</b>해 그 값들을 모델에 맞게 다시 잡는다.
 ///
@@ -25,9 +25,11 @@ using UnityEngine;
 /// 하는 일:
 ///   1) Animator + isHuman 검증 (Humanoid 리그가 아니면 중단 — 손 본을 못 찾는다)
 ///   2) Worker / WorkerStatusUI 부착 (이미 있으면 유지하고 값만 보정)
+///   2-1) Animator와 같은 오브젝트에 WorkerFootstepReceiver 부착
+///        (StarterAssets 클립에 박힌 OnFootstep/OnLand AnimationEvent의 "has no receiver" 경고 제거)
 ///   3) 오른손 본 아래에 HandPos 빈 자식을 만들어 Worker.handPos에 연결
 ///   4) 클릭용 BoxCollider를 본+메시 교차실측으로 몸통에 맞춤 (이미 있으면 무조건 덮어씀)
-///   5) 신장 기반으로 handHeight / handForward / workStandDistance / WorkerStatusUI.height 보정
+///   5) 신장 기반으로 handHeight / handForward / standOffset / WorkerStatusUI.height 보정
 ///   6) 이동을 방해하는 컴포넌트(ThirdPersonController 등)·부모·레이어 문제를 경고
 ///
 /// 사용법:
@@ -159,6 +161,17 @@ public static class WorkerSetupTool
             report.AppendLine("· WorkerStatusUI 컴포넌트 추가");
         }
 
+        // AnimationEvent 리시버는 ★Animator와 같은 GameObject★에 붙어야 한다.
+        // (Unity는 Animator가 붙은 오브젝트의 컴포넌트에서만 이벤트 함수를 찾는다 — 자식·부모는 안 본다)
+        // StarterAssets 클립의 OnFootstep/OnLand가 리시버를 못 찾아 매 발걸음 경고가 뜨는 것을 막는다.
+        if (!animator.TryGetComponent(out WorkerFootstepReceiver _))
+        {
+            Undo.AddComponent<WorkerFootstepReceiver>(animator.gameObject);
+            report.AppendLine($"· WorkerFootstepReceiver 추가 (Animator 오브젝트 '{animator.name}')" +
+                " — StarterAssets 클립의 OnFootstep/OnLand 경고 제거");
+        }
+        else report.AppendLine("· WorkerFootstepReceiver 기존 것 유지");
+
         // ── 3. 크기 실측 (본 기준 + 메시 교차검증) ───────────────────────
         if (!TryMeasureBody(go.transform, animator, out Bounds body, out string measureLog))
         {
@@ -241,17 +254,17 @@ public static class WorkerSetupTool
         worker.handForward = newHandForward;
         worker.handHeight = newHandHeight;
 
-        // workStandDistance: 작업자가 부착점에서 물러서는 거리. 기준 0.9(2m 몸통)를 신장 비율로 스케일하되,
-        // ★ Worker.GetAttachWorldPos 주석의 진동 버그 조건(workStandDistance - handForward <= arriveRadius)에
-        //   걸리지 않도록 handForward + arriveRadius보다 충분히 크게 하한을 둔다.
-        float scaled = 0.9f * scale;
-        float minStand = worker.handForward + worker.arriveRadius + 0.1f;
+        // standOffset: 도킹 예정 부착점 옆(라인 진행방향 측면)으로 미리 떨어져 서는 거리.
+        // 기준 1.1(2m 몸통)을 신장 비율로 스케일하되, 목표가 이제 정적 지점이라(더 이상 손 위치로
+        // 목표를 유도하지 않는다) 예전의 handForward발 진동 버그 조건은 적용되지 않는다.
+        // 도착 판정(arriveRadius)보다는 충분히 커야 하므로 그 2배를 하한으로만 둔다.
+        float scaled = 1.1f * scale;
+        float minStand = worker.arriveRadius * 2f;
         float newStand = Mathf.Max(scaled, minStand);
-        LogChange(report, "workStandDistance", worker.workStandDistance, newStand);
-        worker.workStandDistance = newStand;
+        LogChange(report, "standOffset", worker.standOffset, newStand);
+        worker.standOffset = newStand;
         if (newStand > scaled + 0.001f)
-            report.AppendLine($"  ↳ 비율 계산값 {scaled:F2}이 하한 {minStand:F2}보다 작아 하한을 적용" +
-                " (작업 위치 진동 버그 방지)");
+            report.AppendLine($"  ↳ 비율 계산값 {scaled:F2}이 하한 {minStand:F2}보다 작아 하한을 적용");
 
         EditorUtility.SetDirty(worker);
 

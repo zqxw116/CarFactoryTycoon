@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 공정에 고정 배치되는 사람 작업자. 부품을 파일에서 집어 차량 부착점까지 옮겨 체결한다.
@@ -27,8 +27,9 @@ public class Worker : MonoBehaviour
     }
 
     [Header("이동")]
-    [Tooltip("작업자 이동 속도(m/초).")]
-    public float moveSpeed = 2.5f;
+    [Tooltip("작업자 이동 속도(m/초). 선행 트리거로 차량보다 먼저 출발하므로 굳이 빠를 필요가 없고," +
+        " 빠르면 목표점(차량 부착점 기준)이 조금만 흔들려도 크게 튀어 덜덜거림이 눈에 띈다.")]
+    public float moveSpeed = 1.7f;
 
     [Tooltip("목표 지점에 이 거리(m) 이내로 들어오면 도착으로 판정한다.")]
     public float arriveRadius = 0.25f;
@@ -41,8 +42,12 @@ public class Worker : MonoBehaviour
         " 자동화의 처리량 우위를 만든다.")]
     public float assembleSpeed = 4f;
 
-    [Tooltip("차량 부착점에서 이만큼(m) 떨어진 지점에 서서 작업한다. 차량/부품과 겹치지 않게.")]
-    public float workStandDistance = 0.9f;
+    [Tooltip("차량이 게이트에 도킹했을 때 부착점이 있을 자리를 기준으로, 라인 진행방향(z) 옆으로" +
+        " 이만큼(m) 떨어진 지점에 미리 가서 대기한다. 좌/우는 자기 자리(homePos)가 원래 있던 쪽으로" +
+        " 자동 결정된다. 차량 몸통과 겹치지 않을 만큼 커야 한다(과거 workStandDistance+bodyClearance" +
+        " 두 값이 하던 역할을 이 값 하나가 겸한다 — 목표가 더 이상 매 프레임 움직이지 않으므로" +
+        " '전후로 물러섰다가 측면으로 밀어내는' 2단 보정이 필요 없어졌다).")]
+    public float standOffset = 1.1f;
 
     [Header("부품 들고 가기")]
     [Tooltip("부품을 든 손 위치. 실제 캐릭터 모델을 쓸 때는 손 본(Transform)을 그대로 꽂으면 된다 —" +
@@ -67,6 +72,27 @@ public class Worker : MonoBehaviour
 
     [Tooltip("손 기준 부품 회전 미세 조정(손 로컬, 도). 손 본에 붙였을 때 부품이 뒤집혀 보이면 여기서 돌린다.")]
     public Vector3 carryEuler = Vector3.zero;
+
+    [Header("애니메이션")]
+    [Tooltip("걷기 애니메이션을 재생할 Animator. 비어 있으면 자식에서 자동으로 찾는다.")]
+    [SerializeField] private Animator animator;
+
+    [Tooltip("이동 속력(m/초)을 넣을 float 파라미터 이름. StarterAssetsThirdPerson 컨트롤러의" +
+        " 블렌드 트리는 0=대기 / 2=걷기 / 6=달리기 임계값이라 실제 속력을 그대로 넣으면 된다." +
+        " 비우거나 컨트롤러에 없는 이름이면 조용히 무시된다.")]
+    public string speedParam = "Speed";
+
+    [Tooltip("애니메이션 재생 배속 파라미터(블렌드 상태의 Speed Multiplier) 이름." +
+        " StarterAssets 컨트롤러는 이 값이 0이면 애니메이션이 아예 '정지'하므로 항상 1을 넣는다." +
+        " 쓰지 않는 컨트롤러면 비워 두면 된다.")]
+    public string motionSpeedParam = "MotionSpeed";
+
+    [Tooltip("접지 여부 bool 파라미터 이름. StarterAssets 컨트롤러는 이게 false면 낙하 상태로 빠져" +
+        " 걷기가 나오지 않는다 — 작업자는 늘 바닥에 있으므로 항상 true로 유지한다.")]
+    public string groundedParam = "Grounded";
+
+    [Tooltip("speedParam에 넣는 속력 배율. 컨트롤러의 블렌드 임계값이 다를 때 맞춘다(1 = 실제 m/초).")]
+    public float animSpeedScale = 1f;
 
     [Header("컨디션")]
     [Tooltip("현재 컨디션(0~100). 0이 되면 강제 휴식.")]
@@ -101,6 +127,13 @@ public class Worker : MonoBehaviour
     /// </summary>
     [HideInInspector] public bool stockBlocked = false;
 
+    /// <summary>
+    /// 담당 차량이 게이트에 실제로 도킹(정지)했는지. WorkerStation이 매 프레임 갱신한다.
+    /// 대기 지점(정적으로 미리 계산된 지점)에 먼저 도착해도, 이 플래그가 서기 전까지는 체결(AddWork)을
+    /// 시작하지 않는다 — "체결은 차량이 실제 도킹한 뒤 시작한다"는 설계 규칙의 게이트.
+    /// </summary>
+    [HideInInspector] public bool carDocked = false;
+
     [Header("기즈모")]
     public bool drawGizmo = true;
 
@@ -110,7 +143,21 @@ public class Worker : MonoBehaviour
 
     private AssemblyPart targetPart;     // 담당 부품 (차량에 붙일 것)
     private Vector3 pileWorldPos;        // 부품을 집는 파일 위치
+    private Quaternion pileWorldRot = Quaternion.identity; // 파일에 놓여 있던 부품의 월드 회전
     private float restTimer = 0f;
+
+    // 애니메이터 파라미터 캐시 (없으면 조용히 스킵 — 매 프레임 로그를 남기지 않는다)
+    private int speedHash, motionSpeedHash, groundedHash;
+    private bool hasSpeedParam, hasMotionSpeedParam, hasGroundedParam;
+
+    // 이번 프레임 MoveToward가 실제로 이동시킨 거리(m). 프레임 간 위치 델타 대신 이 값을 쓰면
+    // 순간이동·회전 같은 외부 변화에 속도가 튀지 않는다.
+    private float movedThisFrame = 0f;
+
+    // 작업 대기 지점(정적 월드 좌표) — AssignWork 시점에 도킹 예정 위치 기준으로 1회만 계산해 캐시한다.
+    // 차량이 실제로 움직여도 재계산하지 않는다(그래서 떨리지 않는다).
+    private Vector3 standWorldPos;
+    private bool standValid = false;
 
     /// <summary>부품을 든 손의 월드 위치. handPos에 손 본을 꽂으면 본의 위치를 그대로 쓴다.</summary>
     private Vector3 HandWorldPos => handPos != null
@@ -143,6 +190,40 @@ public class Worker : MonoBehaviour
     private void Start()
     {
         if (!homeSet) SetHome(transform.position);
+        SetupAnimator();
+    }
+
+    /// <summary>Animator와 파라미터 존재 여부를 시작 시 1회만 확인해 캐시한다(경고도 1회만).</summary>
+    private void SetupAnimator()
+    {
+        if (animator == null) animator = GetComponentInChildren<Animator>();
+        if (animator == null || animator.runtimeAnimatorController == null)
+        {
+            Debug.LogWarning($"[Worker] '{name}': Animator(또는 Animator Controller)가 없어" +
+                " 걷기 애니메이션 없이 이동합니다.");
+            return;
+        }
+
+        speedHash = Animator.StringToHash(speedParam);
+        motionSpeedHash = Animator.StringToHash(motionSpeedParam);
+        groundedHash = Animator.StringToHash(groundedParam);
+
+        hasSpeedParam = HasParam(speedParam, AnimatorControllerParameterType.Float);
+        hasMotionSpeedParam = HasParam(motionSpeedParam, AnimatorControllerParameterType.Float);
+        hasGroundedParam = HasParam(groundedParam, AnimatorControllerParameterType.Bool);
+
+        if (!hasSpeedParam)
+            Debug.LogWarning($"[Worker] '{name}': Animator에 float 파라미터 '{speedParam}'가 없어" +
+                " 걷기 애니메이션이 재생되지 않습니다(컨트롤러의 파라미터 이름을 인스펙터에서 맞춰 주세요).");
+    }
+
+    private bool HasParam(string paramName, AnimatorControllerParameterType type)
+    {
+        if (string.IsNullOrEmpty(paramName)) return false;
+        AnimatorControllerParameter[] ps = animator.parameters;
+        for (int i = 0; i < ps.Length; i++)
+            if (ps[i].type == type && ps[i].name == paramName) return true;
+        return false;
     }
 
     /// <summary>자기 자리(대기 위치)를 지정한다.</summary>
@@ -153,17 +234,23 @@ public class Worker : MonoBehaviour
     }
 
     /// <summary>
-    /// 담당 작업을 배정한다. 작업자가 파일로 이동해 부품을 집고, 차량 부착점으로 옮겨 체결한다.
+    /// 담당 작업을 배정한다. 작업자가 파일로 이동해 부품을 집고, 차량 부착점 옆(정적 대기 지점)으로 옮겨 체결한다.
     /// <paramref name="pilePos"/>/<paramref name="pileWorldRot"/> = 부품이 등장해 대기할 <b>월드</b> 위치·회전
     /// (재고 파일의 맨 위 슬롯에 쌓여 있던 그 자세를 그대로 넘기면 된다).
+    /// <paramref name="dockPos"/>/<paramref name="dockRot"/> = 차량이 게이트에 도킹했을 때 가질 예정 월드 위치·회전
+    /// (WorkerStation.TryGetDockPose). <paramref name="dockPoseValid"/>가 false면(스플라인 미설정 등)
+    /// 배정 시점의 차량 실제 트랜스폼을 1회만 폴백으로 사용한다.
     /// 배정에 실패하면(이미 작업 중이거나 컨디션 없음) false.
     /// </summary>
-    public bool AssignWork(AssemblyPart part, Vector3 pilePos, Quaternion pileWorldRot)
+    public bool AssignWork(AssemblyPart part, Vector3 pilePos, Quaternion pileWorldRot,
+        Vector3 dockPos, Quaternion dockRot, bool dockPoseValid)
     {
         if (part == null || !IsAvailable) return false;
 
         targetPart = part;   // GetAttachWorldRot()가 참조하므로 아래 호출보다 먼저 대입해야 한다
+        ClearStandCache();   // 새 차량·새 부품이므로 이전 대기 지점은 무효
         pileWorldPos = pilePos;
+        this.pileWorldRot = pileWorldRot; // 파일 자세는 Fetching 동안 매 프레임 재고정에 쓰인다
 
         // 부품을 파일 위치에 등장시키고 월드 보간을 시작한다(fill=0이면 파일에 고정돼 대기).
         // 회전은 AssemblyPart 규약상 '부착(도착) 회전 기준 상대 오프셋'으로 넘겨야 하므로,
@@ -174,6 +261,9 @@ public class Worker : MonoBehaviour
         targetPart.SetWork(0f);
         targetPart.SetActive(true);
 
+        // 대기 지점은 여기서 1회만 계산한다 — 차량이 실제로 다가와도 다시 계산하지 않는다.
+        ComputeStandWorldPos(dockPos, dockRot, dockPoseValid);
+
         currentState = WorkerState.Fetching;
         return true;
     }
@@ -182,6 +272,7 @@ public class Worker : MonoBehaviour
     public void CancelWork()
     {
         targetPart = null;
+        ClearStandCache();
         if (currentState == WorkerState.Resting) return; // 휴식은 그대로 마치게 둔다
         currentState = WorkerState.Idle;
     }
@@ -231,6 +322,8 @@ public class Worker : MonoBehaviour
 
     private void Update()
     {
+        movedThisFrame = 0f;
+
         switch (currentState)
         {
             case WorkerState.GoingToWork:
@@ -245,6 +338,11 @@ public class Worker : MonoBehaviour
             case WorkerState.Fetching:
                 // 파일에 도착하면 부품을 들고 차량 부착점으로 향한다
                 if (targetPart == null) { CancelWork(); break; }
+                // 파일 위 부품의 월드 자세를 매 프레임 재고정한다(= UpdateCarryPose의 파일 버전).
+                // AssemblyPart는 시작 회전을 '부착 회전 기준 상대 오프셋'으로 들고 있어, 선행 트리거로
+                // 차량이 다가오며 회전하는 동안 오프셋을 갱신하지 않으면 아직 파일에 놓인 부품이 차를 따라 돈다.
+                targetPart.BeginWorldAssembly(pileWorldPos,
+                    Quaternion.Inverse(GetAttachWorldRot()) * pileWorldRot);
                 if (MoveToward(pileWorldPos)) currentState = WorkerState.MovingToPart;
                 break;
 
@@ -282,6 +380,25 @@ public class Worker : MonoBehaviour
                 }
                 break;
         }
+
+        UpdateAnimator();
+    }
+
+    /// <summary>
+    /// 이번 프레임 실제 이동량으로 걷기 애니메이션을 구동한다.
+    /// Animator나 파라미터가 없으면 아무것도 하지 않는다(경고는 SetupAnimator에서 1회만).
+    /// 체결 중(Working) 전용 애니메이션은 이번 범위 밖 — 필요해지면 여기에 상태별 분기를 추가한다.
+    /// </summary>
+    private void UpdateAnimator()
+    {
+        if (animator == null) return;
+
+        float dt = Time.deltaTime;
+        float speed = dt > 0f ? movedThisFrame / dt : 0f;
+
+        if (hasSpeedParam) animator.SetFloat(speedHash, speed * animSpeedScale);
+        if (hasMotionSpeedParam) animator.SetFloat(motionSpeedHash, 1f); // 0이면 애니메이션이 멈춘다
+        if (hasGroundedParam) animator.SetBool(groundedHash, true);      // 작업자는 늘 바닥 위
     }
 
     private void UpdateWorking()
@@ -292,11 +409,15 @@ public class Worker : MonoBehaviour
             return;
         }
 
-        // 작업 위치를 계속 따라간다(차량이 멈춰 있어도 부착점 기준을 유지)
-        bool inPlace = MoveToward(GetWorkStandPos());
+        // 목표는 정적 지점이라 도착하면 더 이상 움직이지 않는다 — 이진 도착 판정을 써도
+        // (기존 소프트 게이트가 막던) '뒤처짐→재추격' 진동이 생기지 않는다.
+        bool arrived = MoveToward(GetWorkStandPos());
+        if (!arrived) return; // 아직 대기 지점으로 걸어가는 중
 
-        // 게이트: 작업자가 부착점 옆에 서 있을 때만 체결이 진행된다
-        if (!inPlace) return;
+        // 대기 지점에 도착해도, 차량이 실제로 게이트에 도킹(정지)하기 전에는 체결을 시작하지 않는다
+        // (선행 트리거로 작업자가 차보다 먼저 도착해 서서 기다리는 것은 의도된 동작).
+        FaceTowards(GetAttachWorldPos());
+        if (!carDocked) return;
 
         targetPart.AddWork(assembleSpeed * Time.deltaTime);
 
@@ -307,6 +428,7 @@ public class Worker : MonoBehaviour
         // 품질은 작업 당시 컨디션에 비례한다 — 지친 작업자가 붙이면 체결은 100%여도 품질이 낮다
         targetPart.quality = Mathf.Lerp(qualityAtZeroCondition, 1f, ConditionFill);
         targetPart = null;
+        ClearStandCache();
 
         // 컨디션은 여기서 깎지 않는다. 한 작업자가 같은 차량에서 부품을 여러 개 붙일 수 있어
         // 부품마다 깎으면 담당 부품 수만큼 빨리 지치고 "10대마다 1회 휴식" 리듬이 깨진다
@@ -315,18 +437,58 @@ public class Worker : MonoBehaviour
         currentState = WorkerState.Idle;
     }
 
-    /// <summary>부착점에서 workStandDistance만큼 떨어진, 작업자가 서는 지점.</summary>
+    /// <summary>
+    /// AssignWork 시점에 1회만 계산해 캐시하는 정적 대기 지점.
+    ///
+    /// 도킹 예정 위치·회전(dockPos/dockRot) 기준으로 부착점(targetPart.assembledPos, 차량 로컬)을
+    /// 월드로 환산한 뒤, 라인 진행방향(도킹 회전의 로컬 x축 = 측면) 쪽으로 standOffset만큼 민다.
+    /// 어느 쪽(좌/우)으로 미는지는 자기 자리(homePos)가 도킹 기준 로컬 좌표에서 부착점보다
+    /// x가 작은 쪽(음)인지 큰 쪽(양)인지로 판정한다(기존 PushOutOfCar의 좌우 판별 방식과 동일한 발상).
+    /// z(라인 진행방향)는 부착점과 동일하게 둔다 — 결과는 차량이 실제로 움직여도 다시 계산되지 않는
+    /// 고정 월드 좌표라, 여기로 걸어가는 동안 목표가 전혀 흔들리지 않는다.
+    /// </summary>
+    private void ComputeStandWorldPos(Vector3 dockPos, Quaternion dockRot, bool dockPoseValid)
+    {
+        standValid = false;
+        if (targetPart == null) return;
+
+        if (!dockPoseValid)
+        {
+            // 폴백: 스플라인 예측이 불가능하면(mainLineSpline 미설정 등) 배정 시점의 실제 차량
+            // 트랜스폼을 1회만 사용한다. 이후에는 재계산하지 않으므로 여전히 '정적'이지만,
+            // 차량이 아직 멀리서 다가오는 중이면 정확도가 떨어질 수 있다.
+            Transform holder = targetPart.transform.parent;
+            if (holder == null) return;
+            dockPos = holder.position;
+            dockRot = holder.rotation;
+        }
+
+        Vector3 attachLocal = targetPart.assembledPos;
+
+        // 자기 자리가 도킹 기준으로 부착점의 어느 쪽(x)에 있는지로 좌/우를 정한다
+        Vector3 homeLocal = Quaternion.Inverse(dockRot) * (homePos - dockPos);
+        float side = homeLocal.x - attachLocal.x;
+
+        Vector3 standLocal = attachLocal;
+        standLocal.x += side < 0f ? -standOffset : standOffset;
+
+        Vector3 world = dockPos + dockRot * standLocal;
+        world.y = homePos.y;
+
+        standWorldPos = world;
+        standValid = true;
+    }
+
+    /// <summary>작업자가 걸어가서 대기/작업할 지점. 배정 시 계산해 둔 정적 지점을 그대로 돌려준다.</summary>
     private Vector3 GetWorkStandPos()
     {
-        Vector3 attach = GetAttachWorldPos();
-        Vector3 dir = attach - homePos;
-        dir.y = 0f;
-        if (dir.sqrMagnitude < 0.0001f) dir = Vector3.forward;
+        // 안전망: 배정 시 대기 지점 계산이 실패했으면(targetPart 없음 등) 부착점을 그대로 반환한다.
+        return standValid ? standWorldPos : GetAttachWorldPos();
+    }
 
-        // 부착점에서 자기 자리 쪽으로 물러선 위치 — 차량·부품과 겹치지 않게
-        Vector3 stand = attach - dir.normalized * workStandDistance;
-        stand.y = homePos.y;
-        return stand;
+    private void ClearStandCache()
+    {
+        standValid = false;
     }
 
     /// <summary>
@@ -389,19 +551,25 @@ public class Worker : MonoBehaviour
         float dist = Vector3.Distance(transform.position, flatTarget);
         if (dist <= arriveRadius) return true;
 
-        transform.position = Vector3.MoveTowards(transform.position, flatTarget, moveSpeed * Time.deltaTime);
+        Vector3 before = transform.position;
+        transform.position = Vector3.MoveTowards(before, flatTarget, moveSpeed * Time.deltaTime);
+        movedThisFrame += Vector3.Distance(before, transform.position);
 
-        if (turnSpeed > 0f)
-        {
-            Vector3 dir = flatTarget - transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude > 0.0001f)
-            {
-                Quaternion want = Quaternion.LookRotation(dir.normalized, Vector3.up);
-                transform.rotation = Quaternion.RotateTowards(transform.rotation, want, turnSpeed * Time.deltaTime);
-            }
-        }
+        FaceTowards(flatTarget);
         return false;
+    }
+
+    /// <summary>수평면에서 지정 지점을 바라보도록 turnSpeed로 회전한다.</summary>
+    private void FaceTowards(Vector3 worldPoint)
+    {
+        if (turnSpeed <= 0f) return;
+
+        Vector3 dir = worldPoint - transform.position;
+        dir.y = 0f;
+        if (dir.sqrMagnitude < 0.0001f) return;
+
+        Quaternion want = Quaternion.LookRotation(dir.normalized, Vector3.up);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, want, turnSpeed * Time.deltaTime);
     }
 
     private void OnDrawGizmos()

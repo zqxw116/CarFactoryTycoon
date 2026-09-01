@@ -1,5 +1,6 @@
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 작업자 머리 위 상태 표시. 관리형 게임에서 "한눈에 병목 파악"이 핵심 UX이므로,
@@ -11,8 +12,9 @@ using UnityEngine;
 ///   피로는 컨디션 게이지의 색 변화가 대신한다)
 /// - 컨디션은 게이지로 보여주고, 낮아질수록 색이 초록→노랑→빨강으로 변한다.
 ///
-/// 게이지는 별도 스프라이트/메시 없이 3D TMP 문자 블록(▮▯)으로 그린다:
-/// 콜라이더가 생기지 않아 <b>작업자 클릭 레이캐스트를 가리지 않고</b>, 문자열만 바꾸면 되므로 가볍다.
+/// 게이지는 uGUI <see cref="Image"/>의 Filled 타입(fillAmount)으로 그린다.
+/// 인스펙터에서 <see cref="conditionFill"/>에 Fill 이미지를 꽂아야 게이지가 보인다.
+/// (게이지 이미지들은 Raycast Target을 꺼서 작업자 클릭을 가리지 않게 할 것)
 /// </summary>
 [RequireComponent(typeof(Worker))]
 public class WorkerStatusUI : MonoBehaviour
@@ -28,8 +30,14 @@ public class WorkerStatusUI : MonoBehaviour
     public float scale = 0.5f;
 
     [Header("게이지")]
-    [Tooltip("컨디션 게이지 칸 수.")]
-    public int gaugeCells = 10;
+    [Tooltip("컨디션 게이지 Fill 이미지. Image Type = Filled 로 설정할 것.")]
+    [SerializeField] private Image conditionFill;
+
+    [Tooltip("게이지 배경 이미지(선택). 게이지 표시/숨김에 함께 쓰인다.")]
+    [SerializeField] private Image conditionBg;
+
+    [Tooltip("퍼센트 숫자 텍스트(선택). 비워두면 표시하지 않는다.")]
+    [SerializeField] private TMP_Text percentText;
 
     [Tooltip("컨디션이 100%일 때도 게이지를 보여줄지. 끄면 컨디션이 깎였을 때만 보인다.")]
     public bool alwaysShowGauge = false;
@@ -41,14 +49,21 @@ public class WorkerStatusUI : MonoBehaviour
     [Tooltip("부품 없음(라인 정지) 강조색.")]
     public Color blockedColor = new Color(1f, 0.55f, 0.1f, 1f);
 
+    [Tooltip("이 값(%)보다 높으면 초록.")]
+    public float goodThreshold = 50f;
+    [Tooltip("이 값(%)보다 높으면 노랑, 이하면 빨강.")]
+    public float warnThreshold = 20f;
+
     private Worker worker;
     private TextMeshPro label;
     private Transform labelTf;
 
-    // 문자열 재생성을 줄이기 위한 캐시 (매 프레임 string 만들면 GC가 계속 발생한다)
-    private int lastFilledCells = -1;
+    // 갱신을 줄이기 위한 캐시 (매 프레임 string 만들면 GC가 계속 발생한다)
     private string lastStateText = null;
+    private int lastPercent = -1;
     private bool lastVisible = true;
+    private bool lastGaugeVisible = true;
+    private bool fillWarned = false;   // fill 미할당 경고는 한 번만
 
     private void Awake()
     {
@@ -77,7 +92,6 @@ public class WorkerStatusUI : MonoBehaviour
         if (worker == null || label == null) return;
 
         string stateText = GetStateText();
-        int filled = GetFilledCells();
         bool showGauge = alwaysShowGauge || worker.condition < 100f;
         bool visible = !string.IsNullOrEmpty(stateText) || showGauge;
 
@@ -86,15 +100,23 @@ public class WorkerStatusUI : MonoBehaviour
             label.gameObject.SetActive(visible);
             lastVisible = visible;
         }
+
+        if (showGauge != lastGaugeVisible)
+        {
+            SetGaugeVisible(showGauge);
+            lastGaugeVisible = showGauge;
+        }
+
         if (!visible) return;
 
         // 내용이 바뀔 때만 문자열을 다시 만든다
-        if (stateText != lastStateText || filled != lastFilledCells)
+        if (stateText != lastStateText)
         {
             lastStateText = stateText;
-            lastFilledCells = filled;
-            label.text = BuildText(stateText, filled, showGauge);
+            label.text = stateText ?? string.Empty;
         }
+
+        UpdateGauge(showGauge);
 
         label.color = GetColor();
 
@@ -121,31 +143,45 @@ public class WorkerStatusUI : MonoBehaviour
         }
     }
 
-    private int GetFilledCells()
+    private void SetGaugeVisible(bool on)
     {
-        int cells = Mathf.Max(1, gaugeCells);
-        return Mathf.Clamp(Mathf.RoundToInt(worker.ConditionFill * cells), 0, cells);
+        if (conditionBg != null) conditionBg.enabled = on;
+        if (conditionFill != null) conditionFill.enabled = on;
+        if (percentText != null) percentText.enabled = on;
     }
 
-    private string BuildText(string stateText, int filled, bool showGauge)
+    private void UpdateGauge(bool showGauge)
     {
-        int cells = Mathf.Max(1, gaugeCells);
+        if (conditionFill == null)
+        {
+            if (!fillWarned)
+            {
+                fillWarned = true;
+                Debug.LogWarning($"[WorkerStatusUI] {name}: conditionFill(Image)이 비어 있어 컨디션 게이지를 표시하지 않는다.", this);
+            }
+            return;
+        }
+        if (!showGauge) return;
 
-        if (!showGauge) return stateText;
+        conditionFill.fillAmount = Mathf.Clamp01(worker.ConditionFill);
+        conditionFill.color = GetColor();
 
-        // ▮▮▮▮▮▮▯▯▯▯ 60%
-        var sb = new System.Text.StringBuilder(cells + 16);
-        if (!string.IsNullOrEmpty(stateText)) sb.Append(stateText).Append('\n');
-        for (int i = 0; i < cells; i++) sb.Append(i < filled ? '▮' : '▯');
-        sb.Append(' ').Append(Mathf.RoundToInt(worker.condition)).Append('%');
-        return sb.ToString();
+        if (percentText != null)
+        {
+            int percent = Mathf.RoundToInt(worker.condition);
+            if (percent != lastPercent)
+            {
+                lastPercent = percent;
+                percentText.SetText("{0}%", percent);
+            }
+        }
     }
 
     private Color GetColor()
     {
         if (worker.stockBlocked && worker.currentState == Worker.WorkerState.Idle) return blockedColor;
-        if (worker.condition > 50f) return goodColor;
-        if (worker.condition > 20f) return warnColor;
+        if (worker.condition > goodThreshold) return goodColor;
+        if (worker.condition > warnThreshold) return warnColor;
         return badColor;
     }
 }
