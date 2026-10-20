@@ -29,7 +29,10 @@ using UnityEngine;
 ///        (StarterAssets 클립에 박힌 OnFootstep/OnLand AnimationEvent의 "has no receiver" 경고 제거)
 ///   3) 오른손 본 아래에 HandPos 빈 자식을 만들어 Worker.handPos에 연결
 ///   4) 클릭용 BoxCollider를 본+메시 교차실측으로 몸통에 맞춤 (이미 있으면 무조건 덮어씀)
-///   5) 신장 기반으로 handHeight / handForward / standOffset / WorkerStatusUI.height 보정
+///   5) 팔 본 기준으로 두 손 운반 고정점(handHeight / handForward)·잡이 반폭, 신장 기반으로
+///      standOffset / WorkerStatusUI.height 보정
+///   5-1) Animator 오브젝트에 WorkerHandIK 부착 + Base Layer IK Pass를 켠 작업자 전용 컨트롤러
+///        (Assets/@Resource/Animations/WorkerAnimator.controller, StarterAssets 원본 사본) 지정
 ///   6) 이동을 방해하는 컴포넌트(ThirdPersonController 등)·부모·레이어 문제를 경고
 ///
 /// 사용법:
@@ -53,6 +56,18 @@ public static class WorkerSetupTool
 
     /// <summary>손에 든 부품이 손바닥 안쪽에 파묻히지 않도록 손 본에서 몸 앞쪽으로 밀어내는 거리(m).</summary>
     private const float HAND_FORWARD_PAD = 0.05f;
+
+    /// <summary>두 손 IK를 켠(Base Layer IK Pass) 작업자 전용 컨트롤러. StarterAssets 원본의 사본.</summary>
+    private const string WORKER_CONTROLLER_PATH = "Assets/@Resource/Animations/WorkerAnimator.controller";
+
+    /// <summary>두 손 운반 시 손이 어깨보다 바깥으로 나가는 거리(m) — 잡이 반폭 = 어깨 반폭 + 이 값.</summary>
+    private const float GRIP_OUTSIDE_SHOULDER = 0.1f;
+
+    /// <summary>두 손 운반 시 어깨→손목 거리 / 팔 길이. 1에 가까우면 팔이 일자로 펴진다.</summary>
+    private const float CARRY_REACH_RATIO = 0.85f;
+
+    /// <summary>두 손 운반 시 어깨에서 손목을 아래로 내리는 양 / 팔 길이.</summary>
+    private const float CARRY_DROP_RATIO = 0.58f;
 
     /// <summary>발목 본에서 발바닥까지 내려갈 여유(m). 발 본은 바닥이 아니라 복사뼈 높이에 있다.</summary>
     private const float SOLE_PAD = 0.06f;
@@ -229,16 +244,43 @@ public static class WorkerSetupTool
             report.AppendLine("· Worker.handPos ← HandPos 연결");
         }
 
-        // handPos를 꽂으면 handForward/handHeight는 폴백 값이지만, 나중에 비웠을 때 곧바로
-        // 이 모델에 맞는 위치가 나오도록 실측값으로 갱신해 둔다.
-        // 손 높이는 바운즈가 아니라 실제 손 본 높이(루트 피벗 기준)라 예전 버그와 무관하지만,
-        // 앞쪽 거리(handForward)는 잘못된 바운즈의 반두께를 쓰고 있었으므로 함께 교정된다.
-        float newHandHeight = go.transform.InverseTransformPoint(hand.position).y;
-        float newHandForward = halfDepth + HAND_FORWARD_PAD * 2f;
+        // 두 손 IK 운반: 부품은 손 본이 아니라 몸 앞 고정점(handForward/handHeight)에 두고 손이 IK로 잡는다.
+        // 그 고정점은 '팔이 살짝 굽은 채 닿는 거리'여야 한다 — 손 본 높이(차렷 자세 = 허리 아래)나
+        // 몸 반두께 기준 값으로 두면 어깨에서 팔 길이보다 멀어져 손이 부품에 닿지 않는다.
+        float newHandHeight, newHandForward, newGripHalf;
+        if (TryComputeCarryFromArms(go.transform, animator, out newHandHeight, out newHandForward,
+                out newGripHalf, out string armLog))
+        {
+            report.Append(armLog);
+            LogChange(report, "maxGripHalfSpan", worker.maxGripHalfSpan, newGripHalf);
+            worker.maxGripHalfSpan = newGripHalf;
+        }
+        else
+        {
+            // 팔 본을 못 찾으면 예전 방식(손 본 높이 / 몸 반두께 + 여유)으로 폴백
+            newHandHeight = go.transform.InverseTransformPoint(hand.position).y;
+            newHandForward = halfDepth + HAND_FORWARD_PAD * 2f;
+            report.AppendLine("· ⚠ 팔 본 실측 실패 → 운반 높이/거리를 손 본 기준으로 폴백");
+        }
         LogChange(report, "handForward", worker.handForward, newHandForward);
         LogChange(report, "handHeight", worker.handHeight, newHandHeight);
         worker.handForward = newHandForward;
         worker.handHeight = newHandHeight;
+
+        // ── 6-1. 두 손 IK ────────────────────────────────────────────────
+        // OnAnimatorIK는 Animator와 같은 오브젝트에서만 호출되므로 거기에 붙인다.
+        if (!animator.TryGetComponent(out WorkerHandIK handIK))
+        {
+            handIK = Undo.AddComponent<WorkerHandIK>(animator.gameObject);
+            report.AppendLine($"· WorkerHandIK 추가 (Animator 오브젝트 '{animator.name}')");
+        }
+        else report.AppendLine("· WorkerHandIK 기존 것 유지");
+        if (worker.handIK != handIK)
+        {
+            worker.handIK = handIK;
+            report.AppendLine("· Worker.handIK ← WorkerHandIK 연결");
+        }
+        EnsureIKController(animator, report);
 
         // standOffset: 도킹 예정 부착점 옆(라인 진행방향 측면)으로 미리 떨어져 서는 거리.
         // 기준 1.1(2m 몸통)을 신장 비율로 스케일하되, 목표가 이제 정적 지점이라(더 이상 손 위치로
@@ -296,6 +338,87 @@ public static class WorkerSetupTool
         handPos.localScale = Vector3.one;
         EditorUtility.SetDirty(handPos);
         return handPos;
+    }
+
+    /// <summary>
+    /// 팔 본 길이로 두 손 운반 고정점(handHeight/handForward)과 잡이 반폭(maxGripHalfSpan)을 정한다.
+    ///   · 잡이 반폭 = 어깨 반폭 + GRIP_OUTSIDE_SHOULDER (손이 어깨보다 살짝 바깥 — 상자 드는 폭)
+    ///   · 어깨→손목 거리 = 팔 길이 × CARRY_REACH_RATIO (팔꿈치가 살짝 굽어 IK가 펴짐 한계에 걸리지 않게)
+    ///   · 그중 아래로 내리는 양 = 팔 길이 × CARRY_DROP_RATIO, 나머지를 앞으로 → 배~명치 앞
+    /// </summary>
+    private static bool TryComputeCarryFromArms(Transform root, Animator animator,
+        out float handHeight, out float handForward, out float gripHalf, out string log)
+    {
+        handHeight = handForward = gripHalf = 0f;
+        log = "";
+        Transform lu = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
+        Transform ru = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+        Transform rl = animator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+        Transform rh = animator.GetBoneTransform(HumanBodyBones.RightHand);
+        if (lu == null || ru == null || rl == null || rh == null) return false;
+
+        Vector3 luL = root.InverseTransformPoint(lu.position);
+        Vector3 ruL = root.InverseTransformPoint(ru.position);
+        float armLen = Vector3.Distance(ru.position, rl.position) + Vector3.Distance(rl.position, rh.position);
+        float shoulderHalf = Mathf.Abs(ruL.x - luL.x) * 0.5f;
+        float shoulderY = (luL.y + ruL.y) * 0.5f;
+        float shoulderZ = (luL.z + ruL.z) * 0.5f;
+
+        gripHalf = shoulderHalf + GRIP_OUTSIDE_SHOULDER;
+        float reach = armLen * CARRY_REACH_RATIO;
+        float drop = armLen * CARRY_DROP_RATIO;
+        float side = GRIP_OUTSIDE_SHOULDER;
+        float fwd = Mathf.Sqrt(Mathf.Max(0.0001f, reach * reach - drop * drop - side * side));
+
+        handHeight = shoulderY - drop;
+        handForward = shoulderZ + fwd;
+        log = $"· 팔 실측: 팔 길이 {armLen:F3}m / 어깨 반폭 {shoulderHalf:F3}m / 어깨 높이 {shoulderY:F3}m" +
+              $" → 운반 고정점 높이 {handHeight:F3} 앞 {handForward:F3}, 잡이 반폭 {gripHalf:F3}\n";
+        return armLen > 0.05f;
+    }
+
+    /// <summary>
+    /// Animator 컨트롤러의 Base Layer에 IK Pass가 켜져 있게 한다(꺼져 있으면 OnAnimatorIK가 호출되지 않는다).
+    /// StarterAssets 원본은 보급 작업자도 쓰므로 직접 바꾸지 않고, 작업자 전용 사본(WORKER_CONTROLLER_PATH)을
+    /// 만들어(없을 때만, 현재 컨트롤러 복제) IK Pass를 켜고 이 작업자에 지정한다.
+    /// </summary>
+    private static void EnsureIKController(Animator animator, StringBuilder report)
+    {
+        var current = animator.runtimeAnimatorController as UnityEditor.Animations.AnimatorController;
+        if (current != null && current.layers.Length > 0 && current.layers[0].iKPass)
+        {
+            report.AppendLine($"· 컨트롤러 '{current.name}' Base Layer IK Pass 켜져 있음");
+            return;
+        }
+
+        var ac = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(WORKER_CONTROLLER_PATH);
+        if (ac == null)
+        {
+            string src = current != null ? AssetDatabase.GetAssetPath(current) : null;
+            if (string.IsNullOrEmpty(src) || !AssetDatabase.CopyAsset(src, WORKER_CONTROLLER_PATH))
+            {
+                report.AppendLine("· ⚠ 작업자 전용 컨트롤러를 만들지 못했습니다 — 두 손 IK가 동작하지 않습니다" +
+                    $" (Base Layer IK Pass를 켠 컨트롤러를 '{WORKER_CONTROLLER_PATH}'에 두세요).");
+                return;
+            }
+            ac = AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(WORKER_CONTROLLER_PATH);
+            report.AppendLine($"· '{src}' → '{WORKER_CONTROLLER_PATH}' 복제");
+        }
+
+        var layers = ac.layers;
+        if (layers.Length > 0 && !layers[0].iKPass)
+        {
+            layers[0].iKPass = true;
+            ac.layers = layers;
+            EditorUtility.SetDirty(ac);
+            AssetDatabase.SaveAssets();
+            report.AppendLine("· 작업자 전용 컨트롤러 Base Layer IK Pass 켬");
+        }
+
+        Undo.RecordObject(animator, "Setup Worker Animator");
+        animator.runtimeAnimatorController = ac;
+        EditorUtility.SetDirty(animator);
+        report.AppendLine($"· Animator 컨트롤러 ← '{WORKER_CONTROLLER_PATH}'");
     }
 
     // ─────────────────────────────────────────────────────────────────────

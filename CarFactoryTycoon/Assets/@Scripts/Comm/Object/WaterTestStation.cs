@@ -27,6 +27,9 @@ using UnityEditor;
 ///   출수 직후부터 라인 하강 전까지 dripVFX(물방울)가 차량을 따라 떨어진다. 통과 차량은 출수 순간 passVFX(물보라).
 /// - 폐기 연출로 줄인 차량 스케일은 풀 반환 직후·사이클 중단 시 캡처 당시 값으로 복원한다
 ///   (CarPool.Get에서도 프리팹 스케일로 한 번 더 보정).
+/// - 대차(CarDolly): 들어 올릴 때 게이트 벨트 위에 남김(부모 분리) → 수조로 떠나면 '뿅' 사라짐 →
+///   통과 차량은 방출 지점 위 dollyAppearHeight에서 대차가 '뿅' 나타나고 그 위에 내려앉아 재부착.
+///   불량은 사라진 채 차량에 되돌려 두고(풀 재사용 시 SetPath가 원복), 중단 시 즉시 원복.
 ///
 /// [씬 셋업]
 ///  - 빈 오브젝트에 이 컴포넌트 추가, 게이트 위치(수조 앞 라인 위)에 배치.
@@ -158,6 +161,21 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     public ParticleSystem failVFX;
     [Tooltip("출수 후 차량에서 떨어지는 물방울 (루프). hangerGrabPoint 자식 권장. 출수 시 재생, 라인 하강 시작 시 정지.")]
     public ParticleSystem dripVFX;
+    [Tooltip("불량 스파크 번쩍임 조명 (검사 중 불량일 때만 깜빡임). 비우면 조명 없이 파티클만.")]
+    public Light failFlashLight;
+    [Tooltip("번쩍임 최대 밝기")]
+    public float failFlashIntensity = 12f;
+    [Tooltip("번쩍임 간격 범위 (초, 최소~최대 사이 무작위)")]
+    public Vector2 failFlashInterval = new Vector2(0.05f, 0.16f);
+
+    // ─── 대차 ────────────────────────────────────────────────────────────────────
+    [Header("대차 (방수 중 벨트에 남김)")]
+    [Tooltip("대차가 사라지고·나타날 때 뿌리는 연기. 월드 공간 파티클을 Emit으로 재사용 (출고 공정의 DollyPoofFx 공용 가능, 비우면 연기 없음).")]
+    public ParticleSystem dollyPoofFx;
+    [Tooltip("연기 버스트 1회당 입자 수")]
+    public int dollyPoofCount = 14;
+    [Tooltip("통과 차량을 내려놓을 때, 차량 기준점이 방출 지점 위 이 높이(m) 아래로 내려오면 대차가 나타난다.")]
+    public float dollyAppearHeight = 1.2f;
 
     // ─── 디버그 ──────────────────────────────────────────────────────────────────
     [Header("현재 상태 (디버그)")]
@@ -206,6 +224,12 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private Vector3    vanishFrom;
     private Quaternion vanishRot;
     private float      vanishT;
+
+    // 캡처한 차량의 대차 (들어 올릴 때 벨트에 남기고, 통과 시 방출 지점에서 다시 나타남)
+    private CarDolly heldDolly;
+    private bool     dollyAppeared;
+    // 불량 번쩍임 조명: 다음 밝기 변경까지 남은 시간
+    private float    flashTimer;
 
     // ILineGate 구현
     public float GateProgress => gateProgress;
@@ -347,6 +371,10 @@ public class WaterTestStation : MonoBehaviour, ILineGate
                 break;
 
             case WaterTestState.Lowering:
+                // 통과: 방출 지점 바로 위까지 내려오면 벨트 위에 대차가 '뿅' 나타난다 (차가 그 위에 내려앉음)
+                if (lastResult == WaterTestResult.Pass && !dollyAppeared &&
+                    grabPos.y <= GetReleasePos().y + dollyAppearHeight)
+                    AppearDollyAtRelease();
                 // 불량: 해치가 다 열린 뒤에 놓는다 (해치는 UpdateHatch가 TravelToLine부터 열기 시작)
                 if (MoveHangerGrabTo(GetDestPos(), lowerSpeed) &&
                     (lastResult == WaterTestResult.Pass || IsHatchOpen()))
@@ -373,6 +401,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         UpdateClaw();
         UpdateHatch();
+        UpdateFailFlash();
 
         // Grabbing 이후 Releasing까지: 차량이 집게 그랩포인트 위치를 따른다
         if (currentCar != null && IsCarAttached() && hangerGrabPoint != null)
@@ -404,6 +433,8 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         carCapturePos       = currentCar.transform.position; // 라인 복귀 기준
         carOriginalScale    = currentCar.transform.localScale; // 폐기 축소 후 복원 기준
         airHeight           = carCapturePos.y + liftHeight;
+        heldDolly           = currentCar.Dolly;
+        dollyAppeared       = false;
         currentState        = WaterTestState.HangerDescending;
     }
 
@@ -415,11 +446,20 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     private void BeginLifting()
     {
+        // 차만 들어 올린다: 대차는 지금 자리(게이트 벨트 위)에 월드 고정으로 남김
+        if (heldDolly != null && heldDolly.gameObject.activeInHierarchy)
+            heldDolly.DetachInPlace();
         currentState = WaterTestState.Lifting;
     }
 
     private void BeginTravelToPool()
     {
+        // 차가 수조로 떠나면 남은 대차는 '뿅' 사라짐 (통과 시 방출 지점에서 다시 나타남)
+        if (heldDolly != null && heldDolly.IsDetached && heldDolly.gameObject.activeInHierarchy)
+        {
+            PoofDolly(heldDolly);
+            heldDolly.Vanish();
+        }
         currentState = WaterTestState.TravelToPool;
     }
 
@@ -506,6 +546,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             // releaseProgress 위치로 SetProgress → 수조 뒤 지점에서 재출발
             currentCar.transform.localScale = carOriginalScale;
             currentCar.SetProgress(releaseProgress);
+            // 차가 대차 위에 내려앉음 → 대차를 다시 차량 자식으로 (나타나기 전이면 즉시 보이게 원복)
+            if (heldDolly != null) heldDolly.Restore();
+            heldDolly           = null;
             currentCar.isMoving = true;
             currentCar          = null;
 
@@ -652,6 +695,58 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         return traffic.GetCarAtGate(releaseProgress + clear / currentCar.SplineLength, clear) != null;
     }
 
+    /// <summary>
+    /// 방출 지점 벨트 위에 대차를 '뿅' 나타나게 한다. 위치·회전은 ReleaseCar의 SetProgress(releaseProgress)가
+    /// 차량을 놓을 라인 자세와 같게 계산 → 재부착 순간 대차가 튀지 않는다.
+    /// </summary>
+    private void AppearDollyAtRelease()
+    {
+        dollyAppeared = true;
+        if (heldDolly == null || currentCar == null) return;
+
+        Vector3    pos = GetReleasePos();
+        Quaternion rot = currentCar.transform.rotation;
+        if (currentCar.targetSpline != null)
+        {
+            var spline = currentCar.targetSpline;
+            SplineUtility.Evaluate(spline.Spline, releaseProgress, out float3 lp, out float3 lt, out float3 lu);
+            pos = spline.transform.TransformPoint(lp);
+            if (math.length(lt) > 0.001f)
+                rot = Quaternion.LookRotation(spline.transform.TransformDirection(lt), spline.transform.TransformDirection(lu));
+        }
+        heldDolly.AppearAt(pos, rot);
+        PoofDolly(heldDolly);
+    }
+
+    // 대차 위치에 연기 버스트 (월드 공간 파티클 1개를 위치만 옮겨 Emit — 이전 버스트는 제자리에 남는다)
+    private void PoofDolly(CarDolly dolly)
+    {
+        if (dollyPoofFx == null || dolly == null) return;
+        dollyPoofFx.transform.SetPositionAndRotation(dolly.transform.position, dolly.transform.rotation);
+        dollyPoofFx.Emit(dollyPoofCount);
+    }
+
+    /// <summary>불량 검사 중(Testing + 미체결 있음)에만 조명을 무작위 간격으로 번쩍인다 (전기 스파크 느낌).</summary>
+    private void UpdateFailFlash()
+    {
+        if (failFlashLight == null) return;
+        bool on = currentState == WaterTestState.Testing && missingPartCount > 0;
+        if (!on)
+        {
+            if (failFlashLight.enabled) failFlashLight.enabled = false;
+            return;
+        }
+
+        flashTimer -= Time.deltaTime;
+        if (flashTimer > 0f) return;
+        flashTimer = UnityEngine.Random.Range(failFlashInterval.x, failFlashInterval.y);
+        // 강하게 번쩍 / 약하게 / 꺼짐 중 하나 → 불규칙한 전기 스파크
+        float r = UnityEngine.Random.value;
+        float k = r < 0.45f ? 1f : r < 0.75f ? 0.35f : 0f;
+        failFlashLight.intensity = failFlashIntensity * k;
+        failFlashLight.enabled   = k > 0f;
+    }
+
     /// <summary>입수/출수 SmoothStep 이동 준비. 소요 시간 = 거리 / 평균 속도.</summary>
     private void BeginDip(Vector3 grabWorldTarget, float speed)
     {
@@ -750,6 +845,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         StopVFX(dripVFX);
         // 외부에서 비활성화된 차량이라도 스케일은 되돌려 둔다 (재사용 대비)
         if (currentCar != null) currentCar.transform.localScale = carOriginalScale;
+        // 벨트에 남겨 둔 대차는 차량 자식으로 원복·활성·스케일 1 (차량이 파괴됐으면 대차도 정리)
+        if (heldDolly != null) heldDolly.Restore();
+        heldDolly    = null;
         currentCar   = null;
         lastResult   = WaterTestResult.None;
         timer        = cooldownDuration;
@@ -767,6 +865,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             currentCar.transform.localScale = carOriginalScale;
             currentCar = null;
         }
+        // 사라진 대차는 꺼진 채로 차량에 되돌려 둔다 (풀 재사용 시 SetPath의 Restore가 다시 보이게 함)
+        if (heldDolly != null) heldDolly.Reattach();
+        heldDolly    = null;
         timer        = cooldownDuration;
         currentState = WaterTestState.Cooldown;
     }
@@ -925,14 +1026,35 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     //   passVFX       → poolEntryPoint 자식 (수면, 출수 물보라)
     //   failVFX       → poolBottomPoint 자식, Y +1.0 (물속 차량 높이 스파크)
     //
-    // 이미 슬롯이 연결된 VFX는 건너뜀 (중복 생성 없음).
+    // 이미 슬롯이 연결된 VFX는 건너뜀 (중복 생성 없음). "다시 생성 (교체)"는 기존 VFX를 지우고 현재 설정으로 새로 만든다.
     // 입자는 원형 소프트 텍스처(VFX_SoftCircle)로 그린다 (텍스처 없는 파티클 재질은 사각형으로 보임).
+    //
+    // 시작 카메라(직교 ortho 20, 1m ≈ 27px)에서도 보이도록 과장된 크기·개수 + 가산 합성(스파크·불량 기포·반짝임).
+    // 보조 연출은 각 VFX의 자식 파티클로 둔다 → PlayVFX/StopVFX가 자식까지 함께 재생·정지 (슬롯 추가 없음):
+    //   SplashVFX  └ SplashCrown(왕관형 물방울 링) · SplashMist(큰 물안개)
+    //   PassVFX    └ PassSparkle(통과 반짝임)
+    //   FailVFX    └ FailFlash(번쩍임 섬광) · FailFlashLight(점멸 조명, failFlashLight 슬롯)
+    // 재질 렌더 큐 = Transparent+100(3100): 물 볼륨(2990)·유리(3000) 뒤에 그려 물속에서도 흐려지지 않는다.
 
     [ContextMenu("임시 VFX 생성 (테스트용)")]
-    private void CreateTempVFX()
+    private void CreateTempVFX() => BuildTempVFX(false);
+
+    [ContextMenu("임시 VFX 다시 생성 (기존 교체)")]
+    private void RebuildTempVFX() => BuildTempVFX(true);
+
+    private void BuildTempVFX(bool replace)
     {
         UnityEditor.Undo.SetCurrentGroupName("Create Temp Water Test VFX");
         int group = UnityEditor.Undo.GetCurrentGroup();
+        UnityEditor.Undo.RecordObject(this, "Assign VFX References");
+
+        if (replace)
+        {
+            foreach (var ps in new[] { splashVFX, normalBubbles, defectBubbles, passVFX, failVFX, dripVFX })
+                if (ps != null) UnityEditor.Undo.DestroyObjectImmediate(ps.gameObject);
+            splashVFX = normalBubbles = defectBubbles = passVFX = failVFX = dripVFX = null;
+            failFlashLight = null;
+        }
 
         if (splashVFX     == null) splashVFX     = BuildSplashVFX();
         if (normalBubbles == null) normalBubbles = BuildNormalBubbles();
@@ -941,7 +1063,6 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         if (failVFX       == null) failVFX       = BuildFailVFX();
         if (dripVFX       == null) dripVFX       = BuildDripVFX();
 
-        UnityEditor.Undo.RecordObject(this, "Assign VFX References");
         UnityEditor.Undo.CollapseUndoOperations(group);
         UnityEditor.EditorUtility.SetDirty(this);
 
@@ -958,15 +1079,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(0.65f, 0.88f, 1f, 0.8f),
+            color:    new Color(0.8f, 0.95f, 1f, 1f),
             loop:     true,  duration: 2f,
-            lifeMin:  0.6f,  lifeMax: 1.0f,
-            speedMin: 0f,    speedMax: 0.2f,
-            sizeMin:  0.04f, sizeMax: 0.09f,
-            gravity:  1.2f,  maxPart: 120);
+            lifeMin:  0.7f,  lifeMax: 1.1f,
+            speedMin: 0f,    speedMax: 0.3f,
+            sizeMin:  0.12f, sizeMax: 0.24f,
+            gravity:  1.6f,  maxPart: 100);
 
         var em = ps.emission;
-        em.rateOverTime = 45f;
+        em.rateOverTime = 75f;
 
         // 차량 바닥 면적 (라인 진행 방향 X 기준 길이 4.2m, 폭 1.9m)
         var sh = ps.shape;
@@ -974,7 +1095,13 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         sh.shapeType = ParticleSystemShapeType.Box;
         sh.scale     = new Vector3(4.2f, 0.1f, 1.9f);
 
-        AssignMat(ps, "VFX_Splash", new Color(0.65f, 0.88f, 1f, 0.9f), false);
+        FadeOut(ps, 0.75f);
+        AssignMat(ps, "VFX_Splash", new Color(0.85f, 0.97f, 1f, 1f), false);
+        // 굵은 물줄기처럼 낙하 방향으로 늘인다
+        var r = ps.GetComponent<ParticleSystemRenderer>();
+        r.renderMode    = ParticleSystemRenderMode.Stretch;
+        r.velocityScale = 0.06f;
+        r.lengthScale   = 1.6f;
         return ps;
     }
 
@@ -985,27 +1112,77 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         GameObject go = MakeChild("SplashVFX", parent, Vector3.zero);
         go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f); // 위로 열리도록
 
+        // 물기둥: 차 길이 면적에서 거의 수직으로 높이 솟구침
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(0.75f, 0.92f, 1f, 0.9f),
+            color:    new Color(0.85f, 0.97f, 1f, 1f),
             loop:     false, duration: 1f,
-            lifeMin:  0.45f, lifeMax: 0.9f,
-            speedMin: 2.5f,  speedMax: 5f,
-            sizeMin:  0.08f, sizeMax: 0.26f,
-            gravity:  1.8f,  maxPart: 120);
+            lifeMin:  0.7f,  lifeMax: 1.2f,
+            speedMin: 5f,    speedMax: 9f,
+            sizeMin:  0.25f, sizeMax: 0.6f,
+            gravity:  2.2f,  maxPart: 130);
 
         var em = ps.emission;
         em.rateOverTime = 0;
-        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 70) });
+        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 90), new ParticleSystem.Burst(0.08f, 25) });
 
         var sh = ps.shape;
         sh.enabled    = true;
         sh.shapeType  = ParticleSystemShapeType.Cone;
-        sh.angle      = 25f;
+        sh.angle      = 15f;
         sh.radius     = 1.6f;
         sh.scale      = new Vector3(1.4f, 0.65f, 1f); // 회전(-90,0,0) 기준: 로컬 X=월드 X(차 길이), 로컬 Y=월드 Z(폭)
 
-        AssignMat(ps, "VFX_Splash", new Color(0.75f, 0.92f, 1f, 0.9f), false);
+        ShrinkOut(ps, 0.4f);
+        FadeOut(ps, 0.7f);
+        AssignMat(ps, "VFX_Splash", new Color(0.85f, 0.97f, 1f, 1f), false);
+
+        // 왕관: 수면 둘레에서 바깥·위로 벌어지는 물방울 링
+        ParticleSystem crown = MakeSubVFX("SplashCrown", go.transform, Vector3.zero);
+        ConfigMain(crown,
+            color:    new Color(0.9f, 0.98f, 1f, 1f),
+            loop:     false, duration: 1f,
+            lifeMin:  0.6f,  lifeMax: 1.0f,
+            speedMin: 4f,    speedMax: 7f,
+            sizeMin:  0.3f,  sizeMax: 0.65f,
+            gravity:  2.4f,  maxPart: 70);
+        var cem = crown.emission;
+        cem.rateOverTime = 0;
+        cem.SetBursts(new[] { new ParticleSystem.Burst(0f, 60) });
+        var csh = crown.shape;
+        csh.enabled         = true;
+        csh.shapeType       = ParticleSystemShapeType.Cone;
+        csh.angle           = 50f;
+        csh.radius          = 2.4f;
+        csh.radiusThickness = 0f; // 가장자리에서만 방출 → 링
+        csh.scale           = new Vector3(1.4f, 0.65f, 1f);
+        ShrinkOut(crown, 0.3f);
+        FadeOut(crown, 0.7f);
+        AssignMat(crown, "VFX_Splash", new Color(0.85f, 0.97f, 1f, 1f), false);
+
+        // 물안개: 크고 옅은 흰 덩어리가 부풀며 사라짐 (화면에서 '첨벙' 면적을 키움)
+        ParticleSystem mist = MakeSubVFX("SplashMist", go.transform, Vector3.zero);
+        ConfigMain(mist,
+            color:    new Color(0.92f, 0.98f, 1f, 0.55f),
+            loop:     false, duration: 1f,
+            lifeMin:  0.6f,  lifeMax: 1.0f,
+            speedMin: 0.5f,  speedMax: 1.5f,
+            sizeMin:  1.6f,  sizeMax: 2.8f,
+            gravity:  0f,    maxPart: 12);
+        var mem = mist.emission;
+        mem.rateOverTime = 0;
+        mem.SetBursts(new[] { new ParticleSystem.Burst(0f, 8) });
+        var msh = mist.shape;
+        msh.enabled   = true;
+        msh.shapeType = ParticleSystemShapeType.Cone;
+        msh.angle     = 30f;
+        msh.radius    = 1.8f;
+        msh.scale     = new Vector3(1.4f, 0.65f, 1f);
+        var msz = mist.sizeOverLifetime;
+        msz.enabled = true;
+        msz.size    = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.3f));
+        FadeOut(mist, 0.3f);
+        AssignMat(mist, "VFX_Splash", new Color(0.85f, 0.97f, 1f, 1f), false);
         return ps;
     }
 
@@ -1017,29 +1194,35 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(0.8f, 0.95f, 1f, 0.7f),
+            color:    new Color(0.9f, 0.98f, 1f, 0.95f),
             loop:     true,  duration: 5f,
-            lifeMin:  1.4f,  lifeMax: 2.4f,
+            lifeMin:  1.0f,  lifeMax: 1.5f,
             speedMin: 0f,    speedMax: 0f,
-            sizeMin:  0.07f, sizeMax: 0.18f,
+            sizeMin:  0.18f, sizeMax: 0.42f,
             gravity:  0f,    maxPart: 120);
 
         var em = ps.emission;
-        em.rateOverTime = 20f;
+        em.rateOverTime = 60f;
 
         var sh = ps.shape;
         sh.enabled   = true;
         sh.shapeType = ParticleSystemShapeType.Box;
         sh.scale     = new Vector3(4.4f, 0.1f, 2.2f);
 
-        // 위로 올라가는 속도 (X·Y·Z 모두 같은 TwoConstants 모드여야 에러 없음). 수면(약 2m 위)을 넘지 않게
+        // 위로 올라가는 속도 (X·Y·Z 모두 같은 TwoConstants 모드여야 에러 없음). 수면(약 2m 위)에서 사라지게
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
-        vel.x       = new ParticleSystem.MinMaxCurve(-0.05f, 0.05f);
-        vel.y       = new ParticleSystem.MinMaxCurve(0.35f, 0.75f);
-        vel.z       = new ParticleSystem.MinMaxCurve(-0.05f, 0.05f);
+        vel.x       = new ParticleSystem.MinMaxCurve(-0.1f, 0.1f);
+        vel.y       = new ParticleSystem.MinMaxCurve(0.9f, 1.4f);
+        vel.z       = new ParticleSystem.MinMaxCurve(-0.1f, 0.1f);
 
-        AssignMat(ps, "VFX_NormalBubbles", new Color(0.8f, 0.95f, 1f, 0.7f), false);
+        // 떠오르며 커지는 기포
+        var sz = ps.sizeOverLifetime;
+        sz.enabled = true;
+        sz.size    = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 0.6f, 1f, 1.2f));
+        FadeOut(ps, 0.8f);
+
+        AssignMat(ps, "VFX_NormalBubbles", new Color(0.9f, 0.98f, 1f, 0.95f), false);
         return ps;
     }
 
@@ -1051,15 +1234,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(1f, 0.62f, 0.08f, 0.72f),
+            color:    new Color(1f, 0.72f, 0.15f, 1f),
             loop:     true,  duration: 5f,
-            lifeMin:  0.8f,  lifeMax: 1.4f,
+            lifeMin:  0.8f,  lifeMax: 1.1f,
             speedMin: 0f,    speedMax: 0f,
-            sizeMin:  0.06f, sizeMax: 0.18f,
-            gravity:  0f,    maxPart: 120);
+            sizeMin:  0.25f, sizeMax: 0.5f,
+            gravity:  0f,    maxPart: 90);
 
         var em = ps.emission;
-        em.rateOverTime = 24f;
+        em.rateOverTime = 50f;
 
         var sh = ps.shape;
         sh.enabled   = true;
@@ -1069,10 +1252,12 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         var vel = ps.velocityOverLifetime;
         vel.enabled = true;
         vel.x       = new ParticleSystem.MinMaxCurve(0f, 0f);
-        vel.y       = new ParticleSystem.MinMaxCurve(0.6f, 1.1f);
+        vel.y       = new ParticleSystem.MinMaxCurve(1.2f, 1.7f);
         vel.z       = new ParticleSystem.MinMaxCurve(0f, 0f);
 
-        AssignMat(ps, "VFX_DefectBubbles", new Color(1f, 0.62f, 0.08f, 0.72f), false);
+        FadeOut(ps, 0.75f);
+        // 가산 합성: 파란 물속에서 주황빛으로 빛나는 불량 기포
+        AssignMat(ps, "VFX_DefectBubbles", new Color(1f, 0.72f, 0.15f, 1f), true);
         return ps;
     }
 
@@ -1085,33 +1270,60 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(0.85f, 0.97f, 1f, 0.95f),
+            color:    new Color(0.9f, 0.98f, 1f, 1f),
             loop:     false, duration: 1.2f,
-            lifeMin:  0.7f,  lifeMax: 1.3f,
-            speedMin: 3f,    speedMax: 6.5f,
-            sizeMin:  0.06f, sizeMax: 0.2f,
-            gravity:  1.6f,  maxPart: 160);
+            lifeMin:  0.8f,  lifeMax: 1.3f,
+            speedMin: 4f,    speedMax: 8f,
+            sizeMin:  0.25f, sizeMax: 0.55f,
+            gravity:  1.8f,  maxPart: 110);
         var main = ps.main;
         main.startColor = new ParticleSystem.MinMaxGradient(
-            new Color(0.85f, 0.97f, 1f, 0.95f), new Color(0.45f, 0.8f, 1f, 0.9f));
+            new Color(0.95f, 1f, 1f, 1f), new Color(0.55f, 0.85f, 1f, 1f));
 
         var em = ps.emission;
         em.rateOverTime = 0;
-        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 80), new ParticleSystem.Burst(0.15f, 40) });
+        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 70), new ParticleSystem.Burst(0.15f, 30) });
 
         var sh = ps.shape;
         sh.enabled   = true;
         sh.shapeType = ParticleSystemShapeType.Cone;
-        sh.angle     = 18f;
-        sh.radius    = 1.5f;
+        sh.angle     = 30f;
+        sh.radius    = 1.8f;
         sh.scale     = new Vector3(1.4f, 0.65f, 1f);
 
         // 끝으로 갈수록 작아지며 사라짐
-        var sz = ps.sizeOverLifetime;
-        sz.enabled = true;
-        sz.size    = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0.3f));
+        ShrinkOut(ps, 0.3f);
+        FadeOut(ps, 0.7f);
 
-        AssignMat(ps, "VFX_Pass", new Color(0.85f, 0.97f, 1f, 0.95f), false);
+        AssignMat(ps, "VFX_Pass", new Color(0.9f, 0.98f, 1f, 1f), false);
+
+        // 통과 반짝임: 출수하는 차 주변에 금·연두빛 별이 반짝 터졌다 사라짐 (가산, '합격' 느낌)
+        ParticleSystem sparkle = MakeSubVFX("PassSparkle", go.transform, Vector3.zero);
+        sparkle.transform.rotation = Quaternion.identity; // 부모 회전(-90,0,0) 무시 → 박스 = 월드 축
+        ConfigMain(sparkle,
+            color:    new Color(1f, 0.92f, 0.45f, 1f),
+            loop:     false, duration: 1f,
+            lifeMin:  0.5f,  lifeMax: 0.9f,
+            speedMin: 0.5f,  speedMax: 2f,
+            sizeMin:  0.35f, sizeMax: 0.8f,
+            gravity:  -0.15f, maxPart: 40);
+        var smain = sparkle.main;
+        smain.startColor = new ParticleSystem.MinMaxGradient(
+            new Color(1f, 0.92f, 0.45f, 1f), new Color(0.55f, 1f, 0.55f, 1f));
+        var sem = sparkle.emission;
+        sem.rateOverTime = 0;
+        sem.SetBursts(new[] { new ParticleSystem.Burst(0.1f, 22), new ParticleSystem.Burst(0.4f, 12) });
+        var ssh = sparkle.shape;
+        ssh.enabled   = true;
+        ssh.shapeType = ParticleSystemShapeType.Box;
+        ssh.position  = new Vector3(0f, 1.2f, 0f);
+        ssh.scale     = new Vector3(4.8f, 1.6f, 2.4f);
+        // 0 → 1 → 0 으로 반짝
+        var ssz = sparkle.sizeOverLifetime;
+        ssz.enabled = true;
+        ssz.size    = new ParticleSystem.MinMaxCurve(1f, new AnimationCurve(
+            new Keyframe(0f, 0f), new Keyframe(0.25f, 1f), new Keyframe(1f, 0f)));
+        AssignMat(sparkle, "VFX_PassSparkle", new Color(1f, 0.95f, 0.6f, 1f), true);
         return ps;
     }
 
@@ -1123,28 +1335,100 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         ParticleSystem ps = go.AddComponent<ParticleSystem>();
         ConfigMain(ps,
-            color:    new Color(1f, 0.55f, 0.15f, 1f),
+            color:    new Color(1f, 0.85f, 0.3f, 1f),
             loop:     true,  duration: 0.6f,
-            lifeMin:  0.15f, lifeMax: 0.4f,
-            speedMin: 2f,    speedMax: 5f,
-            sizeMin:  0.06f, sizeMax: 0.14f,
-            gravity:  0.6f,  maxPart: 120);
+            lifeMin:  0.2f,  lifeMax: 0.45f,
+            speedMin: 4f,    speedMax: 9f,
+            sizeMin:  0.18f, sizeMax: 0.38f,
+            gravity:  1.2f,  maxPart: 150);
+        var main = ps.main;
+        main.startColor = new ParticleSystem.MinMaxGradient(
+            new Color(1f, 0.95f, 0.5f, 1f), new Color(1f, 0.45f, 0.05f, 1f));
 
+        // 0.2초마다 확률적으로 터지는 전기 스파크 다발 + 사이사이 잔불
         var em = ps.emission;
-        em.rateOverTime = 8f; // Burst 사이 잔불 느낌
-        em.SetBursts(new[] { new ParticleSystem.Burst(0f, 30) });
+        em.rateOverTime = 20f;
+        em.SetBursts(new[]
+        {
+            new ParticleSystem.Burst(0f,   25, 40, 1, 0.01f) { probability = 0.9f },
+            new ParticleSystem.Burst(0.2f, 20, 35, 1, 0.01f) { probability = 0.6f },
+            new ParticleSystem.Burst(0.4f, 20, 35, 1, 0.01f) { probability = 0.6f },
+        });
 
         var sh = ps.shape;
         sh.enabled   = true;
         sh.shapeType = ParticleSystemShapeType.Box;
         sh.scale     = new Vector3(3.6f, 0.8f, 1.8f);
 
-        AssignMat(ps, "VFX_Fail", new Color(1f, 0.55f, 0.15f, 1f), true);
+        AssignMat(ps, "VFX_Fail", new Color(1f, 0.75f, 0.3f, 1f), true);
         var r = ps.GetComponent<ParticleSystemRenderer>();
         r.renderMode    = ParticleSystemRenderMode.Stretch;
         r.velocityScale = 0.06f;
         r.lengthScale   = 3f;
+
+        // 번쩍임 섬광: 차 크기만 한 주황빛이 아주 짧게 번쩍 (가산)
+        ParticleSystem flash = MakeSubVFX("FailFlash", go.transform, Vector3.zero);
+        ConfigMain(flash,
+            color:    new Color(1f, 0.7f, 0.3f, 0.85f),
+            loop:     true,  duration: 0.6f,
+            lifeMin:  0.06f, lifeMax: 0.12f,
+            speedMin: 0f,    speedMax: 0f,
+            sizeMin:  2.5f,  sizeMax: 4f,
+            gravity:  0f,    maxPart: 6);
+        var fem = flash.emission;
+        fem.rateOverTime = 0;
+        fem.SetBursts(new[]
+        {
+            new ParticleSystem.Burst(0f,    1) { probability = 0.85f },
+            new ParticleSystem.Burst(0.15f, 1) { probability = 0.5f },
+            new ParticleSystem.Burst(0.3f,  1) { probability = 0.6f },
+            new ParticleSystem.Burst(0.45f, 1) { probability = 0.5f },
+        });
+        var fsh = flash.shape;
+        fsh.enabled   = true;
+        fsh.shapeType = ParticleSystemShapeType.Box;
+        fsh.scale     = new Vector3(3f, 0.6f, 1.4f);
+        FadeOut(flash, 0.2f);
+        AssignMat(flash, "VFX_FailFlash", new Color(1f, 0.7f, 0.3f, 1f), true);
+
+        // 점멸 조명 (UpdateFailFlash가 검사 중 불량일 때만 켬)
+        var lgo = MakeChild("FailFlashLight", go.transform, new Vector3(0f, 0.6f, 0f));
+        var lt  = lgo.AddComponent<Light>();
+        lt.type      = LightType.Point;
+        lt.color     = new Color(1f, 0.6f, 0.2f);
+        lt.range     = 9f;
+        lt.intensity = 0f;
+        lt.shadows   = LightShadows.None;
+        lt.enabled   = false;
+        failFlashLight = lt;
         return ps;
+    }
+
+    // ── 공통: 수명 끝에서 투명해지게 (fadeStart = 페이드 시작 수명 비율) ──────────
+    private static void FadeOut(ParticleSystem ps, float fadeStart)
+    {
+        var col = ps.colorOverLifetime;
+        col.enabled = true;
+        var g = new Gradient();
+        g.SetKeys(
+            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(1f, fadeStart), new GradientAlphaKey(0f, 1f) });
+        col.color = new ParticleSystem.MinMaxGradient(g);
+    }
+
+    // ── 공통: 수명 끝으로 갈수록 endScale까지 작아지게 ───────────────────────────
+    private static void ShrinkOut(ParticleSystem ps, float endScale)
+    {
+        var sz = ps.sizeOverLifetime;
+        sz.enabled = true;
+        sz.size    = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, endScale));
+    }
+
+    // ── 보조 파티클 자식 생성 (부모 VFX와 같은 위치·회전, Play/Stop이 함께 전파됨) ──
+    private static ParticleSystem MakeSubVFX(string name, Transform parent, Vector3 localPos)
+    {
+        GameObject go = MakeChild(name, parent, localPos);
+        return go.AddComponent<ParticleSystem>();
     }
 
     // ── 공통: main 모듈 설정 ──────────────────────────────────────────────────────
@@ -1192,32 +1476,36 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     // 원형 소프트 입자 텍스처 (없으면 텍스처 없이 생성 → 사각 입자)
     private const string SoftCircleTexPath = "Assets/@Resource/Textures/VFX/VFX_SoftCircle.png";
 
+    // 파티클 렌더 큐: 물 볼륨(2990)·유리(3000)보다 뒤 → 물속 입자가 유리·물에 덮여 흐려지지 않음
+    private const int VfxRenderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 100;
+
     /// <summary>
-    /// Assets/@Resource/Materials/VFX/{matName}.mat 을 찾아 반환하거나 새로 생성한다.
-    /// additive=true → 가산 합성(스파크), false → 알파 블렌드(물·기포).
+    /// Assets/@Resource/Materials/VFX/{matName}.mat 을 찾거나 새로 생성하고, 현재 설정(블렌드·색·큐·텍스처)을 적용한다.
+    /// (기존 에셋도 다시 설정 → "다시 생성"으로 씬·재질이 코드 설정과 일치)
+    /// additive=true → 가산 합성(스파크·불량 기포·반짝임), false → 알파 블렌드(물·기포).
     /// </summary>
     private static Material CreateOrLoadMat(string matName, Color color, bool additive)
     {
         const string dir = "Assets/@Resource/Materials/VFX";
         string path = $"{dir}/{matName}.mat";
 
-        // 이미 저장된 에셋 재사용
-        var existing = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(path);
-        if (existing != null) return existing;
-
-        EnsureDir(dir);
-
-        // URP 파티클 셰이더 탐색 (버전·패키지에 따라 이름이 다를 수 있음)
-        Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-        if (shader == null) shader = Shader.Find("Particles/Standard Unlit");
-        if (shader == null) shader = Shader.Find("Particles/Alpha Blended");
-        if (shader == null)
+        var mat = UnityEditor.AssetDatabase.LoadAssetAtPath<Material>(path);
+        bool isNew = mat == null;
+        if (isNew)
         {
-            Debug.LogWarning($"[WaterTest] 파티클 셰이더를 찾지 못했습니다 — {matName} 재질 생성 실패.");
-            return null;
-        }
+            EnsureDir(dir);
 
-        var mat = new Material(shader) { name = matName };
+            // URP 파티클 셰이더 탐색 (버전·패키지에 따라 이름이 다를 수 있음)
+            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null) shader = Shader.Find("Particles/Standard Unlit");
+            if (shader == null) shader = Shader.Find("Particles/Alpha Blended");
+            if (shader == null)
+            {
+                Debug.LogWarning($"[WaterTest] 파티클 셰이더를 찾지 못했습니다 — {matName} 재질 생성 실패.");
+                return null;
+            }
+            mat = new Material(shader) { name = matName };
+        }
 
         // 공통: 투명 렌더링
         mat.SetFloat("_Surface", 1f);   // 0=Opaque, 1=Transparent
@@ -1230,7 +1518,6 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.One);
             mat.EnableKeyword("_BLENDMODE_ADD");
-            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent + 1;
         }
         else
         {
@@ -1238,8 +1525,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             mat.SetFloat("_Blend",    0f);
             mat.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
             mat.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            mat.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            mat.DisableKeyword("_BLENDMODE_ADD");
         }
+        mat.renderQueue = VfxRenderQueue;
 
         // 베이스 컬러 (셰이더 버전별 프로퍼티 이름이 다름)
         if (mat.HasProperty("_BaseColor")) mat.SetColor("_BaseColor", color);
@@ -1254,7 +1542,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             if (mat.HasProperty("_MainTex")) mat.SetTexture("_MainTex", soft);
         }
 
-        UnityEditor.AssetDatabase.CreateAsset(mat, path);
+        if (isNew) UnityEditor.AssetDatabase.CreateAsset(mat, path);
+        mat.renderQueue = VfxRenderQueue; // 새 에셋은 저장 시 셰이더 기본 큐로 돌아가므로 한 번 더 지정
+        UnityEditor.EditorUtility.SetDirty(mat);
         return mat;
     }
 

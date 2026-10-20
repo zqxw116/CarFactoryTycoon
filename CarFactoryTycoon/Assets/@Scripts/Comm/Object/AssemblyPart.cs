@@ -111,6 +111,17 @@ public class AssemblyPart : MonoBehaviour
         assembling = true;
     }
 
+    /// <summary>
+    /// 월드 조립 중이면 현재 진행도로 포즈를 즉시 다시 계산한다(LateUpdate를 기다리지 않음).
+    /// BeginWorldAssembly는 순수 setter라 포즈 반영이 LateUpdate까지 밀리는데, 사람 작업자의 손 IK
+    /// (OnAnimatorIK — Update와 LateUpdate 사이)는 그 전에 부품 위치를 읽으므로 1프레임 뒤처진다.
+    /// SetWork와 달리 활성/비활성을 건드리지 않는다(SetWork(0)의 SetActive(false) 함정 회피).
+    /// </summary>
+    public void RefreshWorldPose()
+    {
+        if (assembling) ApplyWorldPose(Fill);
+    }
+
     /// <summary>로봇팔이 바라봐야 할 월드 좌표. armLookTarget 미설정 시 오브젝트 중심 반환.</summary>
     public Vector3 GetArmLookWorldPos() => armLookTarget != null ? armLookTarget.position : transform.position;
 

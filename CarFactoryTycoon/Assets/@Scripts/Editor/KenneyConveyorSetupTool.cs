@@ -115,7 +115,7 @@ public static class KenneyConveyorSetupTool
         so.FindProperty("m_HeightOffset").floatValue = TopAboveSpline - ModuleHeight * s_HeightScale;
         so.FindProperty("m_BracketScale").floatValue = BracketScale;
         so.FindProperty("m_SurfaceMaterial").objectReferenceValue = EnsureStripeMaterial(log);
-        so.FindProperty("m_StripeSpacing").floatValue = 0.125f; // 홈 사이 0.125m (텍스처 한 장 8줄 = 1m)
+        so.FindProperty("m_StripeSpacing").floatValue = 1f; // 사용자 지정 간격 1m (2026-10-21)
         so.FindProperty("m_SyncLineSpeed").boolValue = true;
         so.FindProperty("m_LineSource").objectReferenceValue = Object.FindAnyObjectByType<CarSpawner>();
         so.FindProperty("m_OriginalBeltRenderer").objectReferenceValue = mainSpline.GetComponent<MeshRenderer>();
