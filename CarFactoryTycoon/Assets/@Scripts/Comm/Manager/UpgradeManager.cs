@@ -19,6 +19,13 @@ public class UpgradeManager : MonoSingleton<UpgradeManager>
     [Tooltip("차량 판매가 배율 (CarController 출고 시 적용)")]
     public float carSellPriceMultiplier = 1.0f;
 
+    [Header("보급 작업자 업그레이드")]
+    [Tooltip("보급 작업자 이동속도 전역 배율 (SupplyWorker.EffectiveMoveSpeed에 곱해 사용)")]
+    public float supplyMoveSpeedMultiplier = 1.0f;
+
+    [Tooltip("보급 작업자 1회 운반 개수 전역 배율 (SupplyWorker.EffectiveCarry에 곱해 사용)")]
+    public float supplyCarryMultiplier = 1.0f;
+
     public override void Init() { }
 
     // 각 업그레이드는 EconomyManager.TrySpend로 비용 차감 성공 시 배율을 증가시킨다.

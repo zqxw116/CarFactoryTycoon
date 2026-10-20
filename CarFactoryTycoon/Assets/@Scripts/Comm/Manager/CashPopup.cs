@@ -8,6 +8,7 @@ using UnityEngine;
 /// 체결 완료 위치에서 텍스트가 펑 튀어나와 위로 떠오르며 사라진다.
 /// - 3D TextMeshPro를 풀링해 재사용 (GC/Instantiate 비용 없음)
 /// - 카메라 빌보드: 떠오르는 동안 매 프레임 카메라 방향을 바라본다
+/// - 텍스트 앞 코인 아이콘: Resources의 TMP 스프라이트 에셋(<sprite> 태그). 없으면 텍스트만
 /// MonoSingleton: 최초 Show 호출 시 오브젝트가 자동 생성된다.
 /// </summary>
 public class CashPopup : MonoSingleton<CashPopup>
@@ -23,7 +24,12 @@ public class CashPopup : MonoSingleton<CashPopup>
     [SerializeField] private float sizeScale = 0.7f;
     public Color gainColor = new Color(0.35f, 1f, 0.45f, 1f);
 
+    private const string CoinSpriteAssetPath = "Sprites/UI_Coin_TMP";
+    private const string CoinTag = "<sprite name=\"coin\">";
+
     private readonly Queue<TextMeshPro> pool = new Queue<TextMeshPro>();
+    private TMP_SpriteAsset coinSpriteAsset;
+    private bool coinLoaded;
 
     /// <summary>월드 위치에 "+$amount" 플로팅 텍스트를 띄운다. scale로 임팩트 차등(차량 출고=크게).</summary>
     public static void Show(Vector3 worldPos, int amount, float scale = 1f)
@@ -34,7 +40,8 @@ public class CashPopup : MonoSingleton<CashPopup>
         TextMeshPro text = pool.Count > 0 ? pool.Dequeue() : CreateNew();
         Transform tf = text.transform;
 
-        text.text = $"+${amount:N0}";
+        // 코인 스프라이트 에셋이 있으면 텍스트 앞에 코인 아이콘 (<sprite> 태그, 같은 TMP 안에서 그려 추가 오브젝트 없음)
+        text.text = coinSpriteAsset != null ? $"{CoinTag}+${amount:N0}" : $"+${amount:N0}";
         text.color = gainColor; // 재사용 시 페이드로 빠진 알파도 함께 원복
         tf.position = worldPos;
         float finalScale = scale * sizeScale;
@@ -63,7 +70,15 @@ public class CashPopup : MonoSingleton<CashPopup>
         text.fontSize = fontSize;
         text.alignment = TextAlignmentOptions.Center;
         text.fontStyle = FontStyles.Bold;
-        text.rectTransform.sizeDelta = new Vector2(6f, 2f); // 한 줄에 넉넉히 (줄바꿈 방지)
+        text.rectTransform.sizeDelta = new Vector2(8f, 2f); // 한 줄에 넉넉히 (줄바꿈 방지, 코인 아이콘 폭 포함)
+
+        // 코인 TMP 스프라이트 에셋은 최초 1회만 로드. 실패 시 아이콘 없이 기존 텍스트만.
+        if (!coinLoaded)
+        {
+            coinLoaded = true;
+            coinSpriteAsset = Resources.Load<TMP_SpriteAsset>(CoinSpriteAssetPath);
+        }
+        if (coinSpriteAsset != null) text.spriteAsset = coinSpriteAsset;
         return text;
     }
 }

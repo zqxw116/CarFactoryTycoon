@@ -44,6 +44,7 @@ public static class WorkerSetupTool
 {
     private const string MENU_PATH = "Tools/CarFactory/휴머노이드 작업자 세팅";
     private const string MENU_STRIP_PATH = "Tools/CarFactory/작업자 이동 충돌 컴포넌트 제거";
+    private const string MENU_SUPPLY_PATH = "Tools/CarFactory/보급 작업자 세팅";
     private const string HAND_POS_NAME = "HandPos";
     private const string LOG_TAG = "[작업자 세팅]";
 
@@ -217,22 +218,7 @@ public static class WorkerSetupTool
         // 손 본에 직접 꽂지 않고 HandPos 빈 자식을 만들어 꽂는다:
         // 손 본의 로컬 축은 모델마다 제각각이라 부품이 뒤집혀 보이는데, 그걸 carryEuler로 매번 맞추는 대신
         // 여기서 한 번 "몸통 정면 기준"으로 회전을 구워 두면 carryOffset/carryEuler를 0으로 시작할 수 있다.
-        Transform handPos = hand.Find(HAND_POS_NAME);
-        if (handPos == null)
-        {
-            var handGo = new GameObject(HAND_POS_NAME);
-            Undo.RegisterCreatedObjectUndo(handGo, "Create HandPos");
-            Undo.SetTransformParent(handGo.transform, hand, "Parent HandPos");
-            handPos = handGo.transform;
-            report.AppendLine("· 오른손 본 아래 HandPos 생성");
-        }
-        else report.AppendLine("· 기존 HandPos 재사용 (중복 생성 안 함)");
-
-        Undo.RecordObject(handPos, "Setup HandPos");
-        handPos.rotation = go.transform.rotation;
-        handPos.position = hand.position + go.transform.forward * HAND_FORWARD_PAD;
-        handPos.localScale = Vector3.one;
-        EditorUtility.SetDirty(handPos);
+        Transform handPos = EnsureHandPos(go, hand, report);
 
         // ── 6. Worker 값 보정 ────────────────────────────────────────────
         Undo.RecordObject(worker, "Setup Worker");
@@ -282,6 +268,157 @@ public static class WorkerSetupTool
         if (isPrefabInstance)
             report.AppendLine("· ⚠ 프리팹 인스턴스입니다 — 위 변경은 모두 이 인스턴스의 오버라이드로 남습니다" +
                 " (프리팹 에셋은 수정하지 않았습니다). 모든 인스턴스에 적용하려면 인스펙터에서 Overrides ▸ Apply All.");
+
+        Debug.Log(report.ToString(), go);
+        return true;
+    }
+
+    /// <summary>
+    /// 오른손 본 아래 HandPos 빈 자식을 만들거나(있으면 재사용) 몸통 정면 기준 자세로 맞춘다.
+    /// 체결 작업자 / 보급 작업자 세팅이 공용으로 쓴다.
+    /// </summary>
+    private static Transform EnsureHandPos(GameObject go, Transform hand, StringBuilder report)
+    {
+        Transform handPos = hand.Find(HAND_POS_NAME);
+        if (handPos == null)
+        {
+            var handGo = new GameObject(HAND_POS_NAME);
+            Undo.RegisterCreatedObjectUndo(handGo, "Create HandPos");
+            Undo.SetTransformParent(handGo.transform, hand, "Parent HandPos");
+            handPos = handGo.transform;
+            report.AppendLine("· 오른손 본 아래 HandPos 생성");
+        }
+        else report.AppendLine("· 기존 HandPos 재사용 (중복 생성 안 함)");
+
+        Undo.RecordObject(handPos, "Setup HandPos");
+        handPos.rotation = go.transform.rotation;
+        handPos.position = hand.position + go.transform.forward * HAND_FORWARD_PAD;
+        handPos.localScale = Vector3.one;
+        EditorUtility.SetDirty(handPos);
+        return handPos;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 보급 작업자 세팅 (9-15)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 선택한 휴머노이드를 보급 작업자로 세팅한다.
+    /// 체결 작업자 세팅과의 차이:
+    ///   · SupplyWorker만 붙인다 — Worker / WorkerStatusUI는 붙이지 않는다
+    ///     (InputManager가 GetComponentInParent&lt;Worker&gt;로 클릭을 처리하므로 붙이면 체결 작업자로 오인된다).
+    ///   · 콜라이더를 두지 않는다(클릭 대상이 아니고, 라인을 가로질러 다니므로 차량과 부딪히면 안 된다)
+    ///     — 루트·자식 콜라이더를 모두 끄고 레이어를 Default(0)로 맞춘다.
+    ///   · 이동 충돌 컴포넌트(ThirdPersonController 등)는 확인 없이 바로 제거한다(Undo 가능).
+    /// 공통: Humanoid 검증, WorkerFootstepReceiver 부착, HandPos 생성/재사용.
+    /// </summary>
+    [MenuItem(MENU_SUPPLY_PATH, true)]
+    private static bool ValidateSupplySetup() => Selection.gameObjects != null && Selection.gameObjects.Length > 0;
+
+    [MenuItem(MENU_SUPPLY_PATH)]
+    private static void SetupSupply()
+    {
+        GameObject[] targets = Selection.gameObjects;
+        int ok = 0;
+        foreach (GameObject go in targets)
+        {
+            if (!SetupSupplyOne(go)) continue;
+            ok++;
+            EditorSceneManager.MarkSceneDirty(go.scene);
+        }
+        Debug.Log($"{LOG_TAG} 보급 작업자 {ok}/{targets.Length}개 세팅 완료. (Ctrl+Z로 되돌릴 수 있습니다)");
+    }
+
+    private static bool SetupSupplyOne(GameObject go)
+    {
+        if (!go.scene.IsValid())
+        {
+            Debug.LogError($"{LOG_TAG} '{go.name}': 프로젝트의 프리팹 에셋입니다." +
+                " 씬에 배치한 인스턴스를 하이러키에서 선택해 실행하세요.", go);
+            return false;
+        }
+
+        if (go.TryGetComponent(out Worker _))
+        {
+            Debug.LogError($"{LOG_TAG} '{go.name}': 이미 체결 작업자(Worker)입니다." +
+                " 보급 작업자는 별도의 캐릭터로 만드세요(한 캐릭터에 두 역할을 겸하지 않는다).", go);
+            return false;
+        }
+
+        Animator animator = go.GetComponentInChildren<Animator>();
+        if (animator == null || animator.avatar == null || !animator.avatar.isValid || !animator.isHuman)
+        {
+            Debug.LogError($"{LOG_TAG} '{go.name}': Humanoid Animator가 없습니다." +
+                " 휴머노이드 프리팹(예: RobotKyle)을 선택했는지 확인하세요.", go);
+            return false;
+        }
+
+        Transform hand = animator.GetBoneTransform(HumanBodyBones.RightHand);
+        if (hand == null)
+        {
+            Debug.LogError($"{LOG_TAG} '{go.name}': 오른손 본(RightHand)을 Avatar에서 찾지 못했습니다.", go);
+            return false;
+        }
+
+        var report = new StringBuilder();
+        report.AppendLine($"{LOG_TAG} '{go.name}' 보급 작업자 세팅 결과");
+
+        // ── 1. 이동 충돌 컴포넌트 제거 (의존 관계 때문에 CharacterController/Rigidbody는 마지막) ──
+        List<Component> conflicts = FindConflictComponents(go);
+        conflicts.Sort((a, b) => Rank(a).CompareTo(Rank(b)));
+        foreach (Component c in conflicts)
+        {
+            report.AppendLine($"· 이동 충돌 컴포넌트 '{c.GetType().Name}' 제거");
+            Undo.DestroyObjectImmediate(c);
+        }
+
+        // ── 2. 컴포넌트 부착 ──
+        if (!go.TryGetComponent(out SupplyWorker supply))
+        {
+            supply = Undo.AddComponent<SupplyWorker>(go);
+            report.AppendLine("· SupplyWorker 컴포넌트 추가");
+        }
+        else report.AppendLine("· SupplyWorker 컴포넌트 기존 것 유지 (값만 보정)");
+
+        if (!animator.TryGetComponent(out WorkerFootstepReceiver _))
+        {
+            Undo.AddComponent<WorkerFootstepReceiver>(animator.gameObject);
+            report.AppendLine($"· WorkerFootstepReceiver 추가 (Animator 오브젝트 '{animator.name}')");
+        }
+
+        // ── 3. 콜라이더 없음 + 레이어 Default ──
+        int colliders = 0;
+        foreach (Collider c in go.GetComponentsInChildren<Collider>(true))
+        {
+            if (!c.enabled) continue;
+            Undo.RecordObject(c, "Disable Supply Collider");
+            c.enabled = false;
+            EditorUtility.SetDirty(c);
+            colliders++;
+        }
+        if (colliders > 0) report.AppendLine($"· 콜라이더 {colliders}개 비활성화 (클릭·차량 충돌 방지)");
+
+        int relayered = 0;
+        foreach (Transform t in go.GetComponentsInChildren<Transform>(true))
+        {
+            if (t.gameObject.layer == 0) continue;
+            Undo.RecordObject(t.gameObject, "Supply Layer Default");
+            t.gameObject.layer = 0;
+            relayered++;
+        }
+        if (relayered > 0) report.AppendLine($"· 레이어 Default(0)로 변경 {relayered}개");
+
+        // ── 4. 손 위치 ──
+        Transform handPos = EnsureHandPos(go, hand, report);
+        Undo.RecordObject(supply, "Setup SupplyWorker");
+        supply.handPos = handPos;
+        // handPos 폴백 값도 이 모델의 실제 손 높이로 맞춰 둔다(handPos를 비웠을 때 대비)
+        supply.handHeight = go.transform.InverseTransformPoint(hand.position).y;
+        EditorUtility.SetDirty(supply);
+        report.AppendLine($"· SupplyWorker.handPos ← HandPos 연결 / handHeight {supply.handHeight:F3}");
+
+        if (go.transform.parent != null)
+            report.AppendLine($"· ⚠ 부모 '{go.transform.parent.name}' 아래에 있습니다 — 최상위 배치를 권장합니다.");
 
         Debug.Log(report.ToString(), go);
         return true;

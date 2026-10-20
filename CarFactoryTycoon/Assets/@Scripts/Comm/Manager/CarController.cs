@@ -35,9 +35,14 @@ public class CarController : MonoBehaviour
 
     [SerializeField]private SerializedDictionary<PartGroup, List<AssemblyPart>> dicListParts = new SerializedDictionary<PartGroup, List<AssemblyPart>>();
 
+    // 차량 아래 대차 — 출고 시 '뿅' 사라지고(DepartureStation), 재사용 시 SetPath에서 원복
+    private CarDolly _dolly;
+    public CarDolly Dolly => _dolly;
+
     private void Awake()
     {
         InitializeCarParts();
+        _dolly = GetComponentInChildren<CarDolly>(true);
     }
 
     private void InitializeCarParts()
@@ -66,6 +71,7 @@ public class CarController : MonoBehaviour
         pathProgress = Mathf.Clamp01(startProgress);
         _finished = false;
         isMoving = true;
+        if (_dolly != null) _dolly.Restore(); // 지난 출고에서 사라진 대차 원복
 
         if (targetSpline != null)
         {

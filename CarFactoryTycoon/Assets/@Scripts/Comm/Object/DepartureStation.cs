@@ -44,6 +44,12 @@ public class DepartureStation : MonoBehaviour
     [Tooltip("도착 지점을 향해 차체가 회전하는 속도(도/초)")]
     public float turnSpeed = 360f;
 
+    [Header("대차 '뿅' 연출")]
+    [Tooltip("인계 순간 대차 위치에 뿌리는 연기 버스트. 월드 공간 시뮬레이션 파티클 1개를 Emit으로 재사용한다 (비우면 파티클 없이 대차만 사라짐).")]
+    public ParticleSystem dollyPoofFx;
+    [Tooltip("버스트 1회당 입자 수")]
+    public int dollyPoofCount = 14;
+
     private class Departing
     {
         public CarController car;
@@ -76,6 +82,20 @@ public class DepartureStation : MonoBehaviour
     private void Depart(CarController car)
     {
         car.LeaveLine(); // 트래픽 관리 해제 — 뒷차의 장애물로 남지 않게
+
+        // 대차 '뿅': 차를 내려놓은 대차가 부풀었다 쏙 사라진다 (재사용 시 CarController.SetPath가 원복)
+        CarDolly dolly = car.Dolly;
+        if (dolly != null && dolly.gameObject.activeInHierarchy)
+        {
+            dolly.Vanish();
+            if (dollyPoofFx != null)
+            {
+                // 월드 공간 파티클이라 위치만 옮겨 Emit하면 이전 버스트는 제자리에 남는다 (인스턴스 1개 재사용)
+                dollyPoofFx.transform.SetPositionAndRotation(dolly.transform.position, dolly.transform.rotation);
+                dollyPoofFx.Emit(dollyPoofCount);
+            }
+        }
+
         departing.Add(new Departing { car = car, baseRot = car.transform.rotation });
     }
 

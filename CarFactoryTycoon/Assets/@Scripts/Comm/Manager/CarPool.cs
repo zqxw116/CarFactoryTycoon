@@ -52,6 +52,8 @@ public class CarPool : GameObjectSingleton<CarPool>
     {
         CarController car = pool.Count > 0 ? pool.Dequeue() : CreateNew();
         car.transform.SetParent(activeRoot, true); // 활성 차량 컨테이너로 이동
+        // 폐기 연출(방수 테스트 해치 등)로 줄어든 스케일이 남아 있지 않도록 프리팹 스케일로 복원
+        if (carPrefab != null) car.transform.localScale = carPrefab.transform.localScale;
         car.gameObject.SetActive(true);
         return car;
     }

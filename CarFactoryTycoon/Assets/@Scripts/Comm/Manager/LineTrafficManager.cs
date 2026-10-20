@@ -17,11 +17,13 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
 {
 
     [Header("차간 간격 (어큐뮬레이션)")]
-    [Tooltip("앞차와 유지하는 최소 간격(m, 호길이 기준). 차량 길이 4.5 + 여유 0.5 = 5 권장.")]
-    public float minGap = 5f;
+    [Tooltip("앞차와 유지하는 최소 간격(m, 호길이 기준 — 진행도는 스플라인 거리와 균일, 오차 2cm 이내).\n" +
+        "차체 길이(콜라이더 5.12)만 보면 직선은 5.4로 충분하지만, 곡선(최소 반경 약 3.3m)에서는 호 대비 직선거리가 줄고\n" +
+        "안쪽 모서리가 먼저 닿는다. 메인 라인 전 구간 샘플링 결과 6.3 → 차체(2.37×5.12) 간 최소 여유 0.37m.")]
+    public float minGap = 6.3f;
 
     [Tooltip("최소 간격에 도달하기 전 선형 감속이 시작되는 완충 구간 폭(m)." +
-        " 예: minGap 5 + decelBand 2 → 앞차와 7m부터 감속 시작, 5m에서 정지." +
+        " 예: minGap 6.3 + decelBand 2 → 앞차와 8.3m부터 감속 시작, 6.3m에서 정지." +
         " 체결 소프트 게이트와 같은 패턴 — 하드 클램프의 급정거를 없앤다.")]
     public float decelBand = 2f;
 
@@ -32,6 +34,9 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
 
     // 활성 차량 목록. pathProgress 내림차순(0번 = 선두). 같은 MainSpline 위라는 전제.
     private readonly List<CarController> cars = new List<CarController>();
+
+    /// <summary>활성 차량 목록(읽기 전용, 선두=0번). 횡단보도(LineCrossing)가 다가오는 차량을 판단할 때 조회한다.</summary>
+    public IReadOnlyList<CarController> ActiveCars => cars;
 
     // 라인 위 정지 공정 게이트(WheelStation, WaterTestStation 등 ILineGate 구현체).
     // 게이트 앞 차량은 게이트 지점을 넘지 못한다.

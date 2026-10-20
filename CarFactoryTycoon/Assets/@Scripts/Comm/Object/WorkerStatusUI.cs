@@ -13,7 +13,9 @@ using UnityEngine.UI;
 /// - 컨디션은 게이지로 보여주고, 낮아질수록 색이 초록→노랑→빨강으로 변한다.
 ///
 /// 게이지는 uGUI <see cref="Image"/>의 Filled 타입(fillAmount)으로 그린다.
-/// 인스펙터에서 <see cref="conditionFill"/>에 Fill 이미지를 꽂아야 게이지가 보인다.
+/// - 인스펙터에서 <see cref="conditionFill"/>을 직접 지정하면 그 이미지를 그대로 쓴다(기존 방식).
+/// - 비어 있으면 씬의 공용 <see cref="WorkerGaugeCanvas"/>에서 게이지를 빌려 쓴다(작업자별 캔버스 없음).
+///   위치는 상태 라벨 기준점에서 <see cref="gaugeOffset"/>만큼 화면 아래로 캔버스가 매 프레임 갱신한다.
 /// (게이지 이미지들은 Raycast Target을 꺼서 작업자 클릭을 가리지 않게 할 것)
 /// </summary>
 [RequireComponent(typeof(Worker))]
@@ -42,6 +44,9 @@ public class WorkerStatusUI : MonoBehaviour
     [Tooltip("컨디션이 100%일 때도 게이지를 보여줄지. 끄면 컨디션이 깎였을 때만 보인다.")]
     public bool alwaysShowGauge = false;
 
+    [Tooltip("공용 캔버스 게이지 사용 시: 상태 라벨 기준점에서 화면 아래로 내릴 거리(m).")]
+    public float gaugeOffset = 0.3f;
+
     [Header("색상")]
     public Color goodColor = new Color(0.35f, 1f, 0.45f, 1f);
     public Color warnColor = new Color(1f, 0.9f, 0.3f, 1f);
@@ -63,12 +68,52 @@ public class WorkerStatusUI : MonoBehaviour
     private int lastPercent = -1;
     private bool lastVisible = true;
     private bool lastGaugeVisible = true;
-    private bool fillWarned = false;   // fill 미할당 경고는 한 번만
+    private static bool fillWarned = false;   // fill 미할당 경고는 전체 작업자 통틀어 한 번만
+
+    // 공용 캔버스에서 빌린 게이지 (수동 지정 시 null)
+    private WorkerGauge rentedGauge;
+    private WorkerGaugeCanvas gaugeCanvas;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics() => fillWarned = false;
 
     private void Awake()
     {
         worker = GetComponent<Worker>();
         BuildLabel();
+    }
+
+    private void OnEnable() => TryRentGauge();
+
+    // OnEnable 시점에 캔버스가 아직 준비 안 됐을 수 있어 한 번 더 시도
+    private void Start() => TryRentGauge();
+
+    private void OnDisable() => ReturnGauge();
+
+    /// <summary>수동 지정 게이지가 없으면 공용 캔버스에서 빌린다.</summary>
+    private void TryRentGauge()
+    {
+        if (rentedGauge != null || conditionFill != null || labelTf == null) return;
+
+        gaugeCanvas = WorkerGaugeCanvas.Get();
+        if (gaugeCanvas == null) return;
+
+        rentedGauge = gaugeCanvas.Rent();
+        if (rentedGauge == null) return;
+
+        rentedGauge.Follow(labelTf, gaugeOffset);
+        conditionFill = rentedGauge.Fill;
+        conditionBg = rentedGauge.Background;
+        SetGaugeVisible(lastGaugeVisible);
+    }
+
+    private void ReturnGauge()
+    {
+        if (rentedGauge == null) return;
+        if (gaugeCanvas != null) gaugeCanvas.Return(rentedGauge);
+        rentedGauge = null;
+        conditionFill = null;
+        conditionBg = null;
     }
 
     private void BuildLabel()

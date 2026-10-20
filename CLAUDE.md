@@ -56,5 +56,6 @@
 - **`StationController`(로봇팔)는 로봇팔에 강결합**(`Update` 첫 줄 `if (robotArm == null) return;`).
   사람 공정은 이걸 건드리지 않고 `AssemblyPart` 공개 API를 직접 구동한다 → 사람·로봇 공정이 같은 라인에 병존.
 - **월드 공간 UI에 Quad 프리미티브를 쓰지 말 것** — 콜라이더가 딸려와 클릭 레이캐스트를 가로챈다.
-  게이지는 3D TMP 문자 블록(`▮▯`)으로 그린다.
+  작업자 컨디션 게이지는 씬의 공용 월드 스페이스 캔버스 1개(`WorkerGaugeCanvas`)에 풀링한 uGUI Image(Filled)로 그린다
+  (작업자별 캔버스 금지, 게이지는 캔버스 로컬 z=0 평면에 투영해 배칭 유지, Raycast Target 끔).
 - **커밋은 사용자가 명시적으로 요청할 때만** 실행한다.

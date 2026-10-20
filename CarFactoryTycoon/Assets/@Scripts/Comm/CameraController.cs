@@ -60,6 +60,7 @@ public class CameraController : MonoBehaviour
     private bool useOrthoZoom;
     private float targetOrthoSize;
     private float currentOrthoSize;
+    private float initialOrthoSize;   // Start 시점 줌 (F 리셋 시 복원)
     private bool warnedNoCamera;
 
     /// <summary>실제로 움직일 Transform. targetCamera가 없으면 자기 자신.</summary>
@@ -100,6 +101,7 @@ public class CameraController : MonoBehaviour
             maxOrthoSize = baseSize * 3f;
             targetOrthoSize = baseSize;
             currentOrthoSize = baseSize;
+            initialOrthoSize = baseSize;
         }
 
         ResetView();
@@ -213,6 +215,7 @@ public class CameraController : MonoBehaviour
         yaw            = initialYaw;
         pitch          = initialPitch;
         targetDistance = initialDistance;
+        if (useOrthoZoom) targetOrthoSize = initialOrthoSize;
     }
 
     // ─────────────────────────────────────────────
