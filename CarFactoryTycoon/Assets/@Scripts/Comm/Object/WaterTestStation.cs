@@ -27,7 +27,8 @@ using UnityEditor;
 ///   출수 직후부터 라인 하강 전까지 dripVFX(물방울)가 차량을 따라 떨어진다. 통과 차량은 출수 순간 passVFX(물보라).
 /// - 폐기 연출로 줄인 차량 스케일은 풀 반환 직후·사이클 중단 시 캡처 당시 값으로 복원한다
 ///   (CarPool.Get에서도 프리팹 스케일로 한 번 더 보정).
-/// - 대차(CarDolly): 들어 올릴 때 게이트 벨트 위에 남김(부모 분리) → 수조로 떠나면 '뿅' 사라짐 →
+/// - 공용 데크에서는 대차가 라인을 따라 다음 자리로 이동해 대기하고, 불량이면 차량과 함께 원래 크기로 낙하한다.
+/// - 구형 직렬 수조의 대차(CarDolly): 들어 올릴 때 게이트 벨트 위에 남김(부모 분리) → 수조로 떠나면 '뿅' 사라짐 →
 ///   통과 차량은 방출 지점 위 dollyAppearHeight에서 대차가 '뿅' 나타나고 그 위에 내려앉아 재부착.
 ///   불량은 사라진 채 차량에 되돌려 두고(풀 재사용 시 SetPath가 원복), 중단 시 즉시 원복.
 ///
@@ -231,7 +232,35 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     // 불량 번쩍임 조명: 다음 밝기 변경까지 남은 시간
     private float    flashTimer;
 
-    // ILineGate 구현
+    [Header("라인 위 공용 폐기 데크")]
+    [Tooltip("정상 복귀와 불량 폐기가 같은 데크를 사용. 상류 캡처 게이트는 계속 활성 상태로 유지한다.")]
+    public bool sharedRejectDeck;
+    [Tooltip("Recessed pit light, enabled only while the rejection hatch is open.")]
+    public Light rejectPitLight;
+    [Tooltip("기존 방향성 스파크 대신 WaterInspectionFeedback이 검사 조명과 전기 아크를 표시한다.")]
+    public bool useElectricalInspectionFeedback;
+
+    private bool deckReserved;
+    private bool dollyAdvancing;
+    private bool dollyReady;
+    private float dollyMoveT;
+    private float dollyStartProgress;
+    private float dollyMoveDuration;
+
+    // A fixed segment start/target gives each move a full acceleration/deceleration envelope.
+    private bool craneMoveActive;
+    private WaterTestState craneMoveState;
+    private Vector3 craneMoveFrom, craneMoveTo;
+    private float craneMoveT, craneMoveDuration;
+    public WaterTestResult InspectionResult => lastResult;
+    public CarController InspectedCar => currentCar;
+    public float InspectionProgress => currentState == WaterTestState.Testing
+        ? Mathf.Clamp01(1f - timer / Mathf.Max(0.01f, testDuration)) : 0f;
+    public bool IsInspectionResultVisible =>
+        (currentState == WaterTestState.Testing && InspectionProgress >= 0.65f) ||
+        currentState == WaterTestState.Emerging;
+
+    // ILineGate 구현 — 차량 소실/폐기/Cooldown 중에도 상류 게이트를 해제하지 않는다.
     public float GateProgress => gateProgress;
     public bool  GateEnabled  => isActiveAndEnabled;
 
@@ -253,6 +282,11 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private void OnDisable()
     {
         CancelCycle();
+        hatchT = 0f;
+        deckReserved = false;
+        ApplyHatch();
+        if (rejectPitLight != null) rejectPitLight.enabled = false;
+        if (failFlashLight != null) failFlashLight.enabled = false;
         LineTrafficManager.Instance.UnregisterGate(this);
     }
 
@@ -355,6 +389,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
             case WaterTestState.Testing:
                 timer -= Time.deltaTime;
+                if (useElectricalInspectionFeedback && IsInspectionResultVisible && missingPartCount > 0 &&
+                    defectBubbles != null && !defectBubbles.isPlaying)
+                    PlayVFX(defectBubbles);
                 if (timer <= 0f) BeginEmerging();
                 break;
 
@@ -366,24 +403,26 @@ public class WaterTestStation : MonoBehaviour, ILineGate
             case WaterTestState.TravelToLine:
                 // 통과: 방출 지점 앞에 앞차가 남아 있으면 공중에서 대기 (내려놓으면 겹침)
                 if (MoveHangerGrabTo(AirPosOf(GetDestPos()), travelSpeed) &&
-                    !(lastResult == WaterTestResult.Pass && IsReleaseSpotBlocked()))
+                    !((sharedRejectDeck || lastResult == WaterTestResult.Pass) && IsReleaseSpotBlocked()) &&
+                    (!sharedRejectDeck || dollyReady))
                     BeginLowering();
                 break;
 
             case WaterTestState.Lowering:
-                // 통과: 방출 지점 바로 위까지 내려오면 벨트 위에 대차가 '뿅' 나타난다 (차가 그 위에 내려앉음)
-                if (lastResult == WaterTestResult.Pass && !dollyAppeared &&
+                // Legacy inline tank only: recreate the dolly. Shared deck uses the continuously advancing dolly.
+                if (!sharedRejectDeck && lastResult == WaterTestResult.Pass && !dollyAppeared &&
                     grabPos.y <= GetReleasePos().y + dollyAppearHeight)
                     AppearDollyAtRelease();
-                // 불량: 해치가 다 열린 뒤에 놓는다 (해치는 UpdateHatch가 TravelToLine부터 열기 시작)
+                // Shared deck: land on the dolly first; hold the car until the hatch opens, then release.
                 if (MoveHangerGrabTo(GetDestPos(), lowerSpeed) &&
-                    (lastResult == WaterTestResult.Pass || IsHatchOpen()))
+                    (sharedRejectDeck || lastResult == WaterTestResult.Pass || IsHatchOpen()))
                     BeginReleasing();
                 break;
 
             case WaterTestState.Releasing:
+                if (sharedRejectDeck && lastResult != WaterTestResult.Pass && !IsHatchOpen()) break;
                 timer -= Time.deltaTime;
-                if (timer <= 0f) ReleaseCar();
+                if (timer <= 0f && (!sharedRejectDeck || lastResult == WaterTestResult.Pass || IsHatchOpen())) ReleaseCar();
                 break;
 
             case WaterTestState.Rejecting:
@@ -394,11 +433,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
                 timer -= Time.deltaTime;
                 // 크레인 홈 복귀 (해치는 UpdateHatch가 닫음). 홈 도착 전에는 다음 캡처를 받지 않는다
                 bool atHome = ReturnCraneHome();
-                if (timer <= 0f && atHome)
+                if (timer <= 0f && atHome && IsHatchClosed())
+                {
+                    deckReserved = false;
                     currentState = WaterTestState.Idle;
+                }
                 break;
         }
 
+        UpdateDollyAdvance();
         UpdateClaw();
         UpdateHatch();
         UpdateFailFlash();
@@ -425,6 +468,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     private void TryCapture()
     {
+        if (!IsHatchClosed()) return;
         CarController car = LineTrafficManager.Instance.GetCarAtGate(gateProgress, CaptureEpsilon);
         if (car == null) return;
 
@@ -435,6 +479,14 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         airHeight           = carCapturePos.y + liftHeight;
         heldDolly           = currentCar.Dolly;
         dollyAppeared       = false;
+        deckReserved        = false;
+        dollyAdvancing      = false;
+        dollyReady          = heldDolly == null;
+        dollyMoveT          = 0f;
+        dollyStartProgress  = car.pathProgress;
+        dollyMoveDuration   = Mathf.Abs(releaseProgress - dollyStartProgress) * car.SplineLength / Mathf.Max(.01f, travelSpeed);
+        craneMoveActive     = false;
+        lastResult          = WaterTestResult.None;
         currentState        = WaterTestState.HangerDescending;
     }
 
@@ -455,7 +507,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private void BeginTravelToPool()
     {
         // 차가 수조로 떠나면 남은 대차는 '뿅' 사라짐 (통과 시 방출 지점에서 다시 나타남)
-        if (heldDolly != null && heldDolly.IsDetached && heldDolly.gameObject.activeInHierarchy)
+        if (!sharedRejectDeck && heldDolly != null && heldDolly.IsDetached && heldDolly.gameObject.activeInHierarchy)
         {
             PoofDolly(heldDolly);
             heldDolly.Vanish();
@@ -472,15 +524,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     private void BeginTesting()
     {
-        // 판정: 미체결 수 기준
-        missingPartCount = currentCar != null ? currentCar.CountUnassembledParts() : 0;
+        // Sealing owns only doors/windows. Mechanical assembly is inspected upstream.
+        missingPartCount = VehicleInspectionRules.CountMissing(currentCar, VehicleInspectionDomain.Sealing);
         lastResult = missingPartCount == 0                      ? WaterTestResult.Pass
                    : missingPartCount < majorDefectThreshold    ? WaterTestResult.MinorDefect
                    : WaterTestResult.MajorDefect;
 
         // 기포 재생 (결과와 무관하게 normal, 누락 있으면 defect 추가)
         PlayVFX(normalBubbles);
-        if (missingPartCount > 0)
+        if (missingPartCount > 0 && !useElectricalInspectionFeedback)
         {
             PlayVFX(defectBubbles);
             // 수중 스파크 연출: 불량 감지 (출수 시 정지)
@@ -506,7 +558,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     {
         // 불량 차량: 라인으로 돌아가지 않으므로 트래픽 목록에서 즉시 제거
         // → 뒷차들이 게이트 클램프에서 풀려 진행 가능
-        if (lastResult != WaterTestResult.Pass && currentCar != null)
+        if (!sharedRejectDeck && lastResult != WaterTestResult.Pass && currentCar != null)
             currentCar.LeaveLine();
 
         currentState = WaterTestState.TravelToLine;
@@ -515,6 +567,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private void BeginLowering()
     {
         StopVFX(dripVFX); // 라인/해치 위에서는 물방울 그침 (남은 방울은 자연 낙하)
+        deckReserved = true; // 정상·불량 모두 데크 여유 확인 후에만 예약/하강한다.
         currentState = WaterTestState.Lowering;
     }
 
@@ -566,6 +619,11 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     private void BeginRejecting()
     {
+        // 공용 데크에서는 낙하를 시작할 때만 라인에서 제거한다.
+        // 뒤차는 여전히 고정 상류 게이트에 멈추며, 해치 닫힘 전에는 캡처하지 않는다.
+        dollyAdvancing = false;
+        if (sharedRejectDeck && heldDolly != null) heldDolly.Restore();
+        currentCar.LeaveLine();
         vanishFrom   = currentCar.transform.position;
         vanishRot    = currentCar.transform.rotation;
         vanishT      = 0f;
@@ -581,9 +639,19 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private bool MoveHangerGrabTo(Vector3 grabWorldTarget, float speed)
     {
         if (hangerGrabPoint == null) return true;
-        grabPos = Vector3.MoveTowards(grabPos, grabWorldTarget, speed * Time.deltaTime);
+        if (!craneMoveActive || craneMoveState != currentState || (craneMoveTo - grabWorldTarget).sqrMagnitude > .000001f)
+        {
+            craneMoveActive = true;
+            craneMoveState = currentState;
+            craneMoveFrom = grabPos;
+            craneMoveTo = grabWorldTarget;
+            craneMoveT = 0f;
+            craneMoveDuration = Vector3.Distance(grabPos, grabWorldTarget) / Mathf.Max(.01f, speed);
+        }
+        craneMoveT = Mathf.Min(1f, craneMoveT + Time.deltaTime / Mathf.Max(.01f, craneMoveDuration));
+        grabPos = Vector3.Lerp(craneMoveFrom, craneMoveTo, Mathf.SmoothStep(0f, 1f, craneMoveT));
         ApplyCranePose();
-        return (grabPos - grabWorldTarget).sqrMagnitude < 0.0025f;
+        return craneMoveT >= 1f;
     }
 
     /// <summary>
@@ -646,7 +714,8 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private void UpdateClaw()
     {
         if (clawFingers == null || clawFingers.Length == 0) return;
-        bool  close = currentState >= WaterTestState.Grabbing && currentState <= WaterTestState.Lowering;
+        bool close = (currentState >= WaterTestState.Grabbing && currentState <= WaterTestState.Lowering) ||
+                     (sharedRejectDeck && currentState == WaterTestState.Releasing && lastResult != WaterTestResult.Pass && !IsHatchOpen());
         float dur   = close ? grabDuration : releaseDuration;
         clawT = Mathf.MoveTowards(clawT, close ? 1f : 0f, Time.deltaTime / Mathf.Max(0.05f, dur));
         ApplyClaw();
@@ -661,13 +730,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
                 clawFingers[i].localRotation = fingerClosedRot[i] * Quaternion.Euler(angle, 0f, 0f);
     }
 
-    /// <summary>해치: 불량 차량을 해치로 옮기는 동안(TravelToLine~Rejecting) 열고, 그 외(쿨다운 등)에는 닫는다.</summary>
+    /// <summary>Shared deck opens only after landing; legacy separate hatch opens during transfer.</summary>
     private void UpdateHatch()
     {
         if (rejectHatchLeaves == null || rejectHatchLeaves.Length == 0) return;
         bool open = lastResult != WaterTestResult.Pass && lastResult != WaterTestResult.None &&
-                    currentState >= WaterTestState.TravelToLine && currentState <= WaterTestState.Rejecting;
+                    currentState >= (sharedRejectDeck ? WaterTestState.Releasing : WaterTestState.TravelToLine) &&
+                    currentState <= WaterTestState.Rejecting && (!sharedRejectDeck || deckReserved);
         hatchT = Mathf.MoveTowards(hatchT, open ? 1f : 0f, Time.deltaTime / Mathf.Max(0.05f, rejectHatchDuration));
+        if (rejectPitLight != null) rejectPitLight.enabled = hatchT > .08f;
         ApplyHatch();
     }
 
@@ -682,6 +753,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     // 해치 문짝이 없으면 항상 열린 것으로 취급
     private bool IsHatchOpen() => rejectHatchLeaves == null || rejectHatchLeaves.Length == 0 || hatchT >= 1f;
+    private bool IsHatchClosed() => rejectHatchLeaves == null || rejectHatchLeaves.Length == 0 || hatchT <= 0f;
 
     /// <summary>
     /// 방출 지점부터 minGap 안에 앞차가 있는지. 있으면 지금 내려놓을 때 앞차와 겹친다.
@@ -692,7 +764,16 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         if (currentCar == null || currentCar.SplineLength <= 0f) return false;
         var traffic = LineTrafficManager.Instance;
         float clear = traffic.minGap;
-        return traffic.GetCarAtGate(releaseProgress + clear / currentCar.SplineLength, clear) != null;
+        // 잡힌 차량은 상류 게이트에 등록된 채 유지한다. 자신을 제외한 차량만 검사한다.
+        var cars = traffic.ActiveCars;
+        for (int i = 0; i < cars.Count; i++)
+        {
+            var other = cars[i];
+            if (other == null || other == currentCar || !other.gameObject.activeInHierarchy) continue;
+            if (Mathf.Abs(other.pathProgress - releaseProgress) * currentCar.SplineLength < clear)
+                return true;
+        }
+        return false;
     }
 
     /// <summary>
@@ -718,6 +799,28 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         PoofDolly(heldDolly);
     }
 
+    // The upstream gate holds following cars; reserve the downstream slot before moving the empty dolly.
+    private void UpdateDollyAdvance()
+    {
+        if (!sharedRejectDeck || heldDolly == null || !heldDolly.IsDetached || currentCar == null ||
+            currentState < WaterTestState.TravelToPool || currentState >= WaterTestState.Rejecting) return;
+        if (!dollyAdvancing && !dollyReady)
+        {
+            if (IsReleaseSpotBlocked()) return;
+            deckReserved = true;
+            dollyAdvancing = true;
+        }
+        if (!dollyAdvancing) return;
+        dollyMoveT = Mathf.Min(1f, dollyMoveT + Time.deltaTime / Mathf.Max(.01f, dollyMoveDuration));
+        float progress = Mathf.Lerp(dollyStartProgress, releaseProgress, Mathf.SmoothStep(0f, 1f, dollyMoveT));
+        SplineUtility.Evaluate(mainLineSpline.Spline, progress, out float3 p, out float3 tangent, out float3 up);
+        Quaternion rotation = currentCar.transform.rotation;
+        if (math.lengthsq(tangent) > .000001f)
+            rotation = Quaternion.LookRotation(mainLineSpline.transform.TransformDirection(tangent), mainLineSpline.transform.TransformDirection(up));
+        heldDolly.MoveDetachedTo(mainLineSpline.transform.TransformPoint(p), rotation);
+        if (dollyMoveT >= 1f) { dollyAdvancing = false; dollyReady = true; }
+    }
+
     // 대차 위치에 연기 버스트 (월드 공간 파티클 1개를 위치만 옮겨 Emit — 이전 버스트는 제자리에 남는다)
     private void PoofDolly(CarDolly dolly)
     {
@@ -730,7 +833,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     private void UpdateFailFlash()
     {
         if (failFlashLight == null) return;
-        bool on = currentState == WaterTestState.Testing && missingPartCount > 0;
+        bool on = !useElectricalInspectionFeedback && currentState == WaterTestState.Testing && missingPartCount > 0;
         if (!on)
         {
             if (failFlashLight.enabled) failFlashLight.enabled = false;
@@ -798,6 +901,15 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
         vanishT += Time.deltaTime / Mathf.Max(0.05f, rejectVanishDuration);
         float k = Mathf.Clamp01(vanishT);
+        if (sharedRejectDeck)
+        {
+            // Full-size vehicle and its reattached dolly fall together below the pit's dark floor.
+            float depth = Mathf.Max(6.5f, rejectSinkDepth);
+            currentCar.transform.position = vanishFrom + Vector3.down * depth * k * k;
+            currentCar.transform.rotation = vanishRot;
+            currentCar.transform.localScale = carOriginalScale;
+            return vanishT >= 1f;
+        }
 
         Vector3 hole = rejectPoint != null ? rejectPoint.position : vanishFrom;
         Vector3 p    = Vector3.Lerp(vanishFrom, new Vector3(hole.x, vanishFrom.y, hole.z), k);
@@ -848,6 +960,9 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         // 벨트에 남겨 둔 대차는 차량 자식으로 원복·활성·스케일 1 (차량이 파괴됐으면 대차도 정리)
         if (heldDolly != null) heldDolly.Restore();
         heldDolly    = null;
+        dollyAdvancing = false;
+        dollyReady = false;
+        craneMoveActive = false;
         currentCar   = null;
         lastResult   = WaterTestResult.None;
         timer        = cooldownDuration;
@@ -875,8 +990,16 @@ public class WaterTestStation : MonoBehaviour, ILineGate
     // 결과에 따른 목적지 위치 (그랩포인트 = 차량 기준점)
     // Pass  → releasePoint (수조 뒤 라인 위)
     // Defect→ rejectPoint 위 rejectDropHeight (해치 위에서 놓음)
-    private Vector3 GetDestPos() => lastResult == WaterTestResult.Pass ? GetReleasePos() : GetRejectPos();
-    private Vector3 GetReleasePos() => releasePoint != null ? releasePoint.position : carCapturePos;
+    private Vector3 GetDestPos() => sharedRejectDeck || lastResult == WaterTestResult.Pass ? GetReleasePos() : GetRejectPos();
+    private Vector3 GetReleasePos()
+    {
+        if (sharedRejectDeck && mainLineSpline != null)
+        {
+            SplineUtility.Evaluate(mainLineSpline.Spline, releaseProgress, out float3 p, out _, out _);
+            return mainLineSpline.transform.TransformPoint(p);
+        }
+        return releasePoint != null ? releasePoint.position : carCapturePos;
+    }
     private Vector3 GetRejectPos()  => rejectPoint  != null ? rejectPoint.position + Vector3.up * rejectDropHeight : carCapturePos;
 
     // 지면 위치에서 공중 이동 좌표 생성 (X/Z 유지, Y = airHeight)
@@ -912,7 +1035,7 @@ public class WaterTestStation : MonoBehaviour, ILineGate
 
     // ─── 기즈모 ──────────────────────────────────────────────────────────────────
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         SplineContainer spline = mainLineSpline;
         if (spline == null)

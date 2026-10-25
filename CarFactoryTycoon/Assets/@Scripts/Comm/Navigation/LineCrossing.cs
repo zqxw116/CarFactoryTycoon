@@ -287,7 +287,7 @@ public class LineCrossing : MonoBehaviour
         return c != null ? c.GetComponent<LineCrossing>() : null;
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (!drawGizmo) return;
         Vector3 a = transform.TransformPoint(new Vector3(0f, 0f, -halfSpan));

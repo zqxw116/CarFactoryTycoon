@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -114,6 +114,12 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
                 maxProgress = Mathf.Min(maxProgress, gateT - GateStopOffset / len);
             }
 
+            if (car.TryGetComponent<ProductionContract>(out var contract) && !contract.isCompleteVehicle && !contract.settled && contract.dispatch != null)
+            {
+                float remaining = (contract.endProgress - car.pathProgress) * len;
+                speedFactor = Mathf.Min(speedFactor, DecelFactor(remaining));
+                maxProgress = Mathf.Min(maxProgress, contract.endProgress - GateStopOffset / len);
+            }
             car.MoveStep(speedFactor, maxProgress);
         }
     }

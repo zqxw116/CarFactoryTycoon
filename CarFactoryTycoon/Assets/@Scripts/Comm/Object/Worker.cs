@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 /// <summary>
 /// 공정에 고정 배치되는 사람 작업자. 부품을 파일에서 집어 차량 부착점까지 옮겨 체결한다.
@@ -142,11 +142,6 @@ public class Worker : MonoBehaviour
         " 선제 휴식과의 '비율'이 레버다 — 3.3배(3초 : 10초)라야 미리 쉬게 하는 개입에 값이 생긴다." +
         " 체결 작업자는 공정당 1명 고정이라 이 정지를 대신 받아줄 인원이 없다.")]
     public float forcedRestDuration = 10f;
-
-    [Tooltip("컨디션이 0일 때 붙인 부품의 품질. 컨디션 100%면 품질 1.0, 낮아질수록 이 값까지 떨어진다." +
-        " 체결은 100%여도 품질이 낮으면 검사 공정(방수/압력/속도)에서 불량으로 걸린다 —" +
-        " 로봇팔은 항상 1.0이라, 자동화가 진행될수록 검사 통과율이 올라간다.")]
-    [Range(0f, 1f)] public float qualityAtZeroCondition = 0.5f;
 
     [Header("현재 상태 (디버그)")]
     public WorkerState currentState = WorkerState.Idle;
@@ -511,8 +506,8 @@ public class Worker : MonoBehaviour
         targetPart.SetAssembled();
         ReleaseGrip(); // 손을 놓는다(IK 가중치가 blendTime 동안 0으로) → Idle 흐름으로 자기 자리 복귀
 
-        // 품질은 작업 당시 컨디션에 비례한다 — 지친 작업자가 붙이면 체결은 100%여도 품질이 낮다
-        targetPart.quality = Mathf.Lerp(qualityAtZeroCondition, 1f, ConditionFill);
+        // Completed human work is reliable. Fatigue affects rest/throughput only.
+        targetPart.quality = 1f;
         targetPart = null;
         ClearStandCache();
 

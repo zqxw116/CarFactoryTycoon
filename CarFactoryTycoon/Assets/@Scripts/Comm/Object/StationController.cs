@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -146,6 +146,7 @@ public class StationController : MonoBehaviour
 
         foreach (CarController car in carsInZone)
         {
+            if (car.TryGetComponent<ProductionContract>(out var contract) && !contract.Requires(targetPartType)) continue;
             AssemblyPart part = car.GetUnassembledPart(targetPartType);
             if (part == null) continue; // 해당 차량은 이 공정 파츠가 없거나 이미 체결됨
 

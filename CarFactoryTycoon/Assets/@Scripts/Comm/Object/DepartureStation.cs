@@ -151,7 +151,7 @@ public class DepartureStation : MonoBehaviour
     }
 
     // 도착 지점(주황 구 + 도착 반경)과 공정 → 도착 연결선을 씬 뷰에 표시
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         Vector3 dest = Destination;
 

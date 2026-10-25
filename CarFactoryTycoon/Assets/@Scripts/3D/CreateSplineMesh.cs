@@ -276,9 +276,12 @@ namespace Unity.Splines.Examples
         // =======================================================
         // [시각화] 사용자가 입력한 Data Point의 위치를 직접 보여줌!
         // =======================================================
+        [SerializeField, Tooltip("Show width data points and labels while this conveyor is selected.")]
+        private bool drawWidthDebugGizmos;
+
         private void OnDrawGizmosSelected()
         {
-            if (m_Spline == null) return;
+            if (!drawWidthDebugGizmos || m_Spline == null) return;
             var splines = m_Spline.Splines;
             if (splines == null) return;
 

@@ -79,7 +79,7 @@ public class PaintBooth : MonoBehaviour
     }
 
     // 네모 거울 프레임 + 스캔 평면(반투명 판)을 씬 뷰에 표시
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (!TryGetComponent<BoxCollider>(out var box)) return;
 

@@ -295,7 +295,10 @@ public class RoboticArmIK : MonoBehaviour
     }
     #if UNITY_EDITOR
 
-    private void OnDrawGizmos()
+    [SerializeField, Tooltip("Show detailed joint angle diagnostics while this arm is selected. Maximum reach is always shown on selection.")]
+    private bool drawDebugGizmos;
+
+    private void OnDrawGizmosSelected()
     {
         if (joints == null || joints.Length == 0 || endEffector == null) return;
 
@@ -305,6 +308,8 @@ public class RoboticArmIK : MonoBehaviour
         // 최대 사거리 구체 그리기
         Gizmos.color = new Color(0, 1, 1, 0.2f); // 반투명한 사이언 색상
         Gizmos.DrawWireSphere(basePos, totalLength);
+
+        if (!drawDebugGizmos) return;
         
         // 2. 각 관절별 가동 범위 표시 (Arc)
         foreach (var joint in joints)

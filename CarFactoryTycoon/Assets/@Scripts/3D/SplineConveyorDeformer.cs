@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Splines;
 #endif
@@ -680,6 +680,16 @@ public class SplineConveyorDeformer : MonoBehaviour
         idx.AddRange(result);
     }
 
+    // Runtime clipping preserves authored knots, excludes and robot placement.
+    [SerializeField, HideInInspector] float productionEnd = 1f;
+    public void SetProductionEnd(float progress)
+    {
+        float next = Mathf.Clamp01(progress);
+        if (Mathf.Abs(next - productionEnd) < .00001f) return;
+        productionEnd = next;
+        Rebuild();
+    }
+
     void AppendSpline(int splineIndex, UnityEngine.Splines.Spline spline, ModuleData middle, ModuleData end, float width)
     {
         if (spline == null || spline.Count < 2) return;
@@ -699,6 +709,8 @@ public class SplineConveyorDeformer : MonoBehaviour
                 float b = Mathf.Clamp(Mathf.Max(r.start, r.end), 0f, splineLength);
                 if (b - a > 0.001f) ranges.Add(new Vector2(a, b));
             }
+        if (splineIndex == 0 && productionEnd < .99999f)
+            ranges.Add(new Vector2(productionEnd * splineLength, splineLength));
         ranges.Sort((p, q) => p.x.CompareTo(q.x));
 
         float from = 0f;

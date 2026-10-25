@@ -118,6 +118,15 @@ public class CarDolly : MonoBehaviour
         _seq.OnComplete(() => _seq = null);
     }
 
+    /// <summary>Move a detached, visible dolly to a car pose without a spawn animation.</summary>
+    public void MoveDetachedTo(Vector3 carPos, Quaternion carRot)
+    {
+        if (!_detached || _homeParent == null) return;
+        transform.SetPositionAndRotation(
+            carPos + carRot * Vector3.Scale(_homeParent.lossyScale, _homeLocalPos),
+            carRot * _homeLocalRot);
+    }
+
     /// <summary>
     /// 분리돼 있으면 원래 부모(차량) 밑 원래 로컬 자세로 되돌린다. 활성 상태·스케일은 건드리지 않는다
     /// (사라진 채로 차량에 붙여 두기 — 불량 폐기 후 풀 재사용 시 SetPath의 Restore가 다시 보이게 한다).

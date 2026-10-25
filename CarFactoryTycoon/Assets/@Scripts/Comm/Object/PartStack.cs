@@ -431,7 +431,7 @@ public class PartStack : MonoBehaviour
         EnsureBuilt();
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (!drawGizmo) return;
 

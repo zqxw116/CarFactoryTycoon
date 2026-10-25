@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
@@ -69,6 +69,7 @@ public class CarSpawner : MonoBehaviour
         if (car == null) return false;
 
         car.SetPath(mainLineSpline, globalLineSpeed * SpeedMultiplier, startProgress);
+        if (ProductionProgression.Current != null) ProductionProgression.Current.Stamp(car);
         return true;
     }
 
@@ -82,7 +83,7 @@ public class CarSpawner : MonoBehaviour
     }
 
     // 실제 출발 지점(스포너에서 가장 가까운 스플라인 점)에 차량 크기 박스로 표시.
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         SplineContainer spline = mainLineSpline;
         if (spline == null)

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
@@ -9,7 +9,7 @@ using UnityEditor;
 /// <summary>
 /// 바퀴 전용 리프트 공정. 흐르면서 체결하는 일반 스테이션과 달리 차량을 세워서 작업한다:
 ///
-///   Idle(게이트 대기) → Raising(차량 들어올림) → Working(로봇팔 동시 체결, 고정 시간창)
+///   Idle(게이트 대기) → Raising(차량 들어올림) → Working(4개 바퀴 전부 체결, 팔 개수별 순차 묶음)
 ///   → Lowering(내림) → 방출 → Idle
 ///
 /// - LineTrafficManager에 게이트로 등록된다: 아직 통과하지 않은 차량은 liftProgress 지점을
@@ -20,7 +20,7 @@ using UnityEditor;
 /// - 로봇팔은 트리거 진입에 의존하지 않고 이 공정이 직접 오케스트레이션한다
 ///   (SetPartTypeAndStart = manualMode라 PhysX 이벤트가 체결을 취소하지 못함).
 ///   차량이 정지 상태라 거리≈0 → 기존 소프트 게이트가 그대로 전속 체결로 동작.
-/// - 시간창(workWindow) 안에 못 끝낸 바퀴는 ResetStation으로 포기 — 바퀴 빠진 채 출고(부분 체결).
+/// - 모든 바퀴가 IsAssembled가 된 뒤에만 리프트를 내리고 차량을 방출한다. 과거 workWindow 값은 더 이상 판정에 사용하지 않는다.
 /// - 방출은 SetProgress로 차량을 게이트 진행도 위에 올려 통과 처리 후 isMoving=true.
 /// </summary>
 public class WheelStation : MonoBehaviour, ILineGate
@@ -53,12 +53,33 @@ public class WheelStation : MonoBehaviour, ILineGate
         " 앞바퀴 = +, 뒷바퀴 = - 로 중심 대칭 배치된다. 좌/우(lane)는 배치 SO의 robotLineSide를 따른다.")]
     public float stationAxialOffset = 1.5f;
 
-    [Tooltip("동시에 가동할 팔 개수 (배열 앞에서부터). 초기 2개 → 업그레이드로 4개.")]
+    [Tooltip("동시에 가동할 팔 개수. 4개 wheelStations를 좌/우가 섞이도록 (앞우, 앞좌, 뒤우, 뒤좌) 순차 처리합니다.")]
     public int activeArmCount = 4;
 
-    [Tooltip("작업 시간창(초). 리프트가 차를 들고 있는 최대 시간 — 이 안에 못 끝낸 바퀴는 빠진 채 출고된다." +
-        " 모든 팔이 일찍 끝나면 즉시 내려간다. 성공 조건: requiredWork/assembleSpeed < workWindow.")]
-    public float workWindow = 6f;
+    [Header("사람 작업 (기본 로봇 모드와 선택)")]
+    public bool useHumanWorkers = false;
+    [Tooltip("이 공정 전용 작업자 1~2명. 비활성 작업자는 추가 고용 대기 슬롯입니다.")]
+    public Worker[] humanWorkers;
+    [Tooltip("앞우/뒤우/앞좌/뒤좌 순서의 바퀴 재고 4개.")]
+    public PartStack[] humanPartStacks;
+
+    private bool humanCycle;
+    private Worker[] cycleWorkers;
+    private readonly Vector3[] humanHomes = new Vector3[2];
+    private readonly int[] humanAssignments = { -1, -1 };
+    private readonly bool[] humanParticipated = new bool[2];
+    private readonly PartStack[] consumedStacks = new PartStack[4];
+
+    /// <summary>구매 전환은 차량을 작업하지 않을 때만 허용한다. 시각 오브젝트 활성화는 호출자가 담당한다.</summary>
+    public bool SetHumanMode(bool enabled)
+    {
+        if (currentState != LiftState.Idle) return false;
+        useHumanWorkers = enabled;
+        return true;
+    }
+
+    // Legacy scene compatibility only. Elapsed time never ends wheel assembly.
+    [HideInInspector] public float workWindow = 6f;
 
     [Header("현재 상태 (디버그)")]
     public LiftState currentState = LiftState.Idle;
@@ -74,7 +95,17 @@ public class WheelStation : MonoBehaviour, ILineGate
     public bool GateEnabled => isActiveAndEnabled;
 
     private float animT = 0f;          // 승강 애니메이션 진행도(0~1)
-    private float workTimer = 0f;
+    private float workTimer = 0f;          // 작업 경과 시간(디버그 타임아웃 진단용)
+    private bool workTimeoutReported = false;
+    private float lastProgress;
+    private bool stationSetupErrorReported = false;
+    private CarController invalidPartsCar;
+    private readonly AssemblyPart[] wheelParts = new AssemblyPart[4];
+    private readonly int[] activeWaveIndices = new int[4];
+    private int activeWaveCount = 0;
+    private PartType[] originalStationPartTypes;
+    private PartType[] originalArmPartTypes;
+    private bool originalStationTypesCached = false;
     private Vector3 carBasePos;        // 캡처 시점 차량 위치 (승강 기준점)
     private float platformBaseY;       // 리프트 기계의 원래 로컬 Y
     private bool initialized = false;
@@ -146,10 +177,26 @@ public class WheelStation : MonoBehaviour, ILineGate
                 break;
 
             case LiftState.Working:
-                workTimer -= Time.deltaTime;
-                // 시간창 종료 또는 전 팔 조기 완료(Assembling인 팔이 하나도 없음) 시 종료
-                if (workTimer <= 0f || !AnyArmAssembling())
-                    EndWork();
+                workTimer += Time.deltaTime;
+                float progress = 0f;
+                foreach (var part in wheelParts) if (part != null) progress += part.Fill;
+                if (progress > lastProgress + .00001f) { workTimer = 0f; lastProgress = progress; workTimeoutReported = false; }
+                if (!workTimeoutReported && workTimer >= 30f)
+                {
+                    Debug.LogWarning($"[{name}] 바퀴 작업이 30초 동안 진행되지 않습니다. 팔 도달 범위와 연결을 확인하세요. 미완성 차량은 방출하지 않습니다.");
+                    workTimeoutReported = true;
+                }
+
+                if (humanCycle)
+                {
+                    UpdateHumanWork();
+                    break;
+                }
+                if (ActiveWaveIsAssembled())
+                {
+                    if (AllWheelPartsAssembled()) BeginLowering();
+                    else StartNextWave();
+                }
                 break;
 
             case LiftState.Lowering:
@@ -160,40 +207,198 @@ public class WheelStation : MonoBehaviour, ILineGate
         }
     }
 
-    /// <summary>게이트에 도킹한 차량을 캡처한다. 바퀴가 이미 다 붙은 차는 세우지 않고 통과시킨다.</summary>
+    /// <summary>게이트에 도킹한 차량을 캡처한다. 설정/부품이 불완전하면 캡처하지 않고 게이트에 둔다.</summary>
     private void TryCapture()
     {
         CarController car = LineTrafficManager.Instance.GetCarAtGate(liftProgress, CaptureEpsilon);
         if (car == null) return;
 
-        if (!CarNeedsWheels(car))
+        if (!ValidateStationSetup(out string setupError))
         {
-            // 여기로 자주 오면 셋업 문제: wheelStations 미연결이거나, 바퀴 스테이션의 트리거
-            // 콜라이더가 게이트 대기 중(정지=전속 체결)에 바퀴를 미리 붙여버린 것
-            Debug.LogWarning($"[{name}] {car.name} 작업할 바퀴 없음 → 리프트 없이 통과" +
-                $" (wheelStations {(wheelStations != null ? wheelStations.Length : 0)}개, activeArmCount {activeArmCount})");
+            if (!stationSetupErrorReported)
+            {
+                Debug.LogError($"[{name}] 바퀴 리프트 설정 오류: {setupError} 차량을 게이트에 유지합니다.");
+                stationSetupErrorReported = true;
+            }
+            return;
+        }
+        stationSetupErrorReported = false;
+
+        if (car == invalidPartsCar) return;
+        if (!CacheWheelParts(car))
+        {
+            invalidPartsCar = car;
+            Debug.LogError($"[{name}] {car.name}에서 휠 파츠 4종을 정확히 찾지 못했습니다. 미완성 방출을 막기 위해 차량을 게이트에 유지합니다.");
+            return;
+        }
+
+        humanCycle = useHumanWorkers;
+        if (!humanCycle) CacheOriginalStationTypes();
+        if (AllWheelPartsAssembled())
+        {
+            ClearWheelParts();
             PassGate(car);
             return;
         }
 
+        if (humanCycle)
+        {
+            cycleWorkers = (Worker[])humanWorkers.Clone();
+            for (int i = 0; i < cycleWorkers.Length; i++)
+            {
+                humanAssignments[i] = -1;
+                humanParticipated[i] = false;
+                if (cycleWorkers[i] != null)
+                {
+                    humanHomes[i] = cycleWorkers[i].transform.position;
+                    cycleWorkers[i].SetHome(humanHomes[i]);
+                }
+            }
+        }
         currentCar = car;
-        currentCar.isMoving = false;          // SnapToProgress 정지 → transform 자유 (승강 가능)
+        currentCar.isMoving = false;
         carBasePos = currentCar.transform.position;
         animT = 0f;
         currentState = LiftState.Raising;
     }
 
-    private bool CarNeedsWheels(CarController car)
+    private bool ValidateStationSetup(out string error)
     {
-        int n = Mathf.Min(activeArmCount, wheelStations != null ? wheelStations.Length : 0);
-        for (int i = 0; i < n; i++)
+        if (useHumanWorkers)
         {
-            if (wheelStations[i] == null) continue;
-            if (car.GetUnassembledPart(wheelStations[i].targetPartType) != null) return true;
+            if (humanWorkers == null || humanWorkers.Length < 1 || humanWorkers.Length > 2)
+            { error = "사람 작업자는 1~2명이어야 합니다."; return false; }
+            bool hasWorker = false;
+            for (int i = 0; i < humanWorkers.Length; i++)
+            {
+                if (humanWorkers[i] == null) continue;
+                if (i > 0 && humanWorkers[0] == humanWorkers[i])
+                { error = "사람 작업자가 중복 연결됐습니다."; return false; }
+                hasWorker |= humanWorkers[i].isActiveAndEnabled;
+            }
+            if (!hasWorker) { error = "활성 사람 작업자가 없습니다."; return false; }
+            if (humanPartStacks == null || humanPartStacks.Length != 4)
+            { error = "바퀴 재고 파일 4개가 필요합니다."; return false; }
+            for (int i = 0; i < 4; i++)
+                if (humanPartStacks[i] == null || humanPartStacks[i].partType != WheelTypes[i])
+                { error = $"humanPartStacks[{i}]는 {WheelTypes[i]} 재고여야 합니다."; return false; }
+            error = null;
+            return true;
         }
-        return false;
+        if (wheelStations == null || wheelStations.Length != WheelTypes.Length)
+        {
+            error = $"wheelStations는 4개가 필요합니다 (현재 {(wheelStations != null ? wheelStations.Length : 0)}개).";
+            return false;
+        }
+        if (activeArmCount < 1 || activeArmCount > WheelTypes.Length)
+        {
+            error = $"activeArmCount는 1~{WheelTypes.Length} 범위여야 합니다 (현재 {activeArmCount}).";
+            return false;
+        }
+
+        for (int i = 0; i < WheelTypes.Length; i++)
+        {
+            StationController station = wheelStations[i];
+            if (station == null)
+            {
+                error = $"wheelStations[{i}] ({WheelTypes[i]})가 비어 있습니다.";
+                return false;
+            }
+            for (int j = 0; j < i; j++)
+            {
+                if (wheelStations[j] == station)
+                {
+                    error = $"{station.name} 스테이션이 wheelStations[{j}]와 [{i}]에 중복 연결됐습니다.";
+                    return false;
+                }
+            }
+            if (station.robotArm == null)
+            {
+                error = $"{station.name} ({WheelTypes[i]})에 로봇팔이 없습니다.";
+                return false;
+            }
+            if (station.targetPartType != WheelTypes[i] || station.robotArm.targetPartType != WheelTypes[i])
+            {
+                error = $"wheelStations[{i}]는 {WheelTypes[i]} 전용이어야 합니다 (station={station.targetPartType}, arm={station.robotArm.targetPartType}).";
+                return false;
+            }
+        }
+
+        error = null;
+        return true;
     }
 
+    private bool CacheWheelParts(CarController car)
+    {
+        for (int i = 0; i < wheelParts.Length; i++) wheelParts[i] = null;
+
+        AssemblyPart[] parts = car.GetComponentsInChildren<AssemblyPart>(true);
+        for (int i = 0; i < parts.Length; i++)
+        {
+            AssemblyPart part = parts[i];
+            if (part == null) continue;
+            int wheelIndex = GetWheelIndex(part.myType);
+            if (wheelIndex < 0) continue;
+            if (wheelParts[wheelIndex] != null) return false;
+            wheelParts[wheelIndex] = part;
+        }
+
+        for (int i = 0; i < wheelParts.Length; i++)
+            if (wheelParts[i] == null) return false;
+        return true;
+    }
+
+    private static int GetWheelIndex(PartType type)
+    {
+        for (int i = 0; i < WheelTypes.Length; i++)
+            if (WheelTypes[i] == type) return i;
+        return -1;
+    }
+
+    private bool AllWheelPartsAssembled()
+    {
+        for (int i = 0; i < wheelParts.Length; i++)
+            if (wheelParts[i] == null || !wheelParts[i].IsAssembled) return false;
+        return true;
+    }
+
+    private void CacheOriginalStationTypes()
+    {
+        if (originalStationTypesCached) return;
+        originalStationPartTypes = new PartType[wheelStations.Length];
+        originalArmPartTypes = new PartType[wheelStations.Length];
+        for (int i = 0; i < wheelStations.Length; i++)
+        {
+            originalStationPartTypes[i] = wheelStations[i].targetPartType;
+            originalArmPartTypes[i] = wheelStations[i].robotArm.targetPartType;
+        }
+        originalStationTypesCached = true;
+    }
+
+    private void ResetWheelStationsAndRestoreTypes()
+    {
+        if (wheelStations != null)
+        {
+            for (int i = 0; i < wheelStations.Length; i++)
+                if (wheelStations[i] != null) wheelStations[i].ResetStation();
+        }
+
+        if (!originalStationTypesCached || wheelStations == null) return;
+        int count = Mathf.Min(wheelStations.Length, originalStationPartTypes.Length);
+        for (int i = 0; i < count; i++)
+        {
+            StationController station = wheelStations[i];
+            if (station == null) continue;
+            station.targetPartType = originalStationPartTypes[i];
+            if (station.robotArm != null) station.robotArm.targetPartType = originalArmPartTypes[i];
+        }
+    }
+
+    private void ClearWheelParts()
+    {
+        for (int i = 0; i < wheelParts.Length; i++) wheelParts[i] = null;
+        activeWaveCount = 0;
+    }
     /// <summary>차량(+리프트 기계)의 승강 높이를 적용한다.</summary>
     private void ApplyLiftHeight(float height)
     {
@@ -208,57 +413,177 @@ public class WheelStation : MonoBehaviour, ILineGate
         }
     }
 
-    /// <summary>활성 팔 전체에 동시에 체결 시작을 명령한다 (트리거 진입에 의존하지 않음).</summary>
+    /// <summary>리프트가 올라간 뒤, 최대 activeArmCount개 바퀴를 양쪽이 섞인 순서로 시작한다.</summary>
     private void BeginWork()
     {
-        int n = Mathf.Min(activeArmCount, wheelStations != null ? wheelStations.Length : 0);
-        for (int i = 0; i < n; i++)
-        {
-            if (wheelStations[i] == null) continue;
-            wheelStations[i].SetPartTypeAndStart(wheelStations[i].targetPartType, currentCar);
-        }
-
-        workTimer = workWindow;
+        workTimer = 0f;
+        lastProgress = 0f;
+        workTimeoutReported = false;
         currentState = LiftState.Working;
+        if (humanCycle) UpdateHumanWork();
+        else StartNextWave();
     }
 
-    private bool AnyArmAssembling()
+    private void UpdateHumanWork()
     {
-        int n = Mathf.Min(activeArmCount, wheelStations != null ? wheelStations.Length : 0);
-        for (int i = 0; i < n; i++)
+        if (cycleWorkers == null) return;
+        bool busy = false;
+        for (int w = 0; w < cycleWorkers.Length; w++)
         {
-            if (wheelStations[i] == null) continue;
-            if (wheelStations[i].currentState == StationController.StationState.Assembling) return true;
-        }
-        return false;
-    }
-
-    /// <summary>시간창 종료: 아직 체결 중인(미완료) 팔은 포기시킨다 → 그 바퀴는 빠진 채 출고.</summary>
-    private void EndWork()
-    {
-        int n = Mathf.Min(activeArmCount, wheelStations != null ? wheelStations.Length : 0);
-        for (int i = 0; i < n; i++)
-        {
-            if (wheelStations[i] == null) continue;
-            if (wheelStations[i].currentState == StationController.StationState.Assembling)
+            Worker worker = cycleWorkers[w];
+            int assigned = humanAssignments[w];
+            if (assigned >= 0 && wheelParts[assigned] != null && wheelParts[assigned].IsAssembled)
             {
-                Debug.Log($"[{name}] ⏱ 시간창 종료 — {wheelStations[i].targetPartType} 미완료, 포기(바퀴 누락 출고)");
-                wheelStations[i].ResetStation();
+                Vector3 rewardPos = wheelParts[assigned].transform.position + Vector3.up * .5f;
+                int reward = StationConfig.Instance.partReward;
+                EconomyManager.Instance.Earn(reward, rewardPos);
+                CashPopup.Show(rewardPos, reward);
+                if (ProductionProgression.Current != null) ProductionProgression.Current.MarkExperienced(wheelParts[assigned].myType);
+                consumedStacks[assigned] = null;
+                humanAssignments[w] = -1;
+                humanParticipated[w] = true;
+            }
+            if (worker == null) continue;
+            worker.carDocked = true;
+            worker.stockBlocked = false;
+            busy |= worker.IsBusy;
+            if (!worker.isActiveAndEnabled || !worker.IsAvailable || humanAssignments[w] >= 0) continue;
+            for (int order = 0; order < WheelSelectionOrder.Length; order++)
+            {
+                int index = WheelSelectionOrder[order];
+                AssemblyPart part = wheelParts[index];
+                if (part == null || part.IsAssembled || humanAssignments[0] == index || humanAssignments[1] == index) continue;
+                // A staffed pair stays on its original side of the raised car. An inactive
+                // second hiring slot still permits the single-worker fallback to do all four.
+                bool paired = cycleWorkers.Length == 2
+                    && cycleWorkers[0] != null && cycleWorkers[0].isActiveAndEnabled
+                    && cycleWorkers[1] != null && cycleWorkers[1].isActiveAndEnabled;
+                if (paired)
+                {
+                    Vector3 localHome = currentCar.transform.InverseTransformPoint(humanHomes[w]);
+                    Vector3 localWheel = currentCar.transform.InverseTransformPoint(
+                        part.transform.parent.TransformPoint(part.assembledPos));
+                    if ((localHome.x < 0f) != (localWheel.x < 0f)) continue;
+                }
+                PartStack stack = humanPartStacks[index];
+                Vector3 pickPos = stack.GetTopSlotWorldPos();
+                Quaternion pickRot = stack.GetTopSlotWorldRot();
+                if (!stack.TryConsume()) { worker.stockBlocked = true; continue; }
+                // Worker chooses the approach side from home. A single worker must approach
+                // each wheel from its own outer side, including wheels across the car.
+                Vector3 wheelHome = part.transform.parent.TransformPoint(part.assembledPos);
+                wheelHome += currentCar.transform.right * (part.assembledPos.x < 0f ? -2f : 2f);
+                wheelHome.y = humanHomes[w].y;
+                worker.SetHome(wheelHome);
+                if (!worker.AssignWork(part, pickPos, pickRot, currentCar.transform.position, currentCar.transform.rotation, true))
+                { stack.Add(1); continue; }
+                humanAssignments[w] = index;
+                consumedStacks[index] = stack;
+                worker.stockBlocked = false;
+                busy = true;
+                break;
+            }
+        }
+        if (AllWheelPartsAssembled() && !busy) BeginLowering();
+    }
+
+    private void FinishHumanCycle(bool cancelled)
+    {
+        if (!humanCycle || cycleWorkers == null) return;
+        for (int w = 0; w < cycleWorkers.Length; w++)
+        {
+            Worker worker = cycleWorkers[w];
+            if (worker != null)
+            {
+                worker.CancelWork();
+                worker.SetHome(humanHomes[w]);
+                worker.carDocked = false;
+                worker.stockBlocked = false;
+                if (!cancelled && humanParticipated[w]) worker.ConsumeConditionForCar();
+            }
+            humanAssignments[w] = -1;
+            humanParticipated[w] = false;
+        }
+        for (int i = 0; i < consumedStacks.Length; i++)
+        {
+            if (consumedStacks[i] != null && (wheelParts[i] == null || !wheelParts[i].IsAssembled))
+            {
+                consumedStacks[i].Add(1);
+                if (wheelParts[i] != null) wheelParts[i].SetWork(0f);
+            }
+            consumedStacks[i] = null;
+        }
+        cycleWorkers = null;
+    }
+
+    private void StartNextWave()
+    {
+        activeWaveCount = 0;
+        int waveCapacity = Mathf.Clamp(activeArmCount, 1, WheelTypes.Length);
+        for (int order = 0; order < WheelSelectionOrder.Length; order++)
+        {
+            int wheelIndex = WheelSelectionOrder[order];
+            if (wheelParts[wheelIndex] == null || wheelParts[wheelIndex].IsAssembled) continue;
+            if (activeWaveCount >= waveCapacity) break;
+
+            StationController station = wheelStations[wheelIndex];
+            activeWaveIndices[activeWaveCount++] = wheelIndex;
+            station.SetPartTypeAndStart(WheelTypes[wheelIndex], currentCar);
+            if (station.currentState != StationController.StationState.Assembling)
+            {
+                Debug.LogError($"[{name}] {WheelTypes[wheelIndex]} 체결을 시작하지 못했습니다. 4개 바퀴가 모두 체결될 때까지 차량을 유지합니다.");
             }
         }
 
+        if (activeWaveCount == 0)
+        {
+            if (AllWheelPartsAssembled()) BeginLowering();
+            else Debug.LogError($"[{name}] 미체결 바퀴가 남았지만 시작할 팔을 찾지 못했습니다. 차량을 유지합니다.");
+        }
+    }
+
+    private bool ActiveWaveIsAssembled()
+    {
+        if (activeWaveCount == 0) return false;
+        for (int i = 0; i < activeWaveCount; i++)
+        {
+            AssemblyPart part = wheelParts[activeWaveIndices[i]];
+            if (part == null || !part.IsAssembled) return false;
+        }
+        return true;
+    }
+
+    private void BeginLowering()
+    {
+        if (!AllWheelPartsAssembled())
+        {
+            Debug.LogError($"[{name}] 바퀴 4개가 모두 체결되지 않아 리프트 하강을 차단했습니다.");
+            return;
+        }
+
+        ResetWheelStationsAndRestoreTypes();
+        activeWaveCount = 0;
         animT = 0f;
         currentState = LiftState.Lowering;
     }
-
     private void ReleaseCar()
     {
-        ApplyLiftHeight(0f); // 승강 높이 원복 확정
+        if (!AllWheelPartsAssembled())
+        {
+            Debug.LogError($"[{name}] 방출 직전 휠 체결 확인 실패. 미완성 출고를 막기 위해 차를 다시 올려 대기합니다.");
+            animT = 0f;
+            currentState = LiftState.Raising;
+            return;
+        }
+
+        ApplyLiftHeight(0f);
+        ResetWheelStationsAndRestoreTypes();
+        FinishHumanCycle(false);
         PassGate(currentCar);
         currentCar = null;
-        currentState = LiftState.Idle; // 다음 대기 차량은 다음 프레임 TryCapture가 잡는다
+        ClearWheelParts();
+        currentState = LiftState.Idle;
     }
-
     /// <summary>차량을 게이트 진행도 위에 올려 통과 처리하고 재출발시킨다.</summary>
     private void PassGate(CarController car)
     {
@@ -284,30 +609,31 @@ public class WheelStation : MonoBehaviour, ILineGate
         AbortCycle();
     }
 
-    /// <summary>작업 도중 차량 소실 등 비정상 상황에서 사이클을 중단하고 초기 상태로 되돌린다.</summary>
     private void AbortCycle()
     {
-        int n = Mathf.Min(activeArmCount, wheelStations != null ? wheelStations.Length : 0);
-        for (int i = 0; i < n; i++)
-        {
-            if (wheelStations[i] == null) continue;
-            if (wheelStations[i].currentState == StationController.StationState.Assembling)
-                wheelStations[i].ResetStation();
-        }
+        FinishHumanCycle(true);
+        if (currentCar != null && currentCar.gameObject.activeInHierarchy)
+            ApplyLiftHeight(0f);
 
+        ResetWheelStationsAndRestoreTypes();
         currentCar = null;
+        ClearWheelParts();
         if (liftPlatform != null)
         {
             Vector3 lp = liftPlatform.localPosition;
             lp.y = platformBaseY;
             liftPlatform.localPosition = lp;
         }
+        animT = 0f;
+        workTimer = 0f;
+        workTimeoutReported = false;
         currentState = LiftState.Idle;
     }
-
     #region 바퀴 스테이션 자동 배치
 
     // wheelStations 인덱스 → 담당 바퀴. 배열에 바인딩만 하면 이 순서로 타입이 자동 지정된다.
+    private static readonly int[] WheelSelectionOrder = { 0, 2, 1, 3 }; // 좌/우를 먼저 하나씩 선택
+
     private static readonly PartType[] WheelTypes =
     {
         PartType.Wheel_FrontRight_41,
@@ -431,7 +757,7 @@ public class WheelStation : MonoBehaviour, ILineGate
     #endregion
 
     // 리프트 지점을 씬 뷰에 표시: 스플라인 위 정지 지점에 차량 크기 와이어 박스 + 승강 범위.
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         SplineContainer spline = mainLineSpline;
         if (spline == null)

@@ -105,7 +105,8 @@ public class WorkerStation : MonoBehaviour, ILineGate
     }
 
     /// <summary>ILineGate: 게이트 활성 여부. 꺼지면 차량이 그냥 통과한다.</summary>
-    public bool GateEnabled => isActiveAndEnabled;
+    public bool externalWorkCoordinator;
+    public bool GateEnabled => isActiveAndEnabled && !externalWorkCoordinator;
 
     // 이번 차량에서 아직 못 붙인 담당 부품들 (캡처 시 1회 조회 후 캐시)
     private readonly List<PendingPart> pending = new List<PendingPart>();
@@ -195,6 +196,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
     private void Update()
     {
+        if (externalWorkCoordinator) return;
         // 작업 도중 차량이 사라지면(풀 반환 등) 정리
         if (currentState != WorkState.Idle && (currentCar == null || !currentCar.gameObject.activeInHierarchy))
         {
@@ -275,6 +277,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
         for (int i = 0; i < targetPartTypes.Length; i++)
         {
+            if (car.TryGetComponent<ProductionContract>(out var contract) && !contract.Requires(targetPartTypes[i])) continue;
             AssemblyPart part = car.GetUnassembledPart(targetPartTypes[i]);
             if (part == null) continue;
             pending.Add(new PendingPart { part = part, stackIndex = i, stockTaken = false });
@@ -336,6 +339,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
             int reward = StationConfig.Instance.partReward;
             EconomyManager.Instance.Earn(reward, rewardPos);
             CashPopup.Show(rewardPos, reward);
+            if (ProductionProgression.Current != null) ProductionProgression.Current.MarkExperienced(part.myType);
 
             RemovePending(part);
             assigned[i] = null;
@@ -525,7 +529,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
         return false;
     }
 
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (!drawGizmo) return;
 
