@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -145,7 +145,8 @@ public class WorkerStation : MonoBehaviour, ILineGate
     private void OnDisable()
     {
         AbortCycle();
-        LineTrafficManager.Instance.UnregisterGate(this);
+        var traffic = FindFirstObjectByType<LineTrafficManager>();
+        if (traffic != null) traffic.UnregisterGate(this);
     }
 
     private void EnsureInit()

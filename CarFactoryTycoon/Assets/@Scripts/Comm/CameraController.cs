@@ -19,7 +19,7 @@ public class CameraController : MonoBehaviour
     public bool IsOverview=>overview;
     public Bounds ActiveBounds=>factory!=null?factory.ActiveBounds:new Bounds(initialPivot,new Vector3(30,5,20));
     void Resolve(){if(cam!=null)return;if(targetCamera==null){cam=GetComponent<Camera>();if(cam==null)cam=Camera.main;if(cam!=null)targetCamera=cam.transform;}else cam=targetCamera.GetComponent<Camera>();if(factory==null)factory=FindFirstObjectByType<FactoryExpansion>();}
-    void Start(){Resolve();SetOverview(PrototypeLineController.Current!=null);}
+    void Start(){Resolve();if(FindFirstObjectByType<FactoryPlayerController>()!=null){enabled=false;return;}SetOverview(PrototypeLineController.Current!=null);}
     public void SetOverview(bool enabled)
     {
         Resolve();if(cam==null)return;overview=enabled;cam.orthographic=enabled;

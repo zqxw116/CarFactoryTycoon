@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Splines;
 
@@ -58,6 +58,99 @@ public class AssemblyPart : MonoBehaviour
     private CarController owner;
     private SplineContainer workSpline;
     private float workStart, workMeters;
+    private Object playerOwner;
+    private bool playerAttached, playerAttaching;
+    private Vector3 playerStartPosition;
+    private Quaternion playerStartRotation;
+    private float playerAttachProgress, hitPulse;
+    private float savedWork;
+    private bool savedActive, savedAttached;
+    public bool IsPlayerAttached => playerAttached;
+    public bool IsPlayerAttaching => playerAttaching;
+    public bool CanPlayerRepair => !RepairLocked && !IsAssembled;
+    public Vector3 AttachmentWorldPosition => transform.parent != null ? transform.parent.TransformPoint(assembledPos) : assembledPos;
+    public Quaternion AttachmentWorldRotation => transform.parent != null ? transform.parent.rotation * Quaternion.Euler(assembledRot) : Quaternion.Euler(assembledRot);
+
+    public bool TryBeginPlayerAttachment(Object requester, Vector3 start, Quaternion rotation)
+    {
+        if (requester == null || !CanPlayerRepair || playerOwner != null || playerAttached || currentWork > 0f) return false;
+        playerOwner = requester;
+        savedWork = currentWork; savedActive = gameObject.activeSelf; savedAttached = playerAttached;
+        playerStartPosition = start; playerStartRotation = rotation;
+        playerAttachProgress = 0f; playerAttaching = true;
+        workSpline = null; assembling = false;
+        // Activate after ownership/state is established; inactive vehicle parts are valid targets.
+        gameObject.SetActive(true);
+        ApplyPlayerPose();
+        return true;
+    }
+
+    public bool AdvancePlayerAttachment(Object requester, float progress)
+    {
+        if (playerOwner != requester || !playerAttaching || !CanPlayerRepair) return false;
+        playerAttachProgress = Mathf.Clamp01(progress);
+        ApplyPlayerPose();
+        return true;
+    }
+
+    public bool CompletePlayerAttachment(Object requester)
+    {
+        if (playerOwner != requester || !playerAttaching || !CanPlayerRepair) return false;
+        playerAttaching = false; playerAttached = true; playerOwner = null;
+        hitPulse = .35f;
+        ApplyPlayerPose();
+        return true;
+    }
+
+    public void CancelPlayerAttachment(Object requester)
+    {
+        if (playerOwner != requester) return;
+        playerOwner = null; playerAttaching = false; playerAttached = savedAttached;
+        currentWork = savedWork;
+        if (playerAttached) ApplyPlayerPose(); else ApplyLocalPose(Fill);
+        gameObject.SetActive(savedActive);
+    }
+
+    /// <summary>Each successful hit advances one player's share; continuous NPC work is retained.</summary>
+    public bool TryPlayerHammer(int requiredHits)
+    {
+        if (!CanPlayerRepair || playerAttaching || (!playerAttached && currentWork <= 0f)) return false;
+        workSpline = null; assembling = false; playerAttached = true;
+        currentWork = Mathf.Min(requiredWork, currentWork + requiredWork / Mathf.Max(1, requiredHits));
+        if (requiredWork - currentWork < .0001f) currentWork = requiredWork;
+        hitPulse = IsAssembled ? 1.35f : 1f;
+        gameObject.SetActive(true);
+        ApplyPlayerPose();
+        return true;
+    }
+
+    public int PlayerHitsRemaining(int requiredHits) => IsAssembled ? 0 : Mathf.Max(1, Mathf.CeilToInt((1f - Fill) * Mathf.Max(1, requiredHits) - .0001f));
+
+    private void ApplyPlayerPose()
+    {
+        Vector3 end = AttachmentWorldPosition;
+        Quaternion rotation = AttachmentWorldRotation;
+        if (playerAttaching)
+        {
+            float t = playerAttachProgress;
+            // Fast approach, then a short alignment/snap along the part's outward normal.
+            Vector3 outward = rotation * Vector3.forward;
+            Vector3 entry = end + outward * .10f;
+            if (t < .8f)
+            {
+                float eased = 1f - Mathf.Pow(1f - t / .8f, 3f);
+                transform.SetPositionAndRotation(Vector3.Lerp(playerStartPosition, entry, eased), Quaternion.Slerp(playerStartRotation, rotation, eased));
+            }
+            else
+            {
+                float snap = (t - .8f) / .2f;
+                transform.SetPositionAndRotation(Vector3.Lerp(entry, end, snap) - outward * Mathf.Sin(snap * Mathf.PI) * .018f, rotation);
+            }
+            return;
+        }
+        float pulse = Mathf.Sin(Mathf.Clamp01(hitPulse) * Mathf.PI);
+        transform.SetPositionAndRotation(end - rotation * Vector3.forward * (.025f * pulse), rotation * Quaternion.Euler(pulse * 1.2f, 0f, 0f));
+    }
     public void SetStationWorkWindow(SplineContainer spline, float start, float meters)
     {
         workSpline = spline; workStart = start; workMeters = meters;
@@ -75,7 +168,7 @@ public class AssemblyPart : MonoBehaviour
     {
         workSpline = null;
         assembling = false;
-        ApplyLocalPose(Fill);
+        if (playerAttached || playerAttaching) ApplyPlayerPose(); else ApplyLocalPose(Fill);
     }
 
     // 월드 조립 상태: BeginWorldAssembly()로 시작. 시작점(pile)은 월드 고정,
@@ -90,8 +183,12 @@ public class AssemblyPart : MonoBehaviour
 
     public void SetActive(bool _isActive) => this.gameObject.SetActive(_isActive);
 
-    private void Awake()
+    private bool runtimeInitialized;
+    private void Awake() => EnsureInitialized();
+    private void EnsureInitialized()
     {
+        if (runtimeInitialized) return;
+        runtimeInitialized = true;
         cachedParent = transform.parent;
         if (myType == PartType.None) AutoSetGroupAndType();
         LoadDataFromSO();
@@ -113,6 +210,8 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>완전 분리 상태(work=0)로 되돌리고 오브젝트를 비활성화한다.</summary>
     public void Reset()
     {
+        EnsureInitialized();
+        playerOwner = null; playerAttached = false; playerAttaching = false; hitPulse = 0f;
         workSpline = null;
         assembling = false; // 월드 보간 중단
         quality = 1f;       // 품질도 초기화 (차량 풀 재사용 시 이전 차량 값이 남지 않게)
@@ -127,7 +226,7 @@ public class AssemblyPart : MonoBehaviour
     /// </summary>
     public void BeginWorldAssembly(Vector3 worldPilePos, Quaternion startRotOffset)
     {
-        if (RepairLocked) return;
+        if (RepairLocked || playerAttached || playerAttaching) return;
         pileWorldPos = worldPilePos;
         pileRotOffset = startRotOffset;
         assembling = true;
@@ -160,16 +259,18 @@ public class AssemblyPart : MonoBehaviour
     /// </summary>
     public void SetWork(float work)
     {
+        if (playerAttaching) return;
         if (RepairLocked && work > currentWork) return;
         if (work > currentWork && workSpline != null &&
             !StationWorkZone.Contains(owner, workSpline, workStart, workMeters)) return;
         currentWork = Mathf.Clamp(work, 0f, requiredWork);
 
-        if (assembling) ApplyWorldPose(Fill); // pile(월드) → 진입점 → 차량 부착점
+        if (playerAttached) ApplyPlayerPose();
+        else if (assembling) ApplyWorldPose(Fill); // pile(월드) → 진입점 → 차량 부착점
         else            ApplyLocalPose(Fill); // 차량 로컬 베지어 (에디터 프리뷰/비조립 상태)
 
         // 완전 분리(work=0)면 숨기고, 그 외에는 표시
-        if (currentWork <= 0f) SetActive(false);
+        if (currentWork <= 0f && !playerAttached) SetActive(false);
         else if (!gameObject.activeSelf) SetActive(true);
     }
 
@@ -177,6 +278,7 @@ public class AssemblyPart : MonoBehaviour
     // (이후엔 차량 자식으로서 재계산 없이 차를 따라다닌다)
     public void SetAssembled()
     {
+        EnsureInitialized();
         if (RepairLocked) return;
         assembling = false;
         SetWork(requiredWork); // assembling=false → ApplyLocalPose(1) = assembledPos에 정확히 고정
@@ -189,7 +291,13 @@ public class AssemblyPart : MonoBehaviour
     // 차량 이동(Update) 이후에 계산되도록 LateUpdate 사용.
     private void LateUpdate()
     {
-        if (assembling) ApplyWorldPose(Fill);
+        if (playerAttached || playerAttaching)
+        {
+            hitPulse = Mathf.MoveTowards(hitPulse, 0f, Time.deltaTime * 7f);
+            // Inspection owns transforms after capture, including its breakup animation.
+            if (!RepairLocked) ApplyPlayerPose();
+        }
+        else if (assembling) ApplyWorldPose(Fill);
     }
 
     /// <summary>위치·회전만 적용 (SetActive 없음). OnValidate에서 사용.</summary>

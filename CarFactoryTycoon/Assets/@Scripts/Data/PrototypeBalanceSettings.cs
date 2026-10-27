@@ -10,6 +10,10 @@ public sealed class PrototypeBalanceSettings : ScriptableObject
     [Min(.01f)] public float initialHighSpeed = 1f;
     [Min(1f)] public float highSpeedUpgradeFactor = 1.25f;
     [Min(.1f)] public float workZoneMeters = 6f;
+    [Header("M2 provisional movement / feel")]
+    public float playerWalkSpeed = 3.4f, playerSprintSpeed = 6f;
+    public float jumpHeight = 1.2f, playerGravity = -20f;
+    public float lookSensitivity = .12f, thirdPersonDistance = 3.2f;
     [Header("Assembly (M2 / M3)")]
     public float playerAttachSeconds = .6f, playerHitInterval = .3f;
     public float npcAttachSeconds = 1f, npcHitInterval = .5f;

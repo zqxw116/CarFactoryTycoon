@@ -79,7 +79,8 @@ public class FuelStation : MonoBehaviour, ILineGate
     void OnDisable()
     {
         CancelCycle();
-        LineTrafficManager.Instance.UnregisterGate(this);
+        var traffic = FindFirstObjectByType<LineTrafficManager>();
+        if (traffic != null) traffic.UnregisterGate(this);
     }
 
     public bool TryPurchaseAutomation()

@@ -10,6 +10,7 @@ public sealed class PrototypeLineController : MonoBehaviour
     public static PrototypeLineController Current { get; private set; }
     public PrototypeBalanceSettings settings;
     public CarSpawner spawner;
+    public FactoryPlayerController player;
     public Transform supplyTunnel, leverRoot, leverHandle;
     public TextMesh queueLabel;
     public LeverPosition lever = LeverPosition.Low;
@@ -35,7 +36,7 @@ public sealed class PrototypeLineController : MonoBehaviour
         EconomyManager.Instance.currentMoney = settings.startingMoney;
         ApplySpeed();
         var camera = FindFirstObjectByType<CameraController>();
-        if (camera != null) camera.SetOverview(true);
+        if (camera != null && player == null) camera.SetOverview(true);
     }
     public void SetLever(LeverPosition value) { lever = value; ApplySpeed(); }
     // Called by the future paid upgrade interaction. M1 does not grant free upgrades in its UI.
@@ -56,19 +57,28 @@ public sealed class PrototypeLineController : MonoBehaviour
             if (Camera.main != null) queueLabel.transform.rotation = Camera.main.transform.rotation;
         }
         var mouse = Mouse.current;
-        if (mouse == null || !mouse.leftButton.wasPressedThisFrame || Camera.main == null) return;
-        var pos = mouse.position.ReadValue();
+        bool localPlayer = player != null && !player.MapMode;
+        if (Camera.main == null) return;
+        if (localPlayer)
+        {
+            if (!player.ControlsActive || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame) return;
+        }
+        else if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+        var pos = localPlayer ? new Vector2(Screen.width * .5f, Screen.height * .5f) : mouse.position.ReadValue();
         if (panel.Contains(new Vector2(pos.x, Screen.height - pos.y)) ||
             (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
         if (Keyboard.current != null && (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed)) return;
-        if (!Physics.Raycast(Camera.main.ScreenPointToRay(pos), out var hit, 500f, ~0, QueryTriggerInteraction.Collide)) return;
+        var reach = localPlayer ? player.transform.position + Vector3.up * 1.1f : Vector3.zero;
+        float rayLength = localPlayer ? 4.5f + Vector3.Distance(Camera.main.transform.position, reach) : 500f;
+        if (!Physics.Raycast(Camera.main.ScreenPointToRay(pos), out var hit, rayLength, ~(1<<10), QueryTriggerInteraction.Collide)) return;
+        if (localPlayer && Vector3.Distance(reach, hit.point) > 3.5f) return;
         if (supplyTunnel != null && (hit.transform == supplyTunnel || hit.transform.IsChildOf(supplyTunnel))) spawner.RequestVehicle();
         else if (leverRoot != null && (hit.transform == leverRoot || hit.transform.IsChildOf(leverRoot)))
             SetLever((LeverPosition)(((int)lever + 1) % 3));
     }
     void OnGUI()
     {
-        if (settings == null || spawner == null) return;
+        if (settings == null || spawner == null || (player != null && !player.MapMode)) return;
         GUILayout.BeginArea(panel, GUI.skin.box);
         GUILayout.Label("M1 라인 · 대기 " + spawner.PendingCount + "/" + spawner.queueCapacity + " · " + CurrentSpeed.ToString("0.00") + " m/s");
         GUILayout.BeginHorizontal();
@@ -84,4 +94,3 @@ public sealed class PrototypeLineController : MonoBehaviour
     }
     void OnDestroy() { if (Current == this) Current = null; }
 }
-

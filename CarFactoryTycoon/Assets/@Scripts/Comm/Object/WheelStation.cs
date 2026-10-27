@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
@@ -142,7 +142,8 @@ public class WheelStation : MonoBehaviour, ILineGate
     private void OnDisable()
     {
         CancelCycle(); // 사이클 도중 꺼지면 잡고 있던 차량을 내려놓고 정리
-        LineTrafficManager.Instance.UnregisterGate(this);
+        var traffic = FindFirstObjectByType<LineTrafficManager>();
+        if (traffic != null) traffic.UnregisterGate(this);
     }
 
     private float GetNearestProgress()

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst.CompilerServices;
@@ -93,8 +93,11 @@ public class CarController : MonoBehaviour
     // 풀 반환(SetActive(false))·파괴 시 트래픽 목록에서 해제
     private void OnDisable()
     {
-        if (_managed && LineTrafficManager.Instance != null)
-            LineTrafficManager.Instance.Unregister(this);
+        if (_managed)
+        {
+            var traffic = FindFirstObjectByType<LineTrafficManager>();
+            if (traffic != null) traffic.Unregister(this);
+        }
         _managed = false;
     }
 
@@ -105,8 +108,11 @@ public class CarController : MonoBehaviour
     /// </summary>
     public void LeaveLine()
     {
-        if (_managed && LineTrafficManager.Instance != null)
-            LineTrafficManager.Instance.Unregister(this);
+        if (_managed)
+        {
+            var traffic = FindFirstObjectByType<LineTrafficManager>();
+            if (traffic != null) traffic.Unregister(this);
+        }
         _managed = false;
         isMoving = false;
         targetSpline = null;

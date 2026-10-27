@@ -408,6 +408,20 @@ public class PartStack : MonoBehaviour
         return true;
     }
 
+    /// <summary>Materialize one real portable part. Failed creation never consumes stock.</summary>
+    public bool TryTakePortable(out PortableAssemblyPart portable)
+    {
+        portable = null;
+        EnsureBuilt();
+        if (count <= 0) return false;
+        GameObject prefab = LoadPrefab();
+        if (prefab == null) return false;
+        portable = PortableAssemblyPart.Create(partType, prefab, GetTopSlotWorldPos(), GetTopSlotWorldRot());
+        if (portable == null) return false;
+        if (!TryConsume()) { Destroy(portable.gameObject); portable = null; return false; }
+        return true;
+    }
+
     /// <summary>재고를 추가한다. 용량을 넘는 분은 버리고, 실제로 추가된 개수를 반환한다.</summary>
     public int Add(int amount)
     {

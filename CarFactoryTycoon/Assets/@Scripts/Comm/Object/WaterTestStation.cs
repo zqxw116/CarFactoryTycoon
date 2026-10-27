@@ -287,7 +287,8 @@ public class WaterTestStation : MonoBehaviour, ILineGate
         ApplyHatch();
         if (rejectPitLight != null) rejectPitLight.enabled = false;
         if (failFlashLight != null) failFlashLight.enabled = false;
-        LineTrafficManager.Instance.UnregisterGate(this);
+        var traffic = FindFirstObjectByType<LineTrafficManager>();
+        if (traffic != null) traffic.UnregisterGate(this);
     }
 
     private void EnsureInit()

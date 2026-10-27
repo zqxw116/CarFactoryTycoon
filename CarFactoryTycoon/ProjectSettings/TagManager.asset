@@ -5,6 +5,7 @@ TagManager:
   serializedVersion: 3
   tags:
   - FxTemporaire
+  - CinemachineTarget
   layers:
   - Default
   - TransparentFX
@@ -16,8 +17,8 @@ TagManager:
   - Station
   - Robot
   - Parts
-  - 
-  - 
+  - Player
+  - CarBody
   - 
   - 
   - 

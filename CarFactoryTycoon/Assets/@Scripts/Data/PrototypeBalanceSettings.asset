@@ -17,6 +17,12 @@ MonoBehaviour:
   initialHighSpeed: 1
   highSpeedUpgradeFactor: 1.25
   workZoneMeters: 6
+  playerWalkSpeed: 3.4
+  playerSprintSpeed: 6
+  jumpHeight: 1.2
+  playerGravity: -20
+  lookSensitivity: 0.12
+  thirdPersonDistance: 3.2
   playerAttachSeconds: 0.6
   playerHitInterval: 0.3
   npcAttachSeconds: 1

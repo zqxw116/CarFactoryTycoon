@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -84,7 +84,8 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
         hatch = 0;
         SetHardware(0, 0, 0);
         if (warning != null) warning.gameObject.SetActive(false);
-        LineTrafficManager.Instance.UnregisterGate(this);
+        var traffic = FindFirstObjectByType<LineTrafficManager>();
+        if (traffic != null) traffic.UnregisterGate(this);
     }
 
     void Update()

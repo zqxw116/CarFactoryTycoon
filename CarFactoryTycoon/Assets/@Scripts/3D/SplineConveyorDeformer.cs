@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Splines;
 #endif
@@ -174,6 +174,28 @@ public class SplineConveyorDeformer : MonoBehaviour
     readonly List<float> m_CarCenter = new List<float>();
     readonly List<float> m_CarSpeed = new List<float>();
 
+    public bool enableWalkableSurface;
+    public Vector3 GetSurfaceVelocity(Vector3 worldPoint)
+    {
+        if (m_Spline == null) return Vector3.zero;
+        float3 local = m_Spline.transform.InverseTransformPoint(worldPoint);
+        float best = float.MaxValue, nearestT = 0f; int nearest = 0;
+        for (int i = 0; i < m_Spline.Splines.Count; i++)
+        {
+            SplineUtility.GetNearestPoint(m_Spline.Splines[i], local, out float3 point, out float t);
+            float distance = math.lengthsq(point - local);
+            if (distance < best) { best = distance; nearestT = t; nearest = i; }
+        }
+        float speed = CurrentLineSpeed();
+        if (nearest == 0 && m_ZoneSpeed.Length > 0)
+        {
+            float distance = nearestT * m_Spline0Length;
+            for (int i = 0; i < m_Spline0ZoneCount; i++)
+                if (distance >= m_ZoneStart[i] && distance <= m_ZoneEnd[i]) { speed = m_ZoneSpeed[i]; break; }
+        }
+        var tangent = (Vector3)SplineUtility.EvaluateTangent(m_Spline.Splines[nearest], nearestT);
+        return Vector3.ProjectOnPlane(m_Spline.transform.TransformDirection(tangent), Vector3.up).normalized * speed;
+    }
     public SplineContainer Spline { get => m_Spline; set { m_Spline = value; RequestRebuild(); } }
 
     void OnEnable()
@@ -403,7 +425,7 @@ public class SplineConveyorDeformer : MonoBehaviour
         if (!m_SyncLineSpeed || m_LineSource == null) return m_ScrollSpeed;
         // UpgradeManager.Instance는 없으면 새로 만들므로 플레이 중에만 조회 (CarSpawner도 플레이 중 조회)
         float multiplier = Application.isPlaying ? UpgradeManager.Instance.lineSpeedMultiplier : 1f;
-        return m_LineSource.globalLineSpeed * multiplier;
+        return m_LineSource.globalLineSpeed * (m_LineSource.manualInput ? 1f : multiplier);
     }
 
     /// <summary>이 벨트가 켜져 있는 동안 기존 벨트(MainSpline 로프트 메시) 렌더러를 숨긴다. 끄면 OnDisable에서 복구.</summary>
@@ -483,6 +505,12 @@ public class SplineConveyorDeformer : MonoBehaviour
         else if (split) m_Mesh.SetIndices(m_TopIndices, MeshTopology.Triangles, 1);
         m_Mesh.RecalculateBounds();
         filter.sharedMesh = m_Mesh;
+        if (enableWalkableSurface)
+        {
+            var collision = GetComponent<MeshCollider>();
+            if (collision == null) collision = gameObject.AddComponent<MeshCollider>();
+            collision.sharedMesh = null; collision.sharedMesh = m_Mesh;
+        }
 
         // 구간 상태 초기화: 공통 오프셋에서 출발, 라인 속도로 흐르는 상태
         if (m_ZoneOffset.Length != m_ZoneCount)
