@@ -141,7 +141,7 @@ public sealed class FactoryHiringUI : MonoBehaviour
     {
         int index = openProcess;
         var process = progression.processes[index];
-        float width = 370f, height = 204f;
+        float width = 370f, height = 302f;
         var rect = new Rect((Screen.width - width) * .5f, (Screen.height - height) * .5f, width, height);
         GUI.Box(rect, GUIContent.none);
         GUI.Label(new Rect(rect.x + 18f, rect.y + 12f, width - 36f, 28f), process.displayName);
@@ -166,6 +166,15 @@ public sealed class FactoryHiringUI : MonoBehaviour
         if (GUI.Button(new Rect(rect.x + 18f, rect.y + 130f, width - 36f, 34f), $"로봇 구매  {robotCost}"))
         {
             if (progression.TryPurchaseRobot(index)) ClosePopup();
+        }
+        var upgrades = progression.GetComponent<PrototypeUpgradePurchases>();
+        if (upgrades != null)
+        {
+            GUI.enabled = upgrades.HammerAvailable && money >= upgrades.HammerCost;
+            if (GUI.Button(new Rect(rect.x + 18f, rect.y + 170f, width - 36f, 32f), upgrades.HammerAvailable ? "망치 강화 3 → 2타  " + upgrades.HammerCost : "망치 강화 완료 · 2타")) upgrades.TryUpgradeHammer();
+            GUI.enabled = money >= upgrades.NextLineCost;
+            if (GUI.Button(new Rect(rect.x + 18f, rect.y + 208f, width - 36f, 32f), "라인 최대 속도 ×1.25  " + upgrades.NextLineCost)) upgrades.TryUpgradeLine();
+            GUI.Label(new Rect(rect.x + 18f, rect.y + 246f, width - 36f, 20f), "업그레이드 가격은 프로토타입 임시값입니다.");
         }
         GUI.enabled = true;
         if (GUI.Button(new Rect(rect.x + width - 100f, rect.y + height - 28f, 82f, 22f), "닫기")) ClosePopup();

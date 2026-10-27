@@ -64,6 +64,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     void Update()
     {
+        if(PrototypeDayCycle.Current!=null && PrototypeDayCycle.Current.IsSettlement) {if(interactor!=null)interactor.inputEnabled=false;return;}
         var keyboard=Keyboard.current; var mouse=Mouse.current;
         if(keyboard!=null && keyboard.tabKey.wasPressedThisFrame) SetMapMode(!MapMode);
         if(!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);

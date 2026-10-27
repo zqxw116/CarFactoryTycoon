@@ -56,6 +56,7 @@ public sealed class PrototypeLineController : MonoBehaviour
             queueLabel.text = "대기 " + spawner.PendingCount + " / " + spawner.queueCapacity;
             if (Camera.main != null) queueLabel.transform.rotation = Camera.main.transform.rotation;
         }
+        if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
         var mouse = Mouse.current;
         bool localPlayer = player != null && !player.MapMode;
         if (Camera.main == null) return;
@@ -65,7 +66,8 @@ public sealed class PrototypeLineController : MonoBehaviour
         }
         else if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
         var pos = localPlayer ? new Vector2(Screen.width * .5f, Screen.height * .5f) : mouse.position.ReadValue();
-        if (panel.Contains(new Vector2(pos.x, Screen.height - pos.y)) ||
+        var hud = GetComponent<PrototypeDayHUD>();
+        if ((hud != null && hud.BlocksPointer(new Vector2(pos.x, Screen.height - pos.y))) || panel.Contains(new Vector2(pos.x, Screen.height - pos.y)) ||
             (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
         if (Keyboard.current != null && (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed)) return;
         var reach = localPlayer ? player.transform.position + Vector3.up * 1.1f : Vector3.zero;
@@ -78,7 +80,7 @@ public sealed class PrototypeLineController : MonoBehaviour
     }
     void OnGUI()
     {
-        if (settings == null || spawner == null || (player != null && !player.MapMode)) return;
+        if (settings == null || spawner == null || (player != null && !player.MapMode) || (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement)) return;
         GUILayout.BeginArea(panel, GUI.skin.box);
         GUILayout.Label("M1 라인 · 대기 " + spawner.PendingCount + "/" + spawner.queueCapacity + " · " + CurrentSpeed.ToString("0.00") + " m/s");
         GUILayout.BeginHorizontal();

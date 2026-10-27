@@ -186,7 +186,10 @@ public class TimeScaleUI : MonoBehaviour
 
     private void Update()
     {
-        if (!enableHotkeys) return;
+        bool settled = PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement;
+        if (plusButton != null) plusButton.interactable = !settled && tenths < MaxTenths;
+        if (minusButton != null) minusButton.interactable = !settled && tenths > MinTenths;
+        if (!enableHotkeys || settled) return;
 
         Keyboard kb = Keyboard.current;
         if (kb == null) return;
@@ -201,6 +204,7 @@ public class TimeScaleUI : MonoBehaviour
     /// <summary>한 단계 올린다 (1 이하는 0.1씩, 1 초과는 1.0씩).</summary>
     public void StepUp()
     {
+        if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
         // 1.0 미만이면 0.1 스텝, 그 외에는 다음 정수 배속으로.
         tenths = tenths < 10 ? tenths + 1 : (tenths / 10 + 1) * 10;
         ClampAndApply();
@@ -209,6 +213,7 @@ public class TimeScaleUI : MonoBehaviour
     /// <summary>한 단계 내린다 (1 이하는 0.1씩, 1 초과는 1.0씩).</summary>
     public void StepDown()
     {
+        if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
         // 1.0 이하면 0.1 스텝, 그 외에는 아래쪽 정수 배속으로(1.5 → 1.0).
         tenths = tenths <= 10 ? tenths - 1 : (tenths - 1) / 10 * 10;
         ClampAndApply();
@@ -217,6 +222,7 @@ public class TimeScaleUI : MonoBehaviour
     /// <summary>배속을 직접 지정한다(0.1 단위로 반올림·클램프).</summary>
     public void SetScale(float scale)
     {
+        if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
         tenths = Mathf.RoundToInt(scale * 10f);
         ClampAndApply();
     }

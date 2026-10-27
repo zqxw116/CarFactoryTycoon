@@ -7711,6 +7711,10 @@ GameObject:
   - component: {fileID: 90483997}
   - component: {fileID: 90483998}
   - component: {fileID: 90483999}
+  - component: {fileID: 90484003}
+  - component: {fileID: 90484002}
+  - component: {fileID: 90484001}
+  - component: {fileID: 90484000}
   m_Layer: 0
   m_Name: ProductionProgression
   m_TagString: Untagged
@@ -8547,6 +8551,64 @@ MonoBehaviour:
   player: {fileID: 6661590248133433277}
   postsRoot: {fileID: 425725537}
   interactionRange: 3.5
+--- !u!114 &90484000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90483994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec7023ac77606984c9c5a4a7f066a1d9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PrototypeUpgradePurchases
+  settings: {fileID: 11400000, guid: 2c402e4b200abc9468b5fd707340f2c3, type: 2}
+  line: {fileID: 90483998}
+  interactor: {fileID: 6661590248133433276}
+--- !u!114 &90484001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90483994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69ef5c02e38ef4a419bb88bc0880f196, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PrototypeDayHUD
+  cycle: {fileID: 90484003}
+  defects: {fileID: 90484002}
+  player: {fileID: 6661590248133433277}
+--- !u!114 &90484002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90483994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99a7b4657f2a7bd47b80ee5ecb1522ee, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PrototypeDefectDisplay
+  progression: {fileID: 90483995}
+--- !u!114 &90484003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 90483994}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6489c0126a140be4fa6d860090e92b30, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PrototypeDayCycle
+  progression: {fileID: 90483995}
+  settings: {fileID: 11400000, guid: 2c402e4b200abc9468b5fd707340f2c3, type: 2}
+  player: {fileID: 6661590248133433277}
 --- !u!1 &91137570
 GameObject:
   m_ObjectHideFlags: 0

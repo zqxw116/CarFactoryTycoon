@@ -45,7 +45,10 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         PrototypeProcessCrew found=null;
         foreach(var c in p.GetComponents<PrototypeProcessCrew>())if(c.processIndex==index){found=c;break;}
         if(found==null){found=p.gameObject.AddComponent<PrototypeProcessCrew>();found.progression=p;found.processIndex=index;}
-        found.Configure();return found;
+        found.Configure();
+        var day=PrototypeDayCycle.Current;
+        if(day!=null)found.SetDutyStatus(!day.IsSettlement&&(day.GameHour<20f||day.OvertimeEnabled),day.GameHour>=20f&&day.GameHour<22f&&day.OvertimeEnabled);
+        return found;
     }
     void Configure()
     {
@@ -81,7 +84,7 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         car=null;parts=null;attempted.Clear();
     }
     public void SetDutyStatus(bool onDuty,bool overtime)
-    { WorkersOnDuty=onDuty;Overtime=overtime;if(!onDuty&&!robotMode)CancelAll(); }
+    { if(WorkersOnDuty==onDuty&&Overtime==overtime)return;WorkersOnDuty=onDuty;Overtime=overtime;if(!onDuty&&!robotMode)CancelAll(); }
     public float HammerInterval(Worker worker) => Settings.npcHitInterval*(2f-Mathf.Clamp01(worker.condition/100f));
 
     void Update()

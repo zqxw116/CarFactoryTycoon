@@ -33,6 +33,9 @@ MonoBehaviour:
   conditionCost: 25
   idleRecoveryPerSecond: 5
   dayRealSeconds: 600
+  playerHammerUpgradeCost: 100
+  lineUpgradeBaseCost: 150
+  lineUpgradeCostFactor: 1.6
   startingMoney: 0
   vehicleRevenue: 100
   dailyWage: 30

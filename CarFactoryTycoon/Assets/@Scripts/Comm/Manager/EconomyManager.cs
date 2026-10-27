@@ -7,6 +7,7 @@ using UnityEngine;
 public class EconomyManager : MonoSingleton<EconomyManager>
 {
     public int currentMoney = 0;
+    public event System.Action<int> OnVehicleSold;
 
     /// <summary>잔액 변동 시 호출. (newAmount=변동 후 총액, delta=증감분 +/-, sourceWorldPos=획득 발생 월드좌표(코인 연출 출발점, 없으면 null))</summary>
     public System.Action<int, int, Vector3?> OnMoneyChanged;
@@ -29,13 +30,22 @@ public class EconomyManager : MonoSingleton<EconomyManager>
     public void SellCar(int price, Vector3? sourceWorldPos = null)
     {
         Earn(price, sourceWorldPos);
+        OnVehicleSold?.Invoke(price);
         Debug.Log($"[Economy] 차량 판매 +{price} → 잔액 {currentMoney}");
+    }
+
+    /// <summary>Mandatory wages/losses may create debt; purchases still use TrySpend.</summary>
+    public void Charge(int cost)
+    {
+        if (cost <= 0) return;
+        currentMoney -= cost;
+        OnMoneyChanged?.Invoke(currentMoney, -cost, null);
     }
 
     /// <summary>비용 지불 시도. 잔액이 충분하면 차감 후 true, 아니면 false.</summary>
     public bool TrySpend(int cost)
     {
-        if (currentMoney < cost) return false;
+        if (cost < 0 || currentMoney < cost) return false;
         currentMoney -= cost;
         OnMoneyChanged?.Invoke(currentMoney, -cost, null);
         return true;

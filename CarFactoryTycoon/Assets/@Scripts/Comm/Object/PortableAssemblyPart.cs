@@ -9,7 +9,24 @@ public sealed class PortableAssemblyPart : MonoBehaviour
     public Rigidbody Body { get; private set; }
     public BoxCollider PhysicsCollider { get; private set; }
     public Bounds LocalBounds { get; private set; }
+
     private Renderer[] visuals;
+    private bool[] originalRendererStates;
+    private bool visibleRequested = true;
+    private bool blinkVisible = true;
+    private bool droppedLifetimeActive;
+    private bool lossRecorded;
+
+    public float LifetimeSeconds => Mathf.Max(0f, Settings != null ? Settings.droppedPartLifetime : 300f);
+    public float WarningSeconds => Mathf.Max(0f, Settings != null ? Settings.droppedPartWarningSeconds : 30f);
+    public float DroppedLifetimeElapsed { get; private set; }
+    public float DroppedLifetimeRemaining => Mathf.Max(0f, LifetimeSeconds - DroppedLifetimeElapsed);
+    public bool IsInWarningPeriod => droppedLifetimeActive && !IsHeld && !IsExpired &&
+        DroppedLifetimeRemaining <= WarningSeconds;
+    public bool IsExpired { get; private set; }
+
+    private PrototypeBalanceSettings Settings =>
+        ProductionProgression.Current != null ? ProductionProgression.Current.prototypeSettings : null;
 
     public static PortableAssemblyPart Create(PartType type, GameObject prefab, Vector3 position, Quaternion rotation)
     {
@@ -32,6 +49,10 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         var portable = root.AddComponent<PortableAssemblyPart>();
         portable.PartType = type;
         portable.visuals = model.GetComponentsInChildren<Renderer>(true);
+        portable.originalRendererStates = new bool[portable.visuals.Length];
+        for (int i = 0; i < portable.visuals.Length; i++)
+            portable.originalRendererStates[i] = portable.visuals[i] != null && portable.visuals[i].enabled;
+
         Bounds bounds = CalculateBounds(root.transform, model);
         // Center the actual model on the grip/physics pivot without changing its dimensions.
         model.transform.localPosition -= bounds.center;
@@ -71,10 +92,47 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         return result;
     }
 
+    private void Update() => AdvanceDroppedLifetime(Time.deltaTime);
+
+    /// <summary>Advances the dropped timer deterministically; held and never-thrown items do not age.</summary>
+    public void AdvanceDroppedLifetime(float delta)
+    {
+        if (!droppedLifetimeActive || IsHeld || IsExpired || delta <= 0f) return;
+
+        DroppedLifetimeElapsed = Mathf.Min(LifetimeSeconds, DroppedLifetimeElapsed + delta);
+        if (DroppedLifetimeElapsed >= LifetimeSeconds)
+        {
+            IsExpired = true;
+            droppedLifetimeActive = false;
+            Show(false);
+            if (!lossRecorded)
+            {
+                lossRecorded = true;
+                var progression = ProductionProgression.Current;
+                if (progression != null && progression.prototypeSettings != null)
+                    PrototypeDayCycle.Current?.RecordPartLoss(progression.prototypeSettings.lostPartCost);
+                else
+                    PrototypeDayCycle.Current?.RecordPartLoss(10);
+            }
+            Destroy(gameObject);
+            return;
+        }
+
+        bool shouldBlink = IsInWarningPeriod;
+        bool nextBlinkVisible = !shouldBlink ||
+            Mathf.FloorToInt((DroppedLifetimeElapsed - (LifetimeSeconds - WarningSeconds)) / .5f) % 2 == 0;
+        if (blinkVisible != nextBlinkVisible)
+        {
+            blinkVisible = nextBlinkVisible;
+            ApplyRendererVisibility();
+        }
+    }
+
     public bool TryHold(PlayerAssemblyInteractor holder, Transform anchor)
     {
-        if (holder == null || anchor == null || IsHeld) return false;
+        if (holder == null || anchor == null || IsHeld || IsExpired) return false;
         HeldBy = holder;
+        blinkVisible = true;
         if (!Body.isKinematic) { Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero; }
         Body.isKinematic = true; Body.useGravity = false; Body.detectCollisions = false;
         Body.interpolation = RigidbodyInterpolation.None;
@@ -91,6 +149,7 @@ public sealed class PortableAssemblyPart : MonoBehaviour
     {
         if (HeldBy != holder || holder == null) return false;
         HeldBy = null;
+        droppedLifetimeActive = true;
         transform.SetParent(null, true);
         Show(true);
         PhysicsCollider.enabled = true;
@@ -104,7 +163,15 @@ public sealed class PortableAssemblyPart : MonoBehaviour
 
     public void Show(bool visible)
     {
+        visibleRequested = visible;
+        ApplyRendererVisibility();
+    }
+
+    private void ApplyRendererVisibility()
+    {
         if (visuals == null) return;
-        foreach (var visual in visuals) if (visual != null) visual.enabled = visible;
+        bool visible = visibleRequested && blinkVisible;
+        for (int i = 0; i < visuals.Length; i++)
+            if (visuals[i] != null) visuals[i].enabled = visible && originalRendererStates[i];
     }
 }
