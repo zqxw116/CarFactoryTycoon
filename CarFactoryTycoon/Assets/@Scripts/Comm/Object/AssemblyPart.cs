@@ -85,6 +85,13 @@ public class AssemblyPart : MonoBehaviour
         return true;
     }
 
+    public bool UpdateAttachmentCarryPose(Object requester, Vector3 point, Quaternion rotation)
+    {
+        if (playerOwner != requester || !playerAttaching || !CanPlayerRepair) return false;
+        playerStartPosition = point; playerStartRotation = rotation; playerAttachProgress = 0f;
+        ApplyPlayerPose(); return true;
+    }
+
     public bool AdvancePlayerAttachment(Object requester, float progress)
     {
         if (playerOwner != requester || !playerAttaching || !CanPlayerRepair) return false;

@@ -1,4 +1,4 @@
-﻿using UnityEngine.Splines;
+using UnityEngine.Splines;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -8,6 +8,10 @@ using UnityEditor;
 
 public class StationController : MonoBehaviour
 {
+    public bool prototypeMode;
+    public PrototypeBalanceSettings prototypeSettings;
+    public SplineContainer prototypeSpline;
+    public float prototypeStartProgress;
     public enum StationState { Idle, Assembling, Cooldown }
 
     [Header("공정 설정")]
@@ -197,6 +201,7 @@ public class StationController : MonoBehaviour
 
     private void Update()
     {
+        if (prototypeMode) return;
         if (robotArm == null) return;
         if (flowThrough) UpdateFlowWindow();
 

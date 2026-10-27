@@ -19,6 +19,26 @@ using UnityEngine;
 /// </summary>
 public class Worker : MonoBehaviour
 {
+    [Header("Prototype crew (M3)")]
+    public bool prototypeMode;
+    public PrototypeBalanceSettings prototypeSettings;
+    public UnityEngine.Splines.SplineContainer prototypeSpline;
+    public float prototypeStartProgress, prototypeWorkMeters = 6f;
+    public Vector3 PrototypeCarryPoint => CarryWorldPos;
+    public bool PrototypeMoveTo(Vector3 point, WorkerState state, AssemblyPart held)
+    {
+        movedThisFrame = 0f; currentState = state;
+        bool arrived = MoveToward(point);
+        if (state == WorkerState.Working && held != null) FaceTowards(held.AttachmentWorldPosition);
+        UpdateAnimator(); return arrived;
+    }
+    public void PrototypeGrip(AssemblyPart part)
+    {
+        targetPart = part;
+        if (UseHandIK) { ComputeGripPoints(); BeginGrip(); }
+    }
+    public void PrototypeRelease()
+    { ReleaseGrip(); targetPart = null; currentState = WorkerState.Idle; }
     public enum WorkerState
     {
         GoingToWork,   // 출근 중 (입구 → 자기 자리)
@@ -226,7 +246,7 @@ public class Worker : MonoBehaviour
                        || currentState == WorkerState.Working;
 
     /// <summary>유저가 선제 휴식을 시킬 수 있는 상태인지 (유휴 + 컨디션이 깎여 있음).</summary>
-    public bool CanRestNow => currentState == WorkerState.Idle && condition < 100f;
+    public bool CanRestNow => !prototypeMode && currentState == WorkerState.Idle && condition < 100f;
 
     private void Start()
     {
@@ -382,6 +402,7 @@ public class Worker : MonoBehaviour
 
     private void Update()
     {
+        if (prototypeMode) return;
         movedThisFrame = 0f;
 
         switch (currentState)

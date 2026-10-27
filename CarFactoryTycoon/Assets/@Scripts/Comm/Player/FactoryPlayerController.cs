@@ -17,7 +17,8 @@ public sealed class FactoryPlayerController : MonoBehaviour
     public Transform holdAnchor;
     public bool MapMode { get; private set; }
     public bool FirstPerson { get; private set; }
-    public bool ControlsActive => !MapMode && Cursor.lockState == CursorLockMode.Locked;
+    public bool InteractionUIOpen { get; set; }
+    public bool ControlsActive => !InteractionUIOpen && !MapMode && Cursor.lockState == CursorLockMode.Locked;
     public Vector3 BeltVelocity { get; private set; }
     public Vector3 SpawnPoint { get; set; }
     CharacterController controller;
@@ -66,9 +67,9 @@ public sealed class FactoryPlayerController : MonoBehaviour
         var keyboard=Keyboard.current; var mouse=Mouse.current;
         if(keyboard!=null && keyboard.tabKey.wasPressedThisFrame) SetMapMode(!MapMode);
         if(!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);
-        if(!MapMode && keyboard!=null && keyboard.escapeKey.wasPressedThisFrame) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
+        if(!MapMode && !InteractionUIOpen && keyboard!=null && keyboard.escapeKey.wasPressedThisFrame) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
         // Re-capturing the cursor does not also swing the hammer.
-        bool recaptured=!MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
+        bool recaptured=!InteractionUIOpen && !MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
         if(recaptured){Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}
         if(interactor!=null)interactor.inputEnabled=ControlsActive&&!recaptured;
         if(ControlsActive && mouse!=null)
@@ -146,6 +147,6 @@ public sealed class FactoryPlayerController : MonoBehaviour
     void OnGUI()
     {
         GUI.Label(new Rect(18,14,800,25),"WASD 이동 · Shift 달리기 · Space 점프 · C 1/3인칭 · Tab 지도 · Esc 마우스");
-        if(!MapMode && !ControlsActive)GUI.Label(new Rect(Screen.width/2-120,Screen.height/2+30,260,25),"클릭하면 공장 작업으로 돌아갑니다");
+        if(!MapMode && !InteractionUIOpen && !ControlsActive)GUI.Label(new Rect(Screen.width/2-120,Screen.height/2+30,260,25),"클릭하면 공장 작업으로 돌아갑니다");
     }
 }

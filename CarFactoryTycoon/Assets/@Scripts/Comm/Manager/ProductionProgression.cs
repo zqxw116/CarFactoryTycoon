@@ -117,6 +117,41 @@ public sealed class ProductionProgression : MonoBehaviour
         if(!CanHireNext||!EconomyManager.Instance.TrySpend(NextHireCost))return false;
         return AddProcess();
     }
+    public bool IsProcessHired(int index) => index>=0&&processes!=null&&index<processes.Length&&processes[index]!=null&&processes[index].hired;
+    public bool IsProcessAutomated(int index) => index>=0&&processes!=null&&index<processes.Length&&processes[index]!=null&&processes[index].automated;
+
+    /// <summary>Prototype hiring is independent for each station and available in any order.</summary>
+    public bool TryHireProcess(int index)
+    {
+        if(!prototypeMode||!ValidProcessIndex(index))return false;
+        var process=processes[index];
+        if(process.hired||process.automated||!CanSwitch(process))return false;
+        var manager=EconomyManager.Instance;
+        int cost=prototypeSettings!=null?prototypeSettings.hirePrice:0;
+        if(manager==null||!manager.TrySpend(cost))return false;
+        process.hired=true;
+        SelectedProcess=index;
+        ApplyProcess(process);
+        return true;
+    }
+
+    /// <summary>Prototype robots can be purchased directly at any idle, unautomated station.</summary>
+    public bool TryPurchaseRobot(int index)
+    {
+        if(!prototypeMode||!ValidProcessIndex(index))return false;
+        var process=processes[index];
+        if(process.automated||!CanSwitch(process))return false;
+        var manager=EconomyManager.Instance;
+        int cost=prototypeSettings!=null?prototypeSettings.robotPrice:1000;
+        if(manager==null||!manager.TrySpend(cost))return false;
+        process.hired=true;
+        process.automated=true;
+        SelectedProcess=index;
+        ApplyProcess(process);
+        return true;
+    }
+
+    bool ValidProcessIndex(int index)=>processes!=null&&index>=0&&index<processes.Length&&processes[index]!=null;
     public bool TryUnlockNextRow()
     {
         if(!CanUnlockNextRow||!EconomyManager.Instance.TrySpend(NextRowCost))return false;
@@ -164,6 +199,15 @@ public sealed class ProductionProgression : MonoBehaviour
     }
     bool CanSwitch(ProcessEntry p)
     {
+        if(prototypeMode)
+        {
+            int processIndex=Array.IndexOf(processes,p);
+            if(processIndex>=0)
+            {
+                var crew=PrototypeProcessCrew.Ensure(this,processIndex);
+                if(crew!=null&&crew.IsBusy)return false;
+            }
+        }
         if(p.wheel!=null)return p.wheel.currentState==WheelStation.LiftState.Idle;
         if(p.humanStation!=null&&p.humanStation.currentState!=WorkerStation.WorkState.Idle)return false;
         if(p.workers!=null)foreach(var w in p.workers)if(w!=null&&w.IsBusy)return false;
@@ -177,17 +221,43 @@ public sealed class ProductionProgression : MonoBehaviour
     {
         if(prototypeMode)
         {
-            p.hired=false;p.automated=false;p.workerLevel=0;p.automationApplied=false;
-            if(p.humanRoot!=null)p.humanRoot.SetActive(false);
+            bool humanActive=p.hired&&!p.automated;
+            bool robotActive=p.hired&&p.automated;
+            if(p.humanRoot!=null)p.humanRoot.SetActive(humanActive);
             if(p.wheel!=null)
             {
                 p.wheel.gameObject.SetActive(true);
-                p.wheel.SetHumanMode(false);
+                p.wheel.SetHumanMode(humanActive);
             }
-            if(p.humanStation!=null)p.humanStation.enabled=false;
-            if(p.workers!=null)foreach(var w in p.workers)if(w!=null)w.gameObject.SetActive(false);
-            if(p.robots!=null)foreach(var r in p.robots)if(r!=null)r.gameObject.SetActive(false);
-            if(p.robotDecor!=null)foreach(var decor in p.robotDecor)if(decor!=null)decor.SetActive(false);
+            if(p.humanStation!=null)
+            {
+                p.humanStation.mainLineSpline=mainSpline;
+                p.humanStation.gateProgress=p.gateProgress;
+                p.humanStation.workZoneMeters=prototypeSettings!=null?prototypeSettings.workZoneMeters:6f;
+                p.humanStation.enabled=humanActive;
+            }
+            if(p.workers!=null)foreach(var w in p.workers)if(w!=null)
+            {
+                w.prototypeMode=true;
+                w.prototypeSettings=prototypeSettings;
+                w.prototypeSpline=mainSpline;
+                w.prototypeStartProgress=p.gateProgress;
+                w.prototypeWorkMeters=prototypeSettings!=null?prototypeSettings.workZoneMeters:6f;
+                w.gameObject.SetActive(humanActive);
+            }
+            if(p.robots!=null)foreach(var r in p.robots)if(r!=null)
+            {
+                r.prototypeMode=true;
+                r.prototypeSettings=prototypeSettings;
+                r.prototypeSpline=mainSpline;
+                r.prototypeStartProgress=p.gateProgress;
+                r.workZoneMeters=prototypeSettings!=null?prototypeSettings.workZoneMeters:6f;
+                r.gameObject.SetActive(robotActive);
+            }
+            if(p.robotDecor!=null)foreach(var decor in p.robotDecor)if(decor!=null)decor.SetActive(robotActive);
+            p.automationApplied=robotActive;
+            int processIndex=Array.IndexOf(processes,p);
+            if(processIndex>=0)PrototypeProcessCrew.Ensure(this,processIndex);
             return;
         }
         // Hiring must not force a previously purchased conversion through an active manual cycle.

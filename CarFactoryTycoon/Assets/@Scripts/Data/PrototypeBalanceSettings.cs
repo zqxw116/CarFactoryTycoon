@@ -18,6 +18,8 @@ public sealed class PrototypeBalanceSettings : ScriptableObject
     public float playerAttachSeconds = .6f, playerHitInterval = .3f;
     public float npcAttachSeconds = 1f, npcHitInterval = .5f;
     public int requiredHits = 3;
+    [Header("M3 provisional robot timing (phase 2 tuning pending)")]
+    public float robotAttachSeconds = .6f, robotSparkInterval = .25f;
     public float conditionCost = 25f, idleRecoveryPerSecond = 5f;
     [Header("Day and economy (M4; provisional)")]
     public float dayRealSeconds = 600f;

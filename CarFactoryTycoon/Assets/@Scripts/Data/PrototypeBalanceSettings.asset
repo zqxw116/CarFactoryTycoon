@@ -28,6 +28,8 @@ MonoBehaviour:
   npcAttachSeconds: 1
   npcHitInterval: 0.5
   requiredHits: 3
+  robotAttachSeconds: 0.6
+  robotSparkInterval: 0.25
   conditionCost: 25
   idleRecoveryPerSecond: 5
   dayRealSeconds: 600
