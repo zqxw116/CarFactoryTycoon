@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4a970af2465b5947845d2291852848a, type: 3}
+  m_Name: PrototypeBalanceSettings
+  m_EditorClassIdentifier: Assembly-CSharp::PrototypeBalanceSettings
+  queueCapacity: 5
+  lowSpeed: 0.5
+  initialHighSpeed: 1
+  highSpeedUpgradeFactor: 1.25
+  workZoneMeters: 6
+  playerAttachSeconds: 0.6
+  playerHitInterval: 0.3
+  npcAttachSeconds: 1
+  npcHitInterval: 0.5
+  requiredHits: 3
+  conditionCost: 25
+  idleRecoveryPerSecond: 5
+  dayRealSeconds: 600
+  startingMoney: 0
+  vehicleRevenue: 100
+  dailyWage: 30
+  hirePrice: 0
+  robotPrice: 1000
+  lostPartCost: 10
+  dailyMissionCars: 3
+  dailyMissionBonus: 300
+  overtimeWageMultiplier: 1.5
+  overtimeFatigueMultiplier: 2
+  droppedPartLifetime: 300
+  droppedPartWarningSeconds: 30

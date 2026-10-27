@@ -1,5 +1,6 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
+using UnityEngine.Splines;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -54,6 +55,28 @@ public class AssemblyPart : MonoBehaviour
     public Vector3 approachDirLocalOverride = Vector3.zero;
 
     private Transform cachedParent;
+    private CarController owner;
+    private SplineContainer workSpline;
+    private float workStart, workMeters;
+    public void SetStationWorkWindow(SplineContainer spline, float start, float meters)
+    {
+        workSpline = spline; workStart = start; workMeters = meters;
+    }
+    private bool RepairLocked
+    {
+        get
+        {
+            if (owner == null) owner = GetComponentInParent<CarController>();
+            return owner != null && owner.RepairDeadlineReached;
+        }
+    }
+    // End station ownership without erasing partial work or leaving it tied to the world pile.
+    public void StopWorldAssembly()
+    {
+        workSpline = null;
+        assembling = false;
+        ApplyLocalPose(Fill);
+    }
 
     // 월드 조립 상태: BeginWorldAssembly()로 시작. 시작점(pile)은 월드 고정,
     // 부착점은 매 프레임 차량을 따라 재계산되어 움직이는 차에 정확히 붙는다.
@@ -90,6 +113,7 @@ public class AssemblyPart : MonoBehaviour
     /// <summary>완전 분리 상태(work=0)로 되돌리고 오브젝트를 비활성화한다.</summary>
     public void Reset()
     {
+        workSpline = null;
         assembling = false; // 월드 보간 중단
         quality = 1f;       // 품질도 초기화 (차량 풀 재사용 시 이전 차량 값이 남지 않게)
         SetDetached(); // work=0 → SetActive(false)
@@ -103,6 +127,7 @@ public class AssemblyPart : MonoBehaviour
     /// </summary>
     public void BeginWorldAssembly(Vector3 worldPilePos, Quaternion startRotOffset)
     {
+        if (RepairLocked) return;
         pileWorldPos = worldPilePos;
         pileRotOffset = startRotOffset;
         assembling = true;
@@ -135,6 +160,9 @@ public class AssemblyPart : MonoBehaviour
     /// </summary>
     public void SetWork(float work)
     {
+        if (RepairLocked && work > currentWork) return;
+        if (work > currentWork && workSpline != null &&
+            !StationWorkZone.Contains(owner, workSpline, workStart, workMeters)) return;
         currentWork = Mathf.Clamp(work, 0f, requiredWork);
 
         if (assembling) ApplyWorldPose(Fill); // pile(월드) → 진입점 → 차량 부착점
@@ -149,6 +177,7 @@ public class AssemblyPart : MonoBehaviour
     // (이후엔 차량 자식으로서 재계산 없이 차를 따라다닌다)
     public void SetAssembled()
     {
+        if (RepairLocked) return;
         assembling = false;
         SetWork(requiredWork); // assembling=false → ApplyLocalPose(1) = assembledPos에 정확히 고정
     }

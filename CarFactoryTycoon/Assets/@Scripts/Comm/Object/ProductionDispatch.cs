@@ -22,7 +22,9 @@ public sealed class ProductionDispatch : MonoBehaviour
     bool valid, leftLine;
     Vector3 capturePosition;
     Quaternion captureRotation;
-    const float SideDistance = 5.9f;
+    // Full vehicle collider: 2.37m wide x 5.12m long. The short dock retains turning clearance.
+    const float SideDistance = 3.2f;
+    Quaternion transferRotation;
     static readonly Color Ready = new Color(0.2f, 0.8f, 1f);
     static readonly Color Pass = new Color(0.15f, 1f, 0.35f);
     static readonly Color Fail = new Color(1f, 0.12f, 0.08f);
@@ -35,8 +37,10 @@ public sealed class ProductionDispatch : MonoBehaviour
         if (spline != null)
         {
             SplineUtility.Evaluate(spline.Spline, gateProgress, out float3 pos, out float3 tangent, out float3 up);
-            var forward = spline.transform.TransformDirection((Vector3)tangent);
-            var normal = spline.transform.TransformDirection((Vector3)up);
+            var forward = Vector3.right;
+            var normal = Vector3.up;
+            // Fix the outlet to the world -Z service aisle, including terminals on U-turns.
+            // Captured cars retain their own rotation; the wide transfer deck accepts either line direction.
             transform.SetPositionAndRotation(spline.transform.TransformPoint((Vector3)pos),
                 forward.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(forward, normal) : Quaternion.identity);
         }
@@ -56,12 +60,13 @@ public sealed class ProductionDispatch : MonoBehaviour
         car.isMoving = false; // Remain a traffic obstacle until the dolly clears the main belt.
         capturePosition = car.transform.position;
         captureRotation = car.transform.rotation;
+        transferRotation = Quaternion.LookRotation(Vector3.Dot(car.transform.forward, Vector3.right) >= 0f ? Vector3.right : Vector3.left, Vector3.up);
         valid = contract.Validate(out var missing);
         marker.position = missing != null && missing.transform.parent != null
             ? missing.transform.parent.TransformPoint(missing.assembledPos) + Vector3.up * 0.2f
             : capturePosition + Vector3.up * 1.5f;
         marker.gameObject.SetActive(false);
-        shutter.localPosition = new Vector3(3.2f, 5f, 0f);
+        shutter.localPosition = new Vector3(1.8f, 5f, 0f);
         phase = Phase.Scan;
         elapsed = 0f;
         leftLine = false;
@@ -101,8 +106,8 @@ public sealed class ProductionDispatch : MonoBehaviour
             case Phase.Transfer:
                 float t = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(elapsed / 2f));
                 float side = SideDistance * t;
-                car.transform.SetPositionAndRotation(capturePosition + transform.right * side, captureRotation);
-                if (!leftLine && side > 3.2f) { car.LeaveLine(); leftLine = true; }
+                car.transform.SetPositionAndRotation(capturePosition + transform.right * side, Quaternion.Slerp(captureRotation, transferRotation, t));
+                if (!leftLine && side > 2.6f) { car.LeaveLine(); leftLine = true; }
                 if (!valid)
                     press.localPosition = new Vector3(0f, Mathf.Lerp(0.85f, 3.25f, Mathf.Clamp01(elapsed / 0.5f)), 0f);
                 if (elapsed < 2f) break;
@@ -111,7 +116,7 @@ public sealed class ProductionDispatch : MonoBehaviour
                 break;
             case Phase.Close:
                 float close = Mathf.Clamp01(elapsed / 0.5f);
-                shutter.localPosition = new Vector3(3.2f, Mathf.Lerp(5f, 1.65f, close), 0f);
+                shutter.localPosition = new Vector3(1.8f, Mathf.Lerp(5f, 1.65f, close), 0f);
                 if (close >= 1f) Release(true);
                 break;
         }
@@ -130,7 +135,7 @@ public sealed class ProductionDispatch : MonoBehaviour
                 promise.settled = true; // Claim settlement before callbacks or pool reuse.
                 if (valid && promise.payout > 0)
                 {
-                    Vector3 rewardPosition = transform.TransformPoint(new Vector3(3.2f, 3.5f, 0f));
+                    Vector3 rewardPosition = transform.TransformPoint(new Vector3(1.8f, 3.5f, 0f));
                     EconomyManager.Instance.Earn(promise.payout, rewardPosition);
                     CashPopup.Show(rewardPosition, promise.payout, 1.2f);
                 }
@@ -153,7 +158,7 @@ public sealed class ProductionDispatch : MonoBehaviour
         if (laser == null) return;
         laser.gameObject.SetActive(true);
         laser.localPosition = new Vector3(0f, 1.65f, -2.4f);
-        shutter.localPosition = new Vector3(3.2f, 1.65f, 0f);
+        shutter.localPosition = new Vector3(1.8f, 1.65f, 0f);
         press.localPosition = new Vector3(0f, 3.25f, 0f);
         marker.gameObject.SetActive(false);
         SetSignal(Ready, "DELIVERY");
@@ -201,12 +206,12 @@ public sealed class ProductionDispatch : MonoBehaviour
         trimMaterial = MakeMaterial(new Color(0.38f, 0.43f, 0.46f));
         signalMaterial = MakeMaterial(Ready, true);
         // Most of the enclosure sits beside the belt; its short gate frame leaves the next stage visible.
-        Box("SideTunnelRoof", new Vector3(5.7f, 3.4f, 0f), new Vector3(5.3f, 0.25f, 5.8f), shellMaterial);
-        Box("SideTunnelNearWall", new Vector3(5.7f, 1.65f, -2.9f), new Vector3(5.3f, 3.5f, 0.25f), shellMaterial);
-        Box("SideTunnelFarWall", new Vector3(5.7f, 1.65f, 2.9f), new Vector3(5.3f, 3.5f, 0.25f), shellMaterial);
-        Box("SideTunnelBackWall", new Vector3(8.3f, 1.65f, 0f), new Vector3(0.25f, 3.5f, 5.8f), shellMaterial);
-        Box("TransferDeck", new Vector3(4.5f, -0.12f, 0f), new Vector3(7.5f, 0.2f, 5.8f), trimMaterial);
-        shutter = Box("OpaqueDeliveryShutter", new Vector3(3.2f, 1.65f, 0f), new Vector3(0.22f, 3.5f, 5.8f), shellMaterial);
+        Box("SideTunnelRoof", new Vector3(3.25f, 3.4f, 0f), new Vector3(2.9f, 0.25f, 6.2f), shellMaterial);
+        Box("SideTunnelNearWall", new Vector3(3.25f, 1.65f, -3.1f), new Vector3(2.9f, 3.5f, 0.25f), shellMaterial);
+        Box("SideTunnelFarWall", new Vector3(3.25f, 1.65f, 3.1f), new Vector3(2.9f, 3.5f, 0.25f), shellMaterial);
+        Box("SideTunnelBackWall", new Vector3(4.7f, 1.65f, 0f), new Vector3(0.25f, 3.5f, 6.2f), shellMaterial);
+        Box("TransferDeck", new Vector3(2.8f, -0.12f, 0f), new Vector3(3.8f, 0.2f, 6.2f), trimMaterial);
+        shutter = Box("OpaqueDeliveryShutter", new Vector3(1.8f, 1.65f, 0f), new Vector3(0.22f, 3.5f, 6.2f), shellMaterial);
         Box("ScannerLeft", new Vector3(-1.65f, 1.6f, 0f), new Vector3(0.14f, 3.2f, 0.2f), trimMaterial);
         Box("ScannerRight", new Vector3(1.65f, 1.6f, 0f), new Vector3(0.14f, 3.2f, 0.2f), trimMaterial);
         Box("ScannerHeader", new Vector3(0f, 3.25f, 0f), new Vector3(3.45f, 0.15f, 0.25f), trimMaterial);
@@ -233,3 +238,6 @@ public sealed class ProductionDispatch : MonoBehaviour
         if (signalMaterial != null) Destroy(signalMaterial);
     }
 }
+
+
+

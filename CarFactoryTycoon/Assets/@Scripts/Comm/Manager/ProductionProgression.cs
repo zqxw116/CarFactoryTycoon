@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
@@ -38,19 +38,24 @@ public sealed class ProductionProgression : MonoBehaviour
     public ProcessEntry[] processes;
     public GameObject[] finishingRoots;
     public GameObject[] constructionRows;
+    [Tooltip("Prototype mode bypasses legacy hiring progression and production saves.")]
+    public bool prototypeMode;
+    public PrototypeBalanceSettings prototypeSettings;
+    [Tooltip("Temporary prototype sale payout until balance settings are wired.")]
+    public int prototypeSalePrice=100;
     public bool persistProgress=true;
     public int SelectedProcess {get;set;}
-    public int CurrentRow {get {return processes[Mathf.Max(0,HiredPrefix-1)].row;}}
+    public int CurrentRow {get {return processes[Mathf.Clamp(HiredPrefix-1,0,processes.Length-1)].row;}}
     public int HiredPrefix {get;private set;}=1;
     public int HiredCountInRow {get {int n=0; foreach(var p in processes)if(p.row==CurrentRow&&p.hired)n++;return n;}}
     public int ProcessCountInRow {get {int n=0; foreach(var p in processes)if(p.row==CurrentRow)n++;return n;}}
     public bool IsTransitioning => Time.unscaledTime<buildUntil;
-    public bool CanHireNext => !IsTransitioning&&HiredPrefix<processes.Length&&processes[HiredPrefix].row==CurrentRow;
+    public bool CanHireNext => !prototypeMode&&!IsTransitioning&&HiredPrefix<processes.Length&&processes[HiredPrefix].row==CurrentRow;
     public int NextHireCost => 45+HiredPrefix*20;
     public string NextHireName => HiredPrefix<processes.Length?processes[HiredPrefix].displayName:"고용 완료";
-    public bool CanUnlockNextRow => !IsTransitioning&&HiredPrefix<processes.Length&&processes[HiredPrefix].row==CurrentRow+1;
+    public bool CanUnlockNextRow => !prototypeMode&&!IsTransitioning&&HiredPrefix<processes.Length&&processes[HiredPrefix].row==CurrentRow+1;
     public int NextRowCost => 250*(CurrentRow+1)*(CurrentRow+1);
-    public bool CompleteVehicleProduction => HiredPrefix==processes.Length;
+    public bool CompleteVehicleProduction => prototypeMode||HiredPrefix==processes.Length;
     public string StatusText => IsTransitioning?"생산 구간 확장 중":CompleteVehicleProduction?"완성차 생산 / 전체 조립 공정 개방":string.Format("{0}줄 작업장 {1}/{2} / 차체 가공 납품",CurrentRow+1,HiredCountInRow,ProcessCountInRow);
     readonly Dictionary<int,ProductionDispatch> outlets=new Dictionary<int,ProductionDispatch>();
     readonly Dictionary<int,int> inFlight=new Dictionary<int,int>();
@@ -66,19 +71,31 @@ public sealed class ProductionProgression : MonoBehaviour
         Current=this;
         if(processes==null||processes.Length==0){enabled=false;Current=null;return;}
         economy=EconomyManager.Instance;
-        if(persistProgress) Load();
-        HiredPrefix=Mathf.Clamp(HiredPrefix,1,processes.Length);
-        for(int i=0;i<processes.Length;i++) processes[i].hired=i<HiredPrefix;
+        if(prototypeMode)
+        {
+            HiredPrefix=0;
+            foreach(var p in processes)
+            {
+                p.hired=false;p.automated=false;p.workerLevel=0;p.experienced=false;p.automationApplied=false;
+            }
+        }
+        else
+        {
+            if(persistProgress) Load();
+            HiredPrefix=Mathf.Clamp(HiredPrefix,1,processes.Length);
+            for(int i=0;i<processes.Length;i++) processes[i].hired=i<HiredPrefix;
+        }
         ApplyAll();
     }
     void Start()
     {
         started=true;
-        economy.OnMoneyChanged+=OnMoney;
+        if(!prototypeMode&&economy!=null)economy.OnMoneyChanged+=OnMoney;
     }
     void OnMoney(int amount,int delta,Vector3? pos){changedMoney=true;}
     void Update()
     {
+        if(prototypeMode)return;
         for(int i=0;i<HiredPrefix;i++)
         {
             var p=processes[i];
@@ -114,7 +131,7 @@ public sealed class ProductionProgression : MonoBehaviour
     }
     public int WorkerUpgradeCost(int index)=>35+index*15+processes[index].workerLevel*45;
     public int AutomationCost(int index)=>400+index*90;
-    bool Valid(int index)=>index>=0&&index<HiredPrefix;
+    bool Valid(int index)=>!prototypeMode&&index>=0&&index<HiredPrefix;
     public bool CanUpgradeWorker(int index)=>Valid(index)&&!processes[index].automated&&processes[index].workerLevel<3;
     public bool CanAutomate(int index)=>Valid(index)&&!processes[index].automated&&processes[index].experienced;
     public bool CanRest(int index)
@@ -158,6 +175,21 @@ public sealed class ProductionProgression : MonoBehaviour
     }
     void ApplyProcess(ProcessEntry p)
     {
+        if(prototypeMode)
+        {
+            p.hired=false;p.automated=false;p.workerLevel=0;p.automationApplied=false;
+            if(p.humanRoot!=null)p.humanRoot.SetActive(false);
+            if(p.wheel!=null)
+            {
+                p.wheel.gameObject.SetActive(true);
+                p.wheel.SetHumanMode(false);
+            }
+            if(p.humanStation!=null)p.humanStation.enabled=false;
+            if(p.workers!=null)foreach(var w in p.workers)if(w!=null)w.gameObject.SetActive(false);
+            if(p.robots!=null)foreach(var r in p.robots)if(r!=null)r.gameObject.SetActive(false);
+            if(p.robotDecor!=null)foreach(var decor in p.robotDecor)if(decor!=null)decor.SetActive(false);
+            return;
+        }
         // Hiring must not force a previously purchased conversion through an active manual cycle.
         if(p.hired&&p.automated&&!p.automationApplied&&!CanSwitch(p)){ApplySpeeds(p);return;}
         bool auto=p.hired&&p.automated;
@@ -179,11 +211,12 @@ public sealed class ProductionProgression : MonoBehaviour
         bool complete=CompleteVehicleProduction;
         if(finishingRoots!=null)foreach(var root in finishingRoots)if(root!=null)root.SetActive(complete);
         if(constructionRows!=null)foreach(var cover in constructionRows)if(cover!=null)cover.SetActive(!complete);
-        if(!complete)EnsureOutlet(HiredPrefix);
+        if(!complete&&!prototypeMode)EnsureOutlet(HiredPrefix);
         float visibleEnd=complete?1f:EndFor(HiredPrefix);
         // Old contract outlets remain operational until their vehicles have been delivered.
         if(conveyor!=null)conveyor.SetProductionEnd(visibleEnd);
         CleanupOutlets();
+        var footprint=GetComponent<FactoryExpansion>();if(footprint!=null)footprint.ApplyPrefix(HiredPrefix);
     }
     public float EndFor(int prefix)
     {
@@ -201,6 +234,15 @@ public sealed class ProductionProgression : MonoBehaviour
     }
     public void Stamp(CarController car)
     {
+        if(prototypeMode)
+        {
+            var allParts=new List<PartType>();foreach(var process in processes)allParts.AddRange(process.parts);
+            var prototypeContract=car.GetComponent<ProductionContract>();if(prototypeContract==null)prototypeContract=car.gameObject.AddComponent<ProductionContract>();
+            int salePrice=prototypeSettings!=null?prototypeSettings.vehicleRevenue:prototypeSalePrice;
+            prototypeContract.ResetContract(allParts.ToArray(),1f,salePrice,true,processes.Length,null);
+            car.sellPrice=salePrice;
+            return;
+        }
         var required=new List<PartType>();for(int i=0;i<HiredPrefix;i++)required.AddRange(processes[i].parts);
         var c=car.GetComponent<ProductionContract>();if(c==null)c=car.gameObject.AddComponent<ProductionContract>();
         bool complete=CompleteVehicleProduction;
@@ -222,7 +264,7 @@ public sealed class ProductionProgression : MonoBehaviour
     }
     public void Save()
     {
-        if(!persistProgress||!started||economy==null)return;
+        if(prototypeMode||!persistProgress||!started||economy==null)return;
         var data=new SaveData{prefix=HiredPrefix,money=economy.currentMoney,automated=new bool[processes.Length],experienced=new bool[processes.Length],levels=new int[processes.Length]};
         for(int i=0;i<processes.Length;i++){data.automated[i]=processes[i].automated;data.experienced[i]=processes[i].experienced;data.levels[i]=processes[i].workerLevel;}
         PlayerPrefs.SetString(SaveKey,JsonUtility.ToJson(data));PlayerPrefs.Save();
@@ -243,7 +285,7 @@ public sealed class ProductionProgression : MonoBehaviour
     void OnApplicationQuit(){Save();}
     void OnDisable()
     {
-        if(started){Save();if(economy!=null)economy.OnMoneyChanged-=OnMoney;}
+        if(started){Save();if(economy!=null&&!prototypeMode)economy.OnMoneyChanged-=OnMoney;}
         if(Current==this)Current=null;
     }
 }

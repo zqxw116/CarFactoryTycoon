@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -147,10 +147,11 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
         if (mainLineSpline == null || currentCar != null) return;
         var car = LineTrafficManager.Instance.GetCarAtGate(gateProgress, .1f);
         if (car == null) return;
+        car.CloseRepairWindow(); // Deadline is latched at gate capture, before inspection.
         currentCar = car; car.isMoving = false;
         basePosition = car.transform.position; baseRotation = car.transform.rotation; baseScale = car.transform.localScale;
         var parts = car.GetComponentsInChildren<AssemblyPart>(true);
-        VehicleInspectionRules.CountMissing(parts, VehicleInspectionDomain.Assembly, missingParts);
+        VehicleInspectionRules.CountAllMissing(parts, missingParts);
         warningParent = car.transform; warningLocal = Vector3.zero; warningCamera = Camera.main;
         if (MissingCount > 0) foreach (var part in parts) if (part.myType == missingParts[0])
         { warningParent = part.transform.parent; warningLocal = part.assembledPos; break; }

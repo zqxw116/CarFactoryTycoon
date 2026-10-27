@@ -23,6 +23,9 @@ using Unity.Mathematics;
 /// </summary>
 public class WorkerStation : MonoBehaviour, ILineGate
 {
+    public bool flowThrough;
+    public float workZoneMeters = 6f;
+
     public enum WorkState { Idle, Working }
 
     /// <summary>이 차량에서 아직 붙이지 못한 담당 부품 하나 (+ 어느 재고 파일에서 꺼낼지).</summary>
@@ -106,7 +109,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
     /// <summary>ILineGate: 게이트 활성 여부. 꺼지면 차량이 그냥 통과한다.</summary>
     public bool externalWorkCoordinator;
-    public bool GateEnabled => isActiveAndEnabled && !externalWorkCoordinator;
+    public bool GateEnabled => isActiveAndEnabled && !externalWorkCoordinator && !flowThrough;
 
     // 이번 차량에서 아직 못 붙인 담당 부품들 (캡처 시 1회 조회 후 캐시)
     private readonly List<PendingPart> pending = new List<PendingPart>();
@@ -229,12 +232,16 @@ public class WorkerStation : MonoBehaviour, ILineGate
     /// </summary>
     private void TryCapture()
     {
-        CarController car = LineTrafficManager.Instance.GetCarAtGate(gateProgress, CaptureDistance);
+        if (flowThrough && skipCar != null && !StationWorkZone.Contains(skipCar, mainLineSpline, gateProgress, workZoneMeters)) skipCar = null;
+        CarController car = flowThrough
+            ? StationWorkZone.Find(mainLineSpline, gateProgress, workZoneMeters)
+            : LineTrafficManager.Instance.GetCarAtGate(gateProgress, CaptureDistance);
         if (car == null) return;
 
         // 이미 '붙일 것 없음'으로 판정한 차 — 도킹할 때까지 재조회하지 않는다(로그·GC 폭주 방지)
         if (car == skipCar)
         {
+            if (flowThrough) return;
             if (!IsDocked(car)) return;
             PassGate(car);
             skipCar = null;
@@ -247,6 +254,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
         if (pending.Count == 0)
         {
+            if (flowThrough) { skipCar = car; return; }
             // 선행 거리에서 통과 처리하면 PassGate의 SetProgress가 차를 앞으로 순간이동시킨다
             // → 실제로 게이트에 도킹한 뒤에 통과시킨다.
             if (IsDocked(car)) PassGate(car);
@@ -286,10 +294,16 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
     private void UpdateWorking()
     {
+        if (flowThrough && !StationWorkZone.Contains(currentCar, mainLineSpline, gateProgress, workZoneMeters))
+        {
+            CollectFinished();
+            EndFlowCycle();
+            return;
+        }
         // 0) 게이트에 도착하면 정지시킨다. 선행 캡처 시점에는 차가 아직 다가오는 중이라
         //    여기서 세워야 "차는 계속 굴러오고 작업자는 미리 출발한다"가 성립한다.
         //    (도킹 자체는 트래픽 매니저의 게이트 클램프가 하고, 이 플래그는 작업 중 재출발을 막는다)
-        if (currentCar.isMoving && IsDocked(currentCar)) currentCar.isMoving = false;
+        if (!flowThrough && currentCar.isMoving && IsDocked(currentCar)) currentCar.isMoving = false;
 
         // 1) 완료된 작업 회수 + 보상 지급
         CollectFinished();
@@ -302,7 +316,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
         // 3.5) 차량이 실제로 도킹(정지)했는지를 작업자들에게 알린다 —
         //      작업자는 대기 지점에 먼저 도착해도 이 플래그가 서기 전까지 체결을 시작하지 않는다.
-        SetCarDocked(!currentCar.isMoving);
+        SetCarDocked(flowThrough || !currentCar.isMoving);
 
         // 4) 담당 부품이 전부 체결됐으면 방출
         if (pending.Count == 0 && !AnyWorkerBusy()) ReleaseCar();
@@ -369,6 +383,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
         for (int w = 0; w < workers.Length; w++)
         {
             Worker worker = workers[w];
+            if (flowThrough && worker != null && !worker.isActiveAndEnabled) continue;
             if (worker == null || assigned[w] != null || !worker.IsAvailable) continue;
 
             for (int p = 0; p < pending.Count; p++)
@@ -398,8 +413,10 @@ public class WorkerStation : MonoBehaviour, ILineGate
                 }
 
                 bool dockValid = TryGetDockPose(out Vector3 dockPos, out Quaternion dockRot);
+                if (flowThrough) { dockPos = currentCar.transform.position; dockRot = currentCar.transform.rotation; dockValid = true; }
                 if (worker.AssignWork(entry.part, pickPos, pickRot, dockPos, dockRot, dockValid))
                 {
+                    if (flowThrough) entry.part.SetStationWorkWindow(mainLineSpline, gateProgress, workZoneMeters);
                     assigned[w] = entry.part;
                     break;
                 }
@@ -433,6 +450,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
 
     private void ReleaseCar()
     {
+        if (flowThrough) { EndFlowCycle(); return; }
         // 컨디션 소모 지점 = 차량 1대분 작업 완료. 여기는 담당 부품이 전부 끝나고
         // 모든 작업자가 유휴일 때만 도달하므로(UpdateWorking의 AnyWorkerBusy 게이트)
         // 체결 도중에 강제 휴식이 끼어들어 부품이 공중에 멈추는 일이 없다.
@@ -479,6 +497,16 @@ public class WorkerStation : MonoBehaviour, ILineGate
     }
 
     /// <summary>진행 중인 작업을 중단하고 초기 상태로 되돌린다(차량 소실·비활성화 등).</summary>
+    private void EndFlowCycle()
+    {
+        skipCar = currentCar;
+        foreach (var entry in pending)
+            if (entry.part != null) entry.part.StopWorldAssembly();
+        // Consumed stock remains represented by the unfinished part on the car.
+        pending.Clear();
+        AbortCycle();
+    }
+
     private void AbortCycle()
     {
         if (workers != null)
@@ -506,7 +534,7 @@ public class WorkerStation : MonoBehaviour, ILineGate
         SetStockBlocked(false);
         SetCarDocked(false);
 
-        if (currentCar != null && currentCar.gameObject.activeInHierarchy)
+        if (!flowThrough && currentCar != null && currentCar.gameObject.activeInHierarchy)
             currentCar.isMoving = true;
 
         currentCar = null;

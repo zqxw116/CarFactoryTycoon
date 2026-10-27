@@ -25,6 +25,9 @@ using UnityEditor;
 /// </summary>
 public class WheelStation : MonoBehaviour, ILineGate
 {
+    public bool flowThrough;
+    public float workZoneMeters = 6f;
+
     public enum LiftState { Idle, Raising, Working, Lowering }
 
     [Header("라인 연결")]
@@ -92,7 +95,7 @@ public class WheelStation : MonoBehaviour, ILineGate
     /// <summary>트래픽 매니저가 참조하는 게이트 진행도. 이 앞의 차량은 여기를 넘지 못한다.</summary>
     public float GateProgress => liftProgress;
     /// <summary>ILineGate: 게이트 활성 여부.</summary>
-    public bool GateEnabled => isActiveAndEnabled;
+    public bool GateEnabled => isActiveAndEnabled && !flowThrough;
 
     private float animT = 0f;          // 승강 애니메이션 진행도(0~1)
     private float workTimer = 0f;          // 작업 경과 시간(디버그 타임아웃 진단용)
@@ -151,6 +154,7 @@ public class WheelStation : MonoBehaviour, ILineGate
 
     private void Update()
     {
+        if (flowThrough) { UpdateFlow(); return; }
         // 작업 도중 차량이 사라지면(풀 반환 등) 사이클 중단 후 초기화
         if (currentState != LiftState.Idle && (currentCar == null || !currentCar.gameObject.activeInHierarchy))
         {
@@ -208,6 +212,55 @@ public class WheelStation : MonoBehaviour, ILineGate
     }
 
     /// <summary>게이트에 도킹한 차량을 캡처한다. 설정/부품이 불완전하면 캡처하지 않고 게이트에 둔다.</summary>
+    private void UpdateFlow()
+    {
+        if (invalidPartsCar != null && !StationWorkZone.Contains(invalidPartsCar, mainLineSpline, liftProgress, workZoneMeters)) invalidPartsCar = null;
+        if (currentCar != null && !StationWorkZone.Contains(currentCar, mainLineSpline, liftProgress, workZoneMeters))
+            EndFlowCycle();
+        if (currentCar == null)
+        {
+            var car = StationWorkZone.Find(mainLineSpline, liftProgress, workZoneMeters);
+            if (car == null || car == invalidPartsCar) return;
+            if (!ValidateStationSetup(out _) || !CacheWheelParts(car)) { invalidPartsCar = car; return; }
+            if (AllWheelPartsAssembled()) { invalidPartsCar = car; return; }
+            humanCycle = useHumanWorkers;
+            if (humanCycle)
+            {
+                cycleWorkers = (Worker[])humanWorkers.Clone();
+                for (int i = 0; i < cycleWorkers.Length; i++)
+                {
+                    humanAssignments[i] = -1;
+                    humanParticipated[i] = false;
+                    if (cycleWorkers[i] != null) humanHomes[i] = cycleWorkers[i].transform.position;
+                }
+            }
+            else CacheOriginalStationTypes();
+            currentCar = car;
+            BeginWork();
+        }
+        if (humanCycle) UpdateHumanWork();
+        else if (ActiveWaveIsAssembled())
+        {
+            if (AllWheelPartsAssembled()) EndFlowCycle();
+            else StartNextWave();
+        }
+    }
+
+    private void EndFlowCycle()
+    {
+        invalidPartsCar = currentCar;
+        for (int i = 0; i < wheelParts.Length; i++)
+        {
+            if (wheelParts[i] != null) wheelParts[i].StopWorldAssembly();
+            consumedStacks[i] = null;
+        }
+        FinishHumanCycle(true);
+        ResetWheelStationsAndRestoreTypes();
+        currentCar = null;
+        ClearWheelParts();
+        currentState = LiftState.Idle;
+    }
+
     private void TryCapture()
     {
         CarController car = LineTrafficManager.Instance.GetCarAtGate(liftProgress, CaptureEpsilon);
@@ -315,6 +368,11 @@ public class WheelStation : MonoBehaviour, ILineGate
             if (station.robotArm == null)
             {
                 error = $"{station.name} ({WheelTypes[i]})에 로봇팔이 없습니다.";
+                return false;
+            }
+            if (flowThrough && (!station.isActiveAndEnabled || !station.robotArm.gameObject.activeInHierarchy))
+            {
+                error = "활성 로봇팔이 없습니다.";
                 return false;
             }
             if (station.targetPartType != WheelTypes[i] || station.robotArm.targetPartType != WheelTypes[i])
@@ -478,6 +536,7 @@ public class WheelStation : MonoBehaviour, ILineGate
                 if (!worker.AssignWork(part, pickPos, pickRot, currentCar.transform.position, currentCar.transform.rotation, true))
                 { stack.Add(1); continue; }
                 humanAssignments[w] = index;
+                if (flowThrough) part.SetStationWorkWindow(mainLineSpline, liftProgress, workZoneMeters);
                 consumedStacks[index] = stack;
                 worker.stockBlocked = false;
                 busy = true;
@@ -555,6 +614,7 @@ public class WheelStation : MonoBehaviour, ILineGate
 
     private void BeginLowering()
     {
+        if (flowThrough) { EndFlowCycle(); return; }
         if (!AllWheelPartsAssembled())
         {
             Debug.LogError($"[{name}] 바퀴 4개가 모두 체결되지 않아 리프트 하강을 차단했습니다.");
@@ -599,6 +659,7 @@ public class WheelStation : MonoBehaviour, ILineGate
     /// </summary>
     public void CancelCycle()
     {
+        if (flowThrough) { EndFlowCycle(); return; }
         if (currentState == LiftState.Idle) return;
 
         if (currentCar != null && currentCar.gameObject.activeInHierarchy)

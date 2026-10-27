@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Burst.CompilerServices;
@@ -12,6 +12,9 @@ public class CarController : MonoBehaviour
     [Header("물류 설정")]
     public float moveSpeed = 1.0f;
     public bool isMoving = true;
+    public bool RepairDeadlineReached { get; private set; }
+    public bool CanRepair => !RepairDeadlineReached;
+    public void CloseRepairWindow() => RepairDeadlineReached = true;
 
     [Header("스플라인 추적 상태 (디버그용)")]
     public SplineContainer targetSpline;
@@ -242,6 +245,7 @@ public class CarController : MonoBehaviour
 
     public void ResetParts()
     {
+        RepairDeadlineReached = false;
         foreach (var listParts in dicListParts.Values)
         {
             foreach (var part in listParts)

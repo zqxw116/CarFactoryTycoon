@@ -1,4 +1,4 @@
-﻿using TMPro;
+using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -46,7 +46,7 @@ public sealed class ProductionGrowthUI : MonoBehaviour
 
     private static void EnsureForScene(Scene scene)
     {
-        if (!scene.IsValid() || !scene.isLoaded || ProductionProgression.Current == null) return;
+        if (PrototypeLineController.Current != null || !scene.IsValid() || !scene.isLoaded || ProductionProgression.Current == null) return;
 
         ProductionGrowthUI[] existing = FindObjectsByType<ProductionGrowthUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         for (int i = 0; i < existing.Length; i++)

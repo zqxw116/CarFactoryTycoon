@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 public enum VehicleInspectionDomain { None, Assembly, Sealing }
@@ -7,6 +7,28 @@ public enum VehicleInspectionDomain { None, Assembly, Sealing }
 public static class VehicleInspectionRules
 {
     static readonly PartType[] Types = (PartType[])Enum.GetValues(typeof(PartType));
+
+    // All required installed types, including sealing parts and absent components.
+    public static int CountAllMissing(AssemblyPart[] parts, List<PartType> missing = null)
+    {
+        missing?.Clear();
+        int count = 0;
+        foreach (var type in Types)
+        {
+            if (DomainOf(type) == VehicleInspectionDomain.None) continue;
+            bool found = false, complete = true;
+            if (parts != null) foreach (var part in parts)
+            {
+                if (part == null || part.myType != type) continue;
+                found = true;
+                complete &= part.IsAssembled;
+            }
+            if (found && complete) continue;
+            count++;
+            missing?.Add(type);
+        }
+        return count;
+    }
 
     public static VehicleInspectionDomain DomainOf(PartType type)
     {

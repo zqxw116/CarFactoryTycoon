@@ -40,6 +40,7 @@ public class SupplyHireUI : MonoBehaviour
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
     {
+        if (PrototypeLineController.Current != null) return;
         if (FindAnyObjectByType<SupplyHireUI>() != null) return;
         if (FindAnyObjectByType<SupplyManager>() == null) return;
 

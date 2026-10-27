@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
@@ -18,6 +18,16 @@ public class CarSpawner : MonoBehaviour
 
     private const string MainSplineName = "MainSpline";
     private float timer = 0f;
+    [Header("Prototype manual supply")]
+    public bool manualInput;
+    [Min(1)] public int queueCapacity = 5;
+    public int PendingCount { get; private set; }
+    public bool RequestVehicle()
+    {
+        if (!manualInput || PendingCount >= Mathf.Max(1, queueCapacity)) return false;
+        PendingCount++;
+        return true;
+    }
 
     private float SpeedMultiplier =>
         UpgradeManager.Instance != null ? UpgradeManager.Instance.lineSpeedMultiplier : 1f;
@@ -43,6 +53,11 @@ public class CarSpawner : MonoBehaviour
     private void Update()
     {
         // 라인 속도 배율이 높을수록 생성도 빨라짐
+        if (manualInput)
+        {
+            if (PendingCount > 0 && SpawnCar()) PendingCount--;
+            return;
+        }
         timer += Time.deltaTime * SpeedMultiplier;
 
         if (timer >= spawnInterval)
@@ -68,7 +83,7 @@ public class CarSpawner : MonoBehaviour
         CarController car = CarPool.Instance.Get();
         if (car == null) return false;
 
-        car.SetPath(mainLineSpline, globalLineSpeed * SpeedMultiplier, startProgress);
+        car.SetPath(mainLineSpline, (manualInput ? globalLineSpeed : globalLineSpeed * SpeedMultiplier), startProgress);
         if (ProductionProgression.Current != null) ProductionProgression.Current.Stamp(car);
         return true;
     }

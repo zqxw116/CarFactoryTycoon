@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using UnityEngine.Splines;
+using System.Collections.Generic;
 using UnityEngine;
 
 #if UNITY_EDITOR
@@ -110,8 +111,42 @@ public class StationController : MonoBehaviour
         return trackingTarget;
     }
 
+    public bool flowThrough;
+    public float workZoneMeters = 6f;
+    private SplineContainer flowSpline;
+    private float flowStart;
+    private WheelStation flowWheel;
+    private CarController flowSkippedCar;
+
+    private void UpdateFlowWindow()
+    {
+        if (flowSpline == null)
+        {
+            var line = GameObject.Find("MainSpline");
+            if (line != null) flowSpline = line.GetComponent<SplineContainer>();
+            if (flowSpline == null) return;
+            flowStart = StationWorkZone.ProgressAt(flowSpline, transform.position);
+            flowWheel = GetComponentInParent<WheelStation>();
+            if (flowWheel != null && flowWheel.flowThrough) flowStart = flowWheel.liftProgress;
+        }
+        if (currentCar != null && !StationWorkZone.Contains(currentCar, flowSpline, flowStart, workZoneMeters))
+        {
+            flowSkippedCar = currentCar;
+            ResetStation();
+        }
+        if (manualMode || (flowWheel != null && flowWheel.flowThrough) || currentState != StationState.Idle) return;
+        if (flowSkippedCar != null && !StationWorkZone.Contains(flowSkippedCar, flowSpline, flowStart, workZoneMeters)) flowSkippedCar = null;
+        var candidate = StationWorkZone.Find(flowSpline, flowStart, workZoneMeters);
+        if (candidate == null || candidate == flowSkippedCar) return;
+        flowSkippedCar = candidate;
+        carsInZone.Clear();
+        carsInZone.Add(candidate);
+        TryBeginAssembly();
+    }
+
     private void OnTriggerEnter(Collider other)
     {
+        if (flowThrough) return;
         if (other.TryGetComponent<CarController>(out var car) == false) return;
 
         // 진입 차량을 작업존 목록에 등록. (스테이션이 바쁘면 대기, 비면 TryBeginAssembly가 잡음)
@@ -122,6 +157,7 @@ public class StationController : MonoBehaviour
 
     private void OnTriggerExit(Collider other)
     {
+        if (flowThrough) return;
         if (other.TryGetComponent<CarController>(out var car) == false) return;
 
         carsInZone.Remove(car);
@@ -146,6 +182,8 @@ public class StationController : MonoBehaviour
 
         foreach (CarController car in carsInZone)
         {
+            if (!car.CanRepair) continue;
+            if (flowThrough && !StationWorkZone.Contains(car, flowSpline, flowStart, workZoneMeters)) continue;
             if (car.TryGetComponent<ProductionContract>(out var contract) && !contract.Requires(targetPartType)) continue;
             AssemblyPart part = car.GetUnassembledPart(targetPartType);
             if (part == null) continue; // 해당 차량은 이 공정 파츠가 없거나 이미 체결됨
@@ -160,9 +198,10 @@ public class StationController : MonoBehaviour
     private void Update()
     {
         if (robotArm == null) return;
+        if (flowThrough) UpdateFlowWindow();
 
         // 체결 중 차량/파츠 참조가 사라졌으면(풀 반환 등) 리셋 후 재시도
-        if (currentState == StationState.Assembling && (currentCar == null || targetCarPart == null))
+        if (currentState == StationState.Assembling && (currentCar == null || !currentCar.gameObject.activeInHierarchy || !currentCar.CanRepair || targetCarPart == null))
         {
             bool wasManual = manualMode;
             ResetStation();
@@ -268,6 +307,13 @@ public class StationController : MonoBehaviour
             startRotOffset = Quaternion.Euler(e.x, -e.y, e.z);
         }
         targetCarPart.BeginWorldAssembly(stationPilePos.position, startRotOffset);
+        if (flowThrough)
+        {
+            var spline = currentCar.targetSpline;
+            var wheel = GetComponentInParent<WheelStation>();
+            float start = wheel != null && wheel.flowThrough ? wheel.liftProgress : (spline != null ? StationWorkZone.ProgressAt(spline, transform.position) : 0f);
+            targetCarPart.SetStationWorkWindow(spline, start, workZoneMeters);
+        }
         // 2. work=0 = pile 위치로 이동 (SetWork 내부에서 work<=0이면 SetActive(false) 호출됨)
         targetCarPart.SetWork(0f);
         // 3. 위치 확정 후 활성화 (위 SetActive(false)를 덮어씀)
@@ -296,7 +342,8 @@ public class StationController : MonoBehaviour
 
         if (targetCarPart != null)
         {
-            targetCarPart.Reset(); // progress=1, 비활성화, 런타임 오버라이드 해제
+            if (flowThrough) targetCarPart.StopWorldAssembly();
+            else targetCarPart.Reset(); // Legacy test/reset behavior
             targetCarPart = null;
         }
 
@@ -354,7 +401,7 @@ public class StationController : MonoBehaviour
         targetPartType = newType;
         if (robotArm != null) robotArm.targetPartType = newType;
 
-        if (targetCar == null) return;
+        if (targetCar == null || !targetCar.CanRepair) return;
 
         AssemblyPart part = targetCar.GetUnassembledPart(targetPartType);
         if (part == null)

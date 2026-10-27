@@ -50,7 +50,7 @@ public sealed class FuelUpgradeUI : MonoBehaviour
 
     private static void EnsureForScene(Scene scene)
     {
-        if (!scene.IsValid() || !scene.isLoaded) return;
+        if (PrototypeLineController.Current != null || !scene.IsValid() || !scene.isLoaded) return;
 
         FuelStation[] stations = FindObjectsByType<FuelStation>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         bool hasStation = false;
