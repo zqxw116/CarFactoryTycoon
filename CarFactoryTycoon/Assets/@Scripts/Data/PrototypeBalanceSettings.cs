@@ -23,6 +23,8 @@ public sealed class PrototypeBalanceSettings : ScriptableObject
     public float conditionCost = 25f, idleRecoveryPerSecond = 5f;
     [Header("Day and economy (M4; provisional)")]
     public float dayRealSeconds = 600f;
+    [Header("Prototype fuel timing; final pacing follows play feedback")]
+    public float manualFuelSeconds = 4.5f, automaticFuelSeconds = 2f;
     [Header("M4 provisional upgrade prices (phase 2 tuning pending)")]
     public int playerHammerUpgradeCost = 100, lineUpgradeBaseCost = 150;
     public float lineUpgradeCostFactor = 1.6f;

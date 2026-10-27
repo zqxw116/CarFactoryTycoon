@@ -24,9 +24,11 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
     public struct SupplyTarget
     {
         public WorkerStation station;
+        public WheelStation wheelStation;
         public PartStack stack;
+        public bool prototypeTarget;
 
-        public bool IsValid => station != null && stack != null;
+        public bool IsValid => stack != null && (prototypeTarget || station != null || wheelStation != null);
     }
 
     [Header("창고")]
@@ -45,6 +47,10 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
     [Tooltip("배치된 보급 작업자 목록. 비어 있으면 시작 시 씬에서 자동 수집한다." +
         " 다수 배치 대응: 여러 명을 배치해도 재고 파일 예약으로 같은 곳에 겹쳐 가지 않는다.")]
     public List<SupplyWorker> supplyWorkers = new List<SupplyWorker>();
+
+    [Header("프로토타입 연결")]
+    [Tooltip("켜면 씬의 실제 PartStack을 모두 보급 대상으로 사용하고, 구형 정지 긴급도를 무시한다.")]
+    public bool prototypeMode;
 
     [Header("임시 고용 (SupplyHireUI)")]
     [Tooltip("고용 시 복제할 보급 작업자. 비어 있으면 목록의 첫 번째 작업자를 복제한다." +
@@ -97,18 +103,57 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
         // 활성 여부는 선정 시점에 isActiveAndEnabled로 거른다.
         WorkerStation[] stations = FindObjectsByType<WorkerStation>(FindObjectsInactive.Include, FindObjectsSortMode.None);
         var seen = new HashSet<PartStack>();
-        for (int s = 0; s < stations.Length; s++)
+        if (prototypeMode)
         {
-            WorkerStation station = stations[s];
-            if (station == null || station.partStacks == null) continue;
-
-            // partStacks가 targetPartTypes보다 짧으면 WorkerStation이 마지막 파일을 공용으로 쓴다.
-            // 여기서는 배열에 실제로 들어 있는 파일만 보므로 공용 파일도 한 번만 등록된다(중복 제거).
-            for (int i = 0; i < station.partStacks.Length; i++)
+            // M3 흐름형 공정은 WorkerStation을 끄며, 바퀴/로봇/플레이어 전용 재고도
+            // 기존 작업자 공정에 속하지 않을 수 있다. 씬의 실재 PartStack을 직접 수집한다.
+            WheelStation[] wheelStations = FindObjectsByType<WheelStation>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            PartStack[] allStacks = FindObjectsByType<PartStack>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < allStacks.Length; i++)
             {
-                PartStack stack = station.partStacks[i];
+                PartStack stack = allStacks[i];
                 if (stack == null || !seen.Add(stack)) continue;
-                targets.Add(new SupplyTarget { station = station, stack = stack });
+
+                WorkerStation ownerStation = null;
+                for (int s = 0; s < stations.Length && ownerStation == null; s++)
+                {
+                    WorkerStation candidate = stations[s];
+                    if (candidate == null || candidate.partStacks == null) continue;
+                    for (int j = 0; j < candidate.partStacks.Length; j++)
+                        if (candidate.partStacks[j] == stack) { ownerStation = candidate; break; }
+                }
+                WheelStation ownerWheel = null;
+                for (int s = 0; s < wheelStations.Length && ownerWheel == null; s++)
+                {
+                    WheelStation candidate = wheelStations[s];
+                    if (candidate == null || candidate.humanPartStacks == null) continue;
+                    for (int j = 0; j < candidate.humanPartStacks.Length; j++)
+                        if (candidate.humanPartStacks[j] == stack) { ownerWheel = candidate; break; }
+                }
+                targets.Add(new SupplyTarget
+                {
+                    station = ownerStation,
+                    wheelStation = ownerWheel,
+                    stack = stack,
+                    prototypeTarget = true
+                });
+            }
+        }
+        else
+        {
+            for (int s = 0; s < stations.Length; s++)
+            {
+                WorkerStation station = stations[s];
+                if (station == null || station.partStacks == null) continue;
+
+                // partStacks가 targetPartTypes보다 짧으면 WorkerStation이 마지막 파일을 공용으로 쓴다.
+                // 배열에 실제로 들어 있는 파일만 보므로 공용 파일도 한 번만 등록된다.
+                for (int i = 0; i < station.partStacks.Length; i++)
+                {
+                    PartStack stack = station.partStacks[i];
+                    if (stack == null || !seen.Add(stack)) continue;
+                    targets.Add(new SupplyTarget { station = station, stack = stack });
+                }
             }
         }
 
@@ -160,8 +205,9 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
     /// </summary>
     public static bool IsTargetAlive(SupplyTarget t)
     {
-        return t.IsValid && t.station.isActiveAndEnabled && t.stack.isActiveAndEnabled
-            && t.stack.partType != PartType.None;
+        if (!t.IsValid || !t.stack.isActiveAndEnabled || t.stack.partType == PartType.None) return false;
+        if (t.prototypeTarget) return true;
+        return t.station != null && t.station.isActiveAndEnabled;
     }
 
     /// <summary>
@@ -186,7 +232,7 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
             if (!IsTargetAlive(t) || t.stack.IsFull) continue;
             if (reservations.TryGetValue(t.stack, out SupplyWorker owner) && owner != null && owner != worker) continue;
 
-            int tier = GetUrgencyTier(t);
+            int tier = t.prototypeTarget ? 0 : GetUrgencyTier(t);
             float fill = t.stack.Fill;
             float dist = (GetApproachPoint(t.stack) - origin).sqrMagnitude;
 
@@ -202,6 +248,25 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
         result = targets[bestIndex];
         reservations[result.stack] = worker;
         return true;
+    }
+
+    /// <summary>업무 재개 시 운반 중이던 화물의 기존 파일을 다시 예약한다.</summary>
+    public bool TryReserveStack(SupplyWorker worker, PartStack stack, out SupplyTarget result)
+    {
+        EnsureBuilt();
+        result = default;
+        if (worker == null || stack == null) return false;
+
+        for (int i = 0; i < targets.Count; i++)
+        {
+            SupplyTarget candidate = targets[i];
+            if (candidate.stack != stack || !IsTargetAlive(candidate) || stack.IsFull) continue;
+            if (reservations.TryGetValue(stack, out SupplyWorker owner) && owner != null && owner != worker) return false;
+            reservations[stack] = worker;
+            result = candidate;
+            return true;
+        }
+        return false;
     }
 
     /// <summary>긴급도 단계. 작을수록 급하다: 0=재고0으로 라인 정지 / 1=재고0 / 2=일반.</summary>
@@ -248,6 +313,10 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
     {
         if (hireTemplate != null) return hireTemplate;
         EnsureBuilt();
+        // 비활성 씬 템플릿은 고용 인원 목록에 넣지 않으며, 복제할 때만 활성화한다.
+        SupplyWorker[] all = FindObjectsByType<SupplyWorker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < all.Length; i++)
+            if (all[i] != null && !all[i].gameObject.activeInHierarchy) return all[i];
         for (int i = 0; i < supplyWorkers.Count; i++)
             if (supplyWorkers[i] != null) return supplyWorkers[i];
         return null;
@@ -281,6 +350,7 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
         if (!go.activeSelf) go.SetActive(true); // 비활성 템플릿에서 복제한 경우
 
         SupplyWorker hired = go.GetComponent<SupplyWorker>();
+        if (hired != null && prototypeMode) hired.prototypeMode = true;
         supplyWorkers.Add(hired);
 
         if (verboseLog) Debug.Log($"{LOG_TAG} 보급 작업자 고용 '{go.name}' → 총 {WorkerCount}명", go);

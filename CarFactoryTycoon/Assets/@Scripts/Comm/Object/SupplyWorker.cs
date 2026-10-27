@@ -37,6 +37,20 @@ public class SupplyWorker : MonoBehaviour
     [Tooltip("비어 있으면 씬의 SupplyManager를 자동으로 찾는다(없으면 경고 1회 후 대기).")]
     [SerializeField] private SupplyManager manager;
 
+    [Header("프로토타입 근무")]
+    [Tooltip("프로토타입 근무 상태 API를 사용한다. 구형 작업자에서는 끈다.")]
+    public bool prototypeMode;
+
+    private bool workersOnDuty = true;
+    private bool dutyPaused;
+    private bool resumePending;
+    private SupplyState pausedState;
+    private float pausedStateTimer;
+    private PartStack resumeStack;
+
+    /// <summary>현재 근무 중인지. 기본값은 근무 중이다.</summary>
+    public bool WorkersOnDuty => workersOnDuty;
+
     [Header("이동")]
     [Tooltip("기본 이동 속도(m/초). 실제 속도는 EffectiveMoveSpeed(개별 배율 × 전역 업그레이드 배율 적용)를 쓴다.")]
     public float moveSpeed = 2.0f;
@@ -145,6 +159,26 @@ public class SupplyWorker : MonoBehaviour
     /// <summary>지금 향하는(예약한) 재고 파일. 없으면 null — UI용.</summary>
     public PartStack TargetStack => hasReservation ? target.stack : null;
 
+    /// <summary>근무일 경계에서 호출한다. 퇴근 중 화물은 보존하고 파일 예약만 풀어 준다.</summary>
+    public void SetDutyStatus(bool onDuty)
+    {
+        if (workersOnDuty == onDuty) return;
+        workersOnDuty = onDuty;
+        if (!onDuty)
+        {
+            dutyPaused = true;
+            resumePending = false;
+            pausedState = currentState;
+            pausedStateTimer = stateTimer;
+            resumeStack = carrying > 0 && hasReservation ? target.stack : null;
+            ReleaseReservation();
+            if (mover != null) mover.Stop();
+            return;
+        }
+
+        resumePending = dutyPaused;
+    }
+
     private void Awake()
     {
         // NavMover.Start가 에이전트를 준비하므로 Start보다 먼저 붙여 둔다(씬에 미리 붙여 둔 값이 있으면 그대로 사용)
@@ -194,6 +228,15 @@ public class SupplyWorker : MonoBehaviour
             return;
         }
 
+        if (!WorkersOnDuty)
+        {
+            mover.Stop();
+            UpdateAnimator();
+            return;
+        }
+
+        if (resumePending) ResumeAfterDuty();
+
         switch (currentState)
         {
             case SupplyState.ToWarehouse:
@@ -239,6 +282,44 @@ public class SupplyWorker : MonoBehaviour
         }
 
         UpdateAnimator();
+    }
+
+    private void ResumeAfterDuty()
+    {
+        resumePending = false;
+        dutyPaused = false;
+
+        if (carrying > 0)
+        {
+            if (resumeStack != null && manager.TryReserveStack(this, resumeStack, out SupplyManager.SupplyTarget resumedTarget))
+            {
+                target = resumedTarget;
+                hasReservation = true;
+                currentState = pausedState;
+                stateTimer = pausedStateTimer;
+            }
+            else
+            {
+                // 다른 작업자가 이미 채웠거나 대상이 사라졌다. 화물은 무한 창고로 반납한 것으로
+                // 처리해 중복 하역을 막고 창고 복귀 후 새 예약을 받는다.
+                carrying = 0;
+                carryingType = PartType.None;
+                if (carryVisual != null) carryVisual.SetActive(false);
+                SetState(SupplyState.Returning);
+            }
+        }
+        else if (pausedState == SupplyState.Loading)
+        {
+            // 퇴근 중 예약을 놓았으므로, 창고에서 다음 프레임 새 대상을 고른다.
+            SetState(SupplyState.IdleAtWarehouse);
+        }
+        else
+        {
+            currentState = pausedState;
+            stateTimer = pausedStateTimer;
+        }
+
+        resumeStack = null;
     }
 
     /// <summary>

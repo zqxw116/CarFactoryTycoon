@@ -164,6 +164,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         lastHitPoint = part.AttachmentWorldPosition;
         hammerPulse = 1f;
         EmitImpact(lastHitPoint, part.IsAssembled);
+        PrototypeWorkAudio.PlayWorkPulse(lastHitPoint, part.IsAssembled, PlayerHammerHits == 2, false);
         HammerHit?.Invoke(part);
         return true;
     }

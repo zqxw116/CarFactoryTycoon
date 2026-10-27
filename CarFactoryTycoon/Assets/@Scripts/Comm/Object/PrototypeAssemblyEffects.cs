@@ -38,6 +38,7 @@ public sealed class PrototypeAssemblyEffects : MonoBehaviour
     public void Pulse(Vector3 point,bool complete)
     {
         PulseCount++;pulse=1f;lastPoint=point;
+        PrototypeWorkAudio.PlayWorkPulse(point,complete,false,robot);
         if(particles==null)
         {
             particles=new GameObject("CrewImpact").AddComponent<ParticleSystem>();particles.transform.SetParent(transform,false);

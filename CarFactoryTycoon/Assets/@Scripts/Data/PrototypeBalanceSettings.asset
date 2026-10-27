@@ -33,6 +33,8 @@ MonoBehaviour:
   conditionCost: 25
   idleRecoveryPerSecond: 5
   dayRealSeconds: 600
+  manualFuelSeconds: 4.5
+  automaticFuelSeconds: 2
   playerHammerUpgradeCost: 100
   lineUpgradeBaseCost: 150
   lineUpgradeCostFactor: 1.6

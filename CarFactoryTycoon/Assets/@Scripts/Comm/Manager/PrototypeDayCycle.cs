@@ -9,6 +9,9 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     public ProductionProgression progression;
     public PrototypeBalanceSettings settings;
     public FactoryPlayerController player;
+    public SupplyManager supply;
+    public FuelStation fuel;
+    public PrototypeServicesInteraction services;
     public int DayNumber { get; private set; } = 1;
     public float GameHour { get; private set; } = 8f;
     public bool OvertimeEnabled { get; private set; }
@@ -32,6 +35,8 @@ public sealed class PrototypeDayCycle : MonoBehaviour
             foreach (var process in progression.processes)
                 if (process.hired && !process.automated && process.workers != null)
                     foreach (var worker in process.workers) if (worker != null && worker.gameObject.activeInHierarchy) count++;
+            if(supply!=null)count+=supply.WorkerCount;
+            if(fuel!=null&&fuel.PaidHumanActive)count++;
             return count;
         }
     }
@@ -95,6 +100,8 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         bool duty = !IsSettlement && (GameHour < 20f || overtime);
         if (crews == null) crews = progression.GetComponents<PrototypeProcessCrew>();
         foreach (var crew in crews) if (crew != null) crew.SetDutyStatus(duty, overtime);
+        if(supply!=null)foreach(var worker in supply.supplyWorkers)if(worker!=null&&worker.prototypeMode)worker.SetDutyStatus(duty);
+        if(fuel!=null)fuel.SetDutyStatus(duty);
     }
     void RecordVehicleSale(int amount)
     {
@@ -131,8 +138,9 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         IsSettlement = true;
         ApplyDuty();
         previousTimeScale = Time.timeScale;
-        previousCursor = Cursor.lockState; previousCursorVisible = Cursor.visible;
         if (hiring != null) { previousHiringEnabled = hiring.enabled; hiring.enabled = false; }
+        if(services!=null)services.ClosePopup();
+        previousCursor = Cursor.lockState; previousCursorVisible = Cursor.visible;
         if (player != null) { player.InteractionUIOpen = true; if (player.interactor != null) player.interactor.inputEnabled = false; }
         Cursor.lockState = CursorLockMode.None; Cursor.visible = true;
         Time.timeScale = 0f; paused = true;

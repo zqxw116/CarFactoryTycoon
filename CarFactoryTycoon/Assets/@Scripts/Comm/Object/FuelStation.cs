@@ -5,7 +5,15 @@ using Unity.Mathematics;
 /// <summary>Final preparation before dispatch: human nozzle handling, or a purchased automatic arm.</summary>
 public class FuelStation : MonoBehaviour, ILineGate
 {
-    public enum FuelState { Idle, PickingUp, Approaching, Connecting, Fueling, Disconnecting, Returning, Parking, Resting }
+    public enum FuelState { Idle, PickingUp, Approaching, Connecting, Fueling, Disconnecting, Returning, Parking, Resting, AwaitingPlayer }
+    public bool prototypeMode;
+    public PrototypeBalanceSettings prototypeSettings;
+    public bool AttendantHired { get; private set; }
+    public bool WorkersOnDuty { get; private set; } = true;
+    public bool PlayerFueling => cyclePlayer;
+    public int CompletedFuelCount { get; private set; }
+    public bool CanChangeStaff => currentState == FuelState.Idle || currentState == FuelState.AwaitingPlayer;
+    public bool PaidHumanActive => prototypeMode && AttendantHired && !automationPurchased;
     public SplineContainer mainLineSpline;
     [Range(0,1)] public float gateProgress;
     public Transform attendant;
@@ -36,19 +44,22 @@ public class FuelStation : MonoBehaviour, ILineGate
     public FuelState CurrentState => currentState;
     public CarController CurrentCar => currentCar;
     public bool IsAutomated => automationPurchased;
-    public int AutomationCost => Mathf.Max(1,automationPrice);
+    public int AutomationCost => prototypeMode && prototypeSettings != null ? prototypeSettings.robotPrice : Mathf.Max(1,automationPrice);
     public int SpeedLevel => speedLevel;
     public int MaxSpeedLevel => 3;
     public int SpeedUpgradeCost => Mathf.Max(1,Mathf.RoundToInt(Mathf.Max(1,speedBasePrice)*Mathf.Pow(1.7f,speedLevel)));
     public float FillProgress => currentState == FuelState.Fueling ? Mathf.Clamp01(1f-timer/Mathf.Max(.01f,duration)) :
         currentState == FuelState.Disconnecting ? 1f : 0f;
-    public bool CanRest => !automationPurchased && currentState == FuelState.Idle && condition < 100f;
+    public bool CanRest => !prototypeMode && !automationPurchased && currentState == FuelState.Idle && condition < 100f;
     public float GateProgress => gateProgress;
     public bool GateEnabled => isActiveAndEnabled;
     public string StatusText
     {
         get
         {
+            if(prototypeMode && currentState==FuelState.AwaitingPlayer)return "차량 주유 대기 · 가까이서 E 유지";
+            if(cyclePlayer)return "직접 주유 "+Mathf.RoundToInt(FillProgress*100)+"% · E 유지";
+            if(prototypeMode && !automationPurchased && (!AttendantHired || !WorkersOnDuty))return AttendantHired?"주유 작업자 퇴근 · 직접 주유 가능":"주유 작업자 미고용 · 직접 주유 가능";
             if(automationPurchased && !automationActive) return "현재 작업 후 자동 전환";
             if(currentState == FuelState.Resting) return "작업자 휴식 중";
             if(currentState == FuelState.Fueling) return "주유 중 "+Mathf.RoundToInt(FillProgress*100)+"%";
@@ -57,13 +68,77 @@ public class FuelStation : MonoBehaviour, ILineGate
         }
     }
 
-    bool automationActive, cycleAutomated, visualsInitialized;
+    bool automationActive, cycleAutomated, visualsInitialized, cyclePlayer;
+    FactoryPlayerController fuelingPlayer;
     float timer, duration, cycleSpeed, barWidth;
     Vector3 workPoint, moveFrom, barHome;
     Quaternion rotateFrom;
     readonly Vector3[] hosePoints=new Vector3[24];
     MaterialPropertyBlock block;
     static readonly int SpeedHash=Animator.StringToHash("Speed"),MotionHash=Animator.StringToHash("MotionSpeed"),GroundHash=Animator.StringToHash("Grounded");
+
+    void Awake()
+    {
+        if(!prototypeMode)return;
+        automationPurchased=automationActive=AttendantHired=false;speedLevel=0;condition=100;
+        if(attendant!=null)attendant.gameObject.SetActive(false);
+        if(automationRig!=null)automationRig.SetActive(false);
+    }
+
+    public bool TryHireAttendant()
+    {
+        if(!prototypeMode || AttendantHired || automationPurchased || !CanChangeStaff ||
+            (PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement))return false;
+        if(!EconomyManager.Instance.TrySpend(prototypeSettings!=null?prototypeSettings.hirePrice:0))return false;
+        AttendantHired=true;
+        if(attendant!=null)attendant.gameObject.SetActive(true);
+        return true;
+    }
+    public void SetDutyStatus(bool onDuty)
+    {
+        if(WorkersOnDuty==onDuty)return;
+        WorkersOnDuty=onDuty;
+        if(prototypeMode && !onDuty && !cycleAutomated && !cyclePlayer && currentCar!=null)
+        {
+            if(handIK!=null)handIK.Release();
+            if(attendantMover!=null)attendantMover.Stop();
+            SetNozzleDock();Begin(FuelState.AwaitingPlayer,0);
+        }
+    }
+    bool PlayerInReach(FactoryPlayerController actor) => actor!=null && actor.ControlsActive && currentCar!=null &&
+        Vector3.Distance(actor.transform.position+Vector3.up,PortPosition())<=3.5f;
+    public bool TryBeginPlayerFueling(FactoryPlayerController actor)
+    {
+        if(!prototypeMode || currentState!=FuelState.AwaitingPlayer || !PlayerInReach(actor) ||
+            (PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement))return false;
+        cyclePlayer=true;cycleAutomated=false;fuelingPlayer=actor;cycleSpeed=1;
+        Begin(FuelState.Connecting,.65f);return true;
+    }
+    public void AdvancePlayerFueling(FactoryPlayerController actor,float seconds)
+    {
+        if(!cyclePlayer || actor!=fuelingPlayer || seconds<=0 || !PlayerInReach(actor))return;
+        if(currentCar==null || !currentCar.gameObject.activeInHierarchy){CancelCycle();return;}
+        timer-=seconds;
+        switch(currentState)
+        {
+            case FuelState.Connecting:
+                BlendNozzle(PortPosition(),PortRotation());
+                if(timer<=0)Begin(FuelState.Fueling,prototypeSettings!=null?prototypeSettings.manualFuelSeconds:manualFuelSeconds);break;
+            case FuelState.Fueling:
+                if(nozzle!=null)nozzle.SetPositionAndRotation(PortPosition(),PortRotation());
+                if(timer<=0)Begin(FuelState.Disconnecting,.5f);break;
+            case FuelState.Disconnecting:
+                BlendNozzle(nozzleDock.position,nozzleDock.rotation);
+                if(timer<=0)ReleaseCar();break;
+        }
+        UpdateMeter();
+    }
+    public void CancelPlayerFueling()
+    {
+        if(!cyclePlayer)return;
+        cyclePlayer=false;fuelingPlayer=null;SetNozzleDock();
+        Begin(currentCar!=null?FuelState.AwaitingPlayer:FuelState.Idle,0);
+    }
 
     void OnEnable()
     {
@@ -85,6 +160,7 @@ public class FuelStation : MonoBehaviour, ILineGate
 
     public bool TryPurchaseAutomation()
     {
+        if(prototypeMode && (!CanChangeStaff || (PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement)))return false;
         if(automationPurchased || !isActiveAndEnabled || !EconomyManager.Instance.TrySpend(AutomationCost))return false;
         automationPurchased=true;
         ApplyAutomationIfReady();
@@ -118,6 +194,12 @@ public class FuelStation : MonoBehaviour, ILineGate
 
     void Update()
     {
+        if(cyclePlayer)
+        {
+            if(currentCar==null || !currentCar.gameObject.activeInHierarchy){CancelCycle();return;}
+            if(fuelingPlayer==null || Vector3.Distance(fuelingPlayer.transform.position+Vector3.up,PortPosition())>3.5f)CancelPlayerFueling();
+            UpdateMeter();return;
+        }
         bool handling=currentState>=FuelState.PickingUp && currentState<=FuelState.Disconnecting;
         if(handling && (currentCar==null || !currentCar.gameObject.activeInHierarchy)){CancelCycle();return;}
         timer-=Time.deltaTime;
@@ -125,6 +207,11 @@ public class FuelStation : MonoBehaviour, ILineGate
         {
             case FuelState.Idle:
                 ApplyAutomationIfReady();Capture();break;
+            case FuelState.AwaitingPlayer:
+                if(currentCar==null || !currentCar.gameObject.activeInHierarchy){CancelCycle();break;}
+                if(automationPurchased){currentState=FuelState.Idle;ApplyAutomationIfReady();StartCapturedCycle();}
+                else if(AttendantHired && WorkersOnDuty)StartCapturedCycle();
+                break;
             case FuelState.PickingUp:
                 FaceDock();BlendNozzle(CarryPosition(),CarryRotation());
                 if(timer<=0)Begin(FuelState.Approaching,0);break;
@@ -134,7 +221,7 @@ public class FuelStation : MonoBehaviour, ILineGate
             case FuelState.Connecting:
                 if(!cycleAutomated)FacePort();
                 BlendNozzle(PortPosition(),PortRotation());
-                if(timer<=0)Begin(FuelState.Fueling,(cycleAutomated?automaticFuelSeconds:manualFuelSeconds)/cycleSpeed);break;
+                if(timer<=0)Begin(FuelState.Fueling,(prototypeMode&&prototypeSettings!=null?(cycleAutomated?prototypeSettings.automaticFuelSeconds:prototypeSettings.manualFuelSeconds):(cycleAutomated?automaticFuelSeconds:manualFuelSeconds))/cycleSpeed);break;
             case FuelState.Fueling:
                 if(!cycleAutomated)FacePort();
                 if(nozzle!=null)nozzle.SetPositionAndRotation(PortPosition(),PortRotation());
@@ -150,7 +237,7 @@ public class FuelStation : MonoBehaviour, ILineGate
                 if(timer<=0)
                 {
                     SetNozzleDock();if(handIK!=null)handIK.Release();
-                    Begin(condition<=0&&!automationPurchased?FuelState.Resting:FuelState.Idle,forcedRestSeconds);
+                    Begin(!prototypeMode&&condition<=0&&!automationPurchased?FuelState.Resting:FuelState.Idle,forcedRestSeconds);
                     ApplyAutomationIfReady();
                 }
                 break;
@@ -169,9 +256,16 @@ public class FuelStation : MonoBehaviour, ILineGate
     void Capture()
     {
         if(mainLineSpline==null || nozzle==null || nozzleDock==null || homePoint==null)return;
-        if(!automationActive && (attendant==null || attendantMover==null))return;
+        if(!automationActive && !prototypeMode && (attendant==null || attendantMover==null))return;
         var car=LineTrafficManager.Instance.GetCarAtGate(gateProgress,.1f);if(car==null)return;
-        currentCar=car;car.isMoving=false;cycleAutomated=automationActive;cycleSpeed=1f+speedLevel*.25f;
+        currentCar=car;car.isMoving=false;
+        if(prototypeMode && !automationActive && (!AttendantHired || !WorkersOnDuty)){Begin(FuelState.AwaitingPlayer,0);return;}
+        StartCapturedCycle();
+    }
+    void StartCapturedCycle()
+    {
+        cycleAutomated=automationActive;cycleSpeed=1f+speedLevel*.25f;
+        var car=currentCar;
         workPoint=car.transform.TransformPoint(new Vector3(workerSideDistance,0,carPortLocal.z));workPoint.y=homePoint.position.y;
         if(cycleAutomated)Begin(FuelState.Connecting,.4f/cycleSpeed);
         else
@@ -205,9 +299,10 @@ public class FuelStation : MonoBehaviour, ILineGate
 
     void ReleaseCar()
     {
+        CompletedFuelCount++;
         if(currentCar!=null){currentCar.SetProgress(gateProgress);currentCar.isMoving=true;currentCar=null;}
-        if(cycleAutomated){SetNozzleDock();Begin(FuelState.Idle,0);}
-        else{condition=Mathf.Max(0,condition-conditionCostPerCar);Begin(FuelState.Returning,0);}
+        if(cycleAutomated || cyclePlayer){SetNozzleDock();cyclePlayer=false;fuelingPlayer=null;Begin(FuelState.Idle,0);}
+        else{if(!prototypeMode)condition=Mathf.Max(0,condition-conditionCostPerCar);Begin(FuelState.Returning,0);}
     }
 
     public void CancelCycle()
@@ -216,7 +311,7 @@ public class FuelStation : MonoBehaviour, ILineGate
         {
             currentCar.SetProgress(gateProgress-.01f/Mathf.Max(.01f,currentCar.SplineLength));currentCar.isMoving=true;
         }
-        currentCar=null;if(handIK!=null)handIK.Release();if(attendantMover!=null)attendantMover.Stop();
+        currentCar=null;cyclePlayer=false;fuelingPlayer=null;if(handIK!=null)handIK.Release();if(attendantMover!=null)attendantMover.Stop();
         SetNozzleDock();currentState=FuelState.Idle;timer=duration=0;
         if(attendant!=null && homePoint!=null)
         {
