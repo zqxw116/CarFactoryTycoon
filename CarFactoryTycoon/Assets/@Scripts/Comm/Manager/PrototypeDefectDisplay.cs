@@ -1,289 +1,243 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 
-/// <summary>
-/// Counts repairable missed parts after their process work zone and shows a red, non-interactive
-/// mesh proxy at each missing part's authored attachment pose. Source AssemblyPart state is untouched.
-/// </summary>
+/// <summary>Missing slots use corners; attached unfinished parts keep their material with a thin outline.</summary>
 public sealed class PrototypeDefectDisplay : MonoBehaviour
 {
-    private const float WorkZoneMeters = 6f;
-    private const float ProxyScale = 1.01f;
-
+    public enum PartState { None, MissingSlot, AttachedPending }
     public ProductionProgression progression;
-
+    public FactoryPlayerController player;
+    public float partVisualRange=14f, workIconRange=10f, vehicleBadgeRange=60f;
     public int MissingPartCount { get; private set; }
     public int AffectedCarCount { get; private set; }
-
-    private LineTrafficManager traffic;
-    private Material proxyMaterial;
-    private readonly Dictionary<CarController, AssemblyPart[]> partsByCar = new Dictionary<CarController, AssemblyPart[]>();
-    private readonly Dictionary<AssemblyPart, PartProxy> proxiesByPart = new Dictionary<AssemblyPart, PartProxy>();
-    private readonly HashSet<CarController> liveCars = new HashSet<CarController>();
-    private readonly HashSet<AssemblyPart> wantedParts = new HashSet<AssemblyPart>();
-    private readonly HashSet<PartType> requiredTypes = new HashSet<PartType>();
-    private readonly List<CarController> staleCars = new List<CarController>();
-    private readonly List<AssemblyPart> staleParts = new List<AssemblyPart>();
-
-    private sealed class PartProxy
+    public int SlotPartCount { get; private set; }
+    public int OutlinePartCount { get; private set; }
+    public int PreviewPartCount { get; private set; }
+    public int VisibleWorkIconCount { get; private set; }
+    public int VehicleBadgeCount { get; private set; }
+    LineTrafficManager traffic;
+    Material cornerMaterial,outlineMaterial,previewMaterial;
+    readonly Dictionary<CarController,AssemblyPart[]> partsByCar=new Dictionary<CarController,AssemblyPart[]>();
+    readonly Dictionary<AssemblyPart,PartVisual> visuals=new Dictionary<AssemblyPart,PartVisual>();
+    readonly HashSet<CarController> liveCars=new HashSet<CarController>();
+    readonly HashSet<AssemblyPart> wanted=new HashSet<AssemblyPart>();
+    readonly HashSet<PartType> overdue=new HashSet<PartType>();
+    readonly List<AssemblyPart> staleParts=new List<AssemblyPart>();
+    readonly List<CarController> staleCars=new List<CarController>();
+    readonly List<VehicleBadge> badges=new List<VehicleBadge>();
+    readonly Rect[] iconRects=new Rect[8];
+    readonly RewardPopup[] rewards=new RewardPopup[8];
+    PrototypeDayCycle rewardCycle;
+    int nextReward;
+    struct RewardPopup { public Vector3 point; public float expires; public string text; }
+    struct VehicleBadge { public CarController car; public int count; }
+    sealed class MeshCopy { public Transform node; public MeshRenderer renderer; public Mesh ownedMesh; public Material[] materials; public Material currentMaterial; }
+    sealed class PartVisual
     {
-        public readonly List<MeshProxy> meshes = new List<MeshProxy>();
+        public Transform root;
+        public MeshRenderer corners;
+        public Mesh cornerMesh;
+        public Bounds localBounds;
+        public PartState state;
+        public bool preview;
+        public readonly List<MeshCopy> copies=new List<MeshCopy>();
     }
-
-    private sealed class MeshProxy
-    {
-        public Transform sourceTransform;
-        public Transform partTransform;
-        public MeshFilter sourceFilter;
-        public SkinnedMeshRenderer sourceSkin;
-        public MeshFilter proxyFilter;
-        public MeshRenderer proxyRenderer;
-        public Mesh bakedMesh;
-    }
-
-    private void OnEnable()
-    {
-        RefreshDisplay();
-    }
-
-    private void Update()
-    {
-        RefreshDisplay();
-    }
-
-    /// <summary>Recomputes counters and proxy visibility immediately; safe to call from deterministic checks.</summary>
+    void OnEnable()=>RefreshDisplay();
+    void LateUpdate()=>RefreshDisplay();
+    public PartState StateOf(AssemblyPart part)=>part!=null&&visuals.TryGetValue(part,out var v)?v.state:PartState.None;
+    public bool PreviewOf(AssemblyPart part)=>part!=null&&visuals.TryGetValue(part,out var v)&&v.preview;
     public void RefreshDisplay()
     {
-        if (progression == null || progression.mainSpline == null || progression.processes == null)
+        if(rewardCycle!=PrototypeDayCycle.Current)
         {
-            ClearProxies();
-            MissingPartCount = 0;
-            AffectedCarCount = 0;
-            return;
+            if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid-=RewardPaid;
+            rewardCycle=PrototypeDayCycle.Current;
+            if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid+=RewardPaid;
         }
-
-        // Never use LineTrafficManager.Instance here: its MonoSingleton getter creates an object when
-        // absent, including during teardown. Scene lookup only returns an already-existing manager.
-        if (traffic == null) traffic = FindFirstObjectByType<LineTrafficManager>();
-        if (traffic == null || !traffic.isActiveAndEnabled)
+        MissingPartCount=AffectedCarCount=SlotPartCount=OutlinePartCount=PreviewPartCount=0;
+        badges.Clear();wanted.Clear();liveCars.Clear();
+        if(progression==null||progression.mainSpline==null||progression.processes==null){ClearVisuals();return;}
+        if(traffic==null)traffic=FindFirstObjectByType<LineTrafficManager>();
+        if(player==null)player=FindFirstObjectByType<FactoryPlayerController>();
+        if(traffic==null||!traffic.isActiveAndEnabled){ClearVisuals();return;}
+        var interactor=player!=null?player.interactor:null;
+        var focused=interactor!=null&&interactor.inputEnabled&&player!=null&&!player.MapMode&&player.ControlsActive?interactor.FocusedPart:null;
+        if(focused!=null&&!interactor.IsAimingAt(focused))focused=null;
+        foreach(var car in traffic.ActiveCars)
         {
-            ClearProxies();
-            MissingPartCount = 0;
-            AffectedCarCount = 0;
-            return;
-        }
-
-        liveCars.Clear();
-        wantedParts.Clear();
-        int missingCount = 0;
-        int affectedCount = 0;
-        IReadOnlyList<CarController> cars = traffic.ActiveCars;
-
-        for (int i = 0; i < cars.Count; i++)
-        {
-            CarController car = cars[i];
-            if (car == null || !car.gameObject.activeInHierarchy) continue;
+            if(car==null||!car.gameObject.activeInHierarchy)continue;
             liveCars.Add(car);
-
-            if (!car.CanRepair || car.targetSpline != progression.mainSpline) continue;
-            AssemblyPart[] parts = GetParts(car);
-            requiredTypes.Clear();
-            float splineLength = car.SplineLength;
-            if (splineLength <= 0f) continue;
-
-            for (int p = 0; p < progression.processes.Length; p++)
+            if(!car.CanRepair||car.targetSpline!=progression.mainSpline||car.SplineLength<=0)continue;
+            if(!partsByCar.TryGetValue(car,out var parts)){parts=car.GetComponentsInChildren<AssemblyPart>(true);partsByCar.Add(car,parts);}
+            overdue.Clear();
+            float meters=progression.prototypeSettings!=null?progression.prototypeSettings.workZoneMeters:6f;
+            foreach(var process in progression.processes)
             {
-                ProductionProgression.ProcessEntry process = progression.processes[p];
-                if (process == null || process.parts == null || process.parts.Length == 0) continue;
-
-                // A process becomes a defect only after the car has passed its six-meter work window.
-                float passedProgress = process.gateProgress + (progression.prototypeSettings != null ? progression.prototypeSettings.workZoneMeters : WorkZoneMeters) / splineLength;
-                if (car.pathProgress <= passedProgress) continue;
-
-                for (int t = 0; t < process.parts.Length; t++)
+                if(process==null||process.parts==null||car.pathProgress<=process.gateProgress+meters/car.SplineLength)continue;
+                foreach(var type in process.parts)if(type!=PartType.None&&type!=PartType.Frame_1)overdue.Add(type);
+            }
+            int count=0;
+            foreach(var part in parts)
+            {
+                if(part==null||part.myType==PartType.None||part.myType==PartType.Frame_1||part.IsAssembled)continue;
+                bool attached=part.IsPlayerAttached||part.currentWork>0f;
+                bool missed=overdue.Contains(part.myType);
+                bool selected=part==focused;
+                if(attached||missed)count++;
+                if(!attached&&!missed&&!selected)continue;
+                float distance=player!=null?Vector3.Distance(player.transform.position,part.AttachmentWorldPosition):0;
+                if(distance>partVisualRange&&!selected)continue;
+                wanted.Add(part);
+                if(!visuals.TryGetValue(part,out var visual)){visual=CreateVisual(part);visuals.Add(part,visual);}
+                visual.state=attached?PartState.AttachedPending:PartState.MissingSlot;
+                visual.preview=selected&&!attached&&!part.IsPlayerAttaching&&interactor!=null&&interactor.HeldPart!=null&&interactor.HeldPart.PartType==part.myType;
+                bool showSlot=!attached&&!part.IsPlayerAttaching;
+                visual.corners.enabled=showSlot;
+                if(showSlot)SlotPartCount++;
+                if(attached)OutlinePartCount++;
+                if(visual.preview)PreviewPartCount++;
+                visual.root.SetPositionAndRotation(attached?part.transform.position:part.AttachmentWorldPosition,attached?part.transform.rotation:part.AttachmentWorldRotation);
+                visual.root.localScale=part.transform.lossyScale;
+                foreach(var copy in visual.copies)
                 {
-                    PartType type = process.parts[t];
-                    if (type != PartType.None && type != PartType.Frame_1) requiredTypes.Add(type);
+                    copy.renderer.enabled=attached||visual.preview;
+                    var material=attached?GetOutlineMaterial():GetPreviewMaterial();
+                    if(copy.currentMaterial!=material)
+                    {for(int m=0;m<copy.materials.Length;m++)copy.materials[m]=material;copy.renderer.sharedMaterials=copy.materials;copy.currentMaterial=material;}
                 }
             }
-
-            bool affected = false;
-            for (int p = 0; p < parts.Length; p++)
-            {
-                AssemblyPart part = parts[p];
-                if (part == null || !requiredTypes.Contains(part.myType) || part.IsAssembled) continue;
-                missingCount++;
-                affected = true;
-                wantedParts.Add(part);
-                EnsureProxy(part);
-                UpdateProxy(part);
-            }
-            if (affected) affectedCount++;
+            if(count>0){MissingPartCount+=count;AffectedCarCount++;badges.Add(new VehicleBadge{car=car,count=count});}
         }
-
-        MissingPartCount = missingCount;
-        AffectedCarCount = affectedCount;
-
-        PrunePartProxies();
-        PruneCarCaches();
+        staleParts.Clear();foreach(var pair in visuals)if(pair.Key==null||!wanted.Contains(pair.Key))staleParts.Add(pair.Key);
+        foreach(var part in staleParts)Release(part);
+        staleCars.Clear();foreach(var pair in partsByCar)if(pair.Key==null||!liveCars.Contains(pair.Key))staleCars.Add(pair.Key);
+        foreach(var car in staleCars)partsByCar.Remove(car);
     }
-
-    private AssemblyPart[] GetParts(CarController car)
+    Material Material(ref Material cache,string name,Color color,float pixels,CullMode cull)
     {
-        if (partsByCar.TryGetValue(car, out AssemblyPart[] cached) && cached != null) return cached;
-        AssemblyPart[] parts = car.GetComponentsInChildren<AssemblyPart>(true);
-        partsByCar[car] = parts;
-        return parts;
+        if(cache!=null)return cache;
+        var shader=Resources.Load<Shader>("PrototypeFeedback/PartOverlay");
+        if(shader==null)return null;
+        cache=new Material(shader){name=name,hideFlags=HideFlags.DontSave};
+        cache.SetColor("_OverlayColor",color);cache.SetFloat("_OutlinePixels",pixels);cache.SetFloat("_Cull",(float)cull);
+        return cache;
     }
-
-    private void EnsureProxy(AssemblyPart part)
+    Material GetOutlineMaterial()=>Material(ref outlineMaterial,"UnfastenedOutline",new Color(1f,.12f,.05f,.92f),1.8f,CullMode.Front);
+    Material GetPreviewMaterial()=>Material(ref previewMaterial,"AttachmentPreview",new Color(1f,.72f,.3f,.16f),0,CullMode.Off);
+    Material GetCornerMaterial()=>Material(ref cornerMaterial,"MissingSlotCorners",new Color(1f,.22f,.08f,.9f),0,CullMode.Off);
+    PartVisual CreateVisual(AssemblyPart part)
     {
-        if (proxiesByPart.ContainsKey(part)) return;
-        PartProxy proxy = new PartProxy();
-        proxiesByPart.Add(part, proxy);
-
-        Transform[] children = part.GetComponentsInChildren<Transform>(true);
-        for (int i = 0; i < children.Length; i++)
+        var visual=new PartVisual();
+        visual.root=new GameObject("PartFeedback_"+part.myType){hideFlags=HideFlags.DontSave}.transform;
+        bool boundsStarted=false;
+        foreach(var renderer in part.GetComponentsInChildren<Renderer>(true))
         {
-            Transform source = children[i];
-            MeshFilter filter = source.GetComponent<MeshFilter>();
-            SkinnedMeshRenderer skin = source.GetComponent<SkinnedMeshRenderer>();
-            if (filter == null && skin == null) continue;
-            Mesh mesh = filter != null ? filter.sharedMesh : skin.sharedMesh;
-            if (mesh == null) continue;
-
-            var go = new GameObject("DefectProxy_" + part.myType);
-            go.hideFlags = HideFlags.DontSave;
-            var proxyFilter = go.AddComponent<MeshFilter>();
-            var proxyRenderer = go.AddComponent<MeshRenderer>();
-            proxyFilter.sharedMesh = mesh;
-            proxyRenderer.sharedMaterial = GetProxyMaterial();
-            proxyRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            proxyRenderer.receiveShadows = false;
-            proxyRenderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            proxyRenderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-
-            proxy.meshes.Add(new MeshProxy
+            if(renderer.GetComponentInParent<AssemblyPart>(true)!=part)continue;
+            Mesh mesh=null,owned=null;
+            var filter=renderer.GetComponent<MeshFilter>();
+            if(filter!=null)mesh=filter.sharedMesh;
+            else if(renderer is SkinnedMeshRenderer skin){owned=new Mesh{name="PartFeedbackSkin"};skin.BakeMesh(owned);mesh=owned;}
+            if(mesh==null)continue;
+            var relative=part.transform.worldToLocalMatrix*renderer.transform.localToWorldMatrix;
+            for(int corner=0;corner<8;corner++)
             {
-                sourceTransform = source,
-                partTransform = part.transform,
-                sourceFilter = filter,
-                sourceSkin = skin,
-                proxyFilter = proxyFilter,
-                proxyRenderer = proxyRenderer
-            });
-        }
-    }
-
-    private Material GetProxyMaterial()
-    {
-        if (proxyMaterial != null) return proxyMaterial;
-        Shader shader = Shader.Find("Universal Render Pipeline/Lit");
-        if (shader == null) shader = Shader.Find("Universal Render Pipeline/Unlit");
-        if (shader == null) shader = Shader.Find("Standard");
-        if (shader == null) return null;
-
-        proxyMaterial = new Material(shader) { name = "PrototypeDefectProxyMaterial", hideFlags = HideFlags.DontSave };
-        Color red = new Color(1f, .035f, .02f, 1f);
-        if (proxyMaterial.HasProperty("_BaseColor")) proxyMaterial.SetColor("_BaseColor", red);
-        if (proxyMaterial.HasProperty("_Color")) proxyMaterial.SetColor("_Color", red);
-        return proxyMaterial;
-    }
-
-    private void UpdateProxy(AssemblyPart part)
-    {
-        if (!proxiesByPart.TryGetValue(part, out PartProxy proxy)) return;
-        Vector3 attachmentPosition = part.AttachmentWorldPosition;
-        Quaternion attachmentRotation = part.AttachmentWorldRotation;
-
-        for (int i = 0; i < proxy.meshes.Count; i++)
-        {
-            MeshProxy meshProxy = proxy.meshes[i];
-            if (meshProxy.sourceTransform == null || meshProxy.proxyFilter == null) continue;
-
-            if (meshProxy.sourceSkin != null)
-            {
-                if (meshProxy.bakedMesh == null)
-                {
-                    meshProxy.bakedMesh = new Mesh { name = "DefectProxyBakedMesh", hideFlags = HideFlags.DontSave };
-                    meshProxy.proxyFilter.sharedMesh = meshProxy.bakedMesh;
-                }
-                meshProxy.sourceSkin.BakeMesh(meshProxy.bakedMesh);
+                var point=relative.MultiplyPoint3x4(Corner(mesh.bounds,corner));
+                if(!boundsStarted){visual.localBounds=new Bounds(point,Vector3.zero);boundsStarted=true;}else visual.localBounds.Encapsulate(point);
             }
-            else if (meshProxy.sourceFilter != null && meshProxy.proxyFilter.sharedMesh != meshProxy.sourceFilter.sharedMesh)
-            {
-                meshProxy.proxyFilter.sharedMesh = meshProxy.sourceFilter.sharedMesh;
-            }
-
-            Matrix4x4 relative = meshProxy.partTransform.worldToLocalMatrix * meshProxy.sourceTransform.localToWorldMatrix;
-            Vector3 localPosition = relative.MultiplyPoint3x4(Vector3.zero);
-            Vector3 right = relative.GetColumn(0);
-            Vector3 up = relative.GetColumn(1);
-            Vector3 forward = relative.GetColumn(2);
-            Vector3 localScale = new Vector3(right.magnitude, up.magnitude, forward.magnitude);
-            if (Vector3.Dot(Vector3.Cross(right, up), forward) < 0f) localScale.x = -localScale.x;
-            Quaternion localRotation = forward.sqrMagnitude > 1e-8f && up.sqrMagnitude > 1e-8f
-                ? Quaternion.LookRotation(forward.normalized, up.normalized)
-                : Quaternion.identity;
-
-            Transform proxyTransform = meshProxy.proxyFilter.transform;
-            Vector3 partWorldScale = part.transform.lossyScale;
-            proxyTransform.SetPositionAndRotation(
-                attachmentPosition + attachmentRotation * Vector3.Scale(partWorldScale, localPosition),
-                attachmentRotation * localRotation);
-            proxyTransform.localScale = Vector3.Scale(partWorldScale, localScale) * ProxyScale;
-            meshProxy.proxyRenderer.enabled = proxyMaterial != null;
+            var go=new GameObject("PartFeedbackMesh"){hideFlags=HideFlags.DontSave};go.transform.SetParent(visual.root,false);
+            go.transform.localPosition=relative.GetColumn(3);
+            Vector3 x=relative.GetColumn(0),y=relative.GetColumn(1),z=relative.GetColumn(2);
+            var scale=new Vector3(x.magnitude,y.magnitude,z.magnitude);
+            if(Vector3.Dot(Vector3.Cross(x,y),z)<0)scale.x=-scale.x;
+            go.transform.localRotation=z.sqrMagnitude>1e-8f&&y.sqrMagnitude>1e-8f?Quaternion.LookRotation(z,y):Quaternion.identity;
+            go.transform.localScale=scale;
+            go.AddComponent<MeshFilter>().sharedMesh=mesh;
+            var copy=go.AddComponent<MeshRenderer>();ConfigureRenderer(copy);copy.enabled=false;
+            visual.copies.Add(new MeshCopy{node=go.transform,renderer=copy,ownedMesh=owned,materials=new Material[Mathf.Max(1,mesh.subMeshCount)]});
         }
+        if(!boundsStarted)visual.localBounds=new Bounds(Vector3.zero,Vector3.one*.25f);
+        var corners=new GameObject("MissingSlotCorners"){hideFlags=HideFlags.DontSave};corners.transform.SetParent(visual.root,false);
+        visual.cornerMesh=CornerMesh(visual.localBounds);
+        corners.AddComponent<MeshFilter>().sharedMesh=visual.cornerMesh;
+        visual.corners=corners.AddComponent<MeshRenderer>();ConfigureRenderer(visual.corners);visual.corners.sharedMaterial=GetCornerMaterial();
+        return visual;
     }
-
-    private void PrunePartProxies()
+    static void ConfigureRenderer(MeshRenderer renderer)
+    {renderer.shadowCastingMode=ShadowCastingMode.Off;renderer.receiveShadows=false;renderer.lightProbeUsage=LightProbeUsage.Off;renderer.reflectionProbeUsage=ReflectionProbeUsage.Off;}
+    static Vector3 Corner(Bounds b,int n)=>b.center+new Vector3((n&1)==0?-b.extents.x:b.extents.x,(n&2)==0?-b.extents.y:b.extents.y,(n&4)==0?-b.extents.z:b.extents.z);
+    static Mesh CornerMesh(Bounds source)
     {
-        staleParts.Clear();
-        foreach (KeyValuePair<AssemblyPart, PartProxy> entry in proxiesByPart)
-            if (entry.Key == null || !wantedParts.Contains(entry.Key)) staleParts.Add(entry.Key);
-        for (int i = 0; i < staleParts.Count; i++) ReleaseProxy(staleParts[i]);
-    }
-
-    private void PruneCarCaches()
-    {
-        staleCars.Clear();
-        foreach (KeyValuePair<CarController, AssemblyPart[]> entry in partsByCar)
-            if (entry.Key == null || !liveCars.Contains(entry.Key)) staleCars.Add(entry.Key);
-        for (int i = 0; i < staleCars.Count; i++) partsByCar.Remove(staleCars[i]);
-    }
-
-    private void ReleaseProxy(AssemblyPart part)
-    {
-        if (!proxiesByPart.TryGetValue(part, out PartProxy proxy)) return;
-        proxiesByPart.Remove(part);
-        for (int i = 0; i < proxy.meshes.Count; i++)
+        source.Expand(.08f);
+        var vertices=new Vector3[48];var indices=new int[48];int index=0;
+        for(int corner=0;corner<8;corner++)for(int axis=0;axis<3;axis++)
         {
-            MeshProxy mesh = proxy.meshes[i];
-            if (mesh.proxyFilter != null) mesh.proxyFilter.sharedMesh = null;
-            if (mesh.bakedMesh != null) Destroy(mesh.bakedMesh);
-            if (mesh.proxyFilter != null) Destroy(mesh.proxyFilter.gameObject);
+            var start=Corner(source,corner);var end=Vector3.Lerp(start,Corner(source,corner^(1<<axis)),.18f);
+            vertices[index]=start;indices[index]=index;index++;vertices[index]=end;indices[index]=index;index++;
+        }
+        var mesh=new Mesh{name="MissingSlotBrackets",hideFlags=HideFlags.DontSave};mesh.vertices=vertices;mesh.SetIndices(indices,MeshTopology.Lines,0);mesh.RecalculateBounds();return mesh;
+    }
+    void OnGUI()
+    {
+        VisibleWorkIconCount=VehicleBadgeCount=0;
+        if(player==null||player.viewCamera==null||player.InteractionUIOpen||(PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement))return;
+        var camera=player.viewCamera;var focused=player.interactor!=null?player.interactor.FocusedPart:null;
+        var color=GUI.color;
+        if(!player.MapMode)
+        {
+            foreach(var pair in visuals)
+            {
+                if(pair.Value.state!=PartState.AttachedPending||pair.Key==focused)continue;
+                var center=pair.Value.root.TransformPoint(pair.Value.localBounds.center);
+                if(Vector3.Distance(player.transform.position,center)>workIconRange)continue;
+                var screen=camera.WorldToScreenPoint(center);if(screen.z<=0||screen.x<20||screen.x>Screen.width-20||screen.y<24||screen.y>Screen.height-24)continue;
+                var rect=new Rect(screen.x-9,Screen.height-screen.y-18,18,18);bool overlaps=false;
+                for(int n=0;n<VisibleWorkIconCount;n++)if(iconRects[n].Overlaps(rect)){overlaps=true;break;}
+                if(overlaps||VisibleWorkIconCount==iconRects.Length)continue;
+                iconRects[VisibleWorkIconCount++]=rect;
+                GUI.color=new Color(1f,.75f,.3f);GUI.DrawTexture(new Rect(rect.x+8,rect.y+5,3,11),Texture2D.whiteTexture);GUI.DrawTexture(new Rect(rect.x+3,rect.y+3,13,5),Texture2D.whiteTexture);
+            }
+        }
+        GUI.color=color;
+        if(!player.MapMode&&focused!=null&&focused.IsPlayerAttached&&!focused.IsAssembled&&!focused.IsPlayerAttaching)
+        {
+            var screen=camera.WorldToScreenPoint(player.interactor.InteractionPoint(focused));
+            if(screen.z>0)
+            {
+                float x=Mathf.Clamp(screen.x-110,8,Mathf.Max(8,Screen.width-228));
+                float y=Mathf.Clamp(Screen.height-screen.y+26,8,Mathf.Max(8,Screen.height-128));
+                GUI.Box(new Rect(x,y,220,28),PlayerAssemblyInteractor.PartLabel(focused.myType)+" · 망치 "+focused.PlayerHitsRemaining(player.interactor.PlayerHammerHits)+"회");
+            }
+        }
+        for(int n=0;n<rewards.Length;n++)
+        {
+            var reward=rewards[n];float remaining=reward.expires-Time.time;
+            if(remaining<=0||reward.text==null||Vector3.Distance(player.transform.position,reward.point)>12f)continue;
+            var screen=camera.WorldToScreenPoint(reward.point+Vector3.up*(.18f+(1.1f-remaining)*.35f));
+            if(screen.z<=0)continue;
+            GUI.color=new Color(1f,.85f,.45f,Mathf.Clamp01(remaining*2));
+            GUI.Label(new Rect(screen.x-30,Screen.height-screen.y-18,80,24),reward.text);
+        }
+        GUI.color=color;
+        foreach(var badge in badges)
+        {
+            if(badge.car==null)continue;
+            float distance=Vector3.Distance(player.transform.position,badge.car.transform.position);
+            if((distance<=workIconRange&&!player.MapMode)||distance>vehicleBadgeRange)continue;
+            var screen=camera.WorldToScreenPoint(badge.car.transform.position+Vector3.up*2.15f);
+            if(screen.z<=0||screen.x<55||screen.x>Screen.width-55||screen.y<20||screen.y>Screen.height-20)continue;
+            VehicleBadgeCount++;GUI.Box(new Rect(screen.x-48,Screen.height-screen.y-12,96,25),"미체결 "+badge.count);
         }
     }
-
-    private void ClearProxies()
+    void Release(AssemblyPart part)
     {
-        staleParts.Clear();
-        foreach (KeyValuePair<AssemblyPart, PartProxy> entry in proxiesByPart) staleParts.Add(entry.Key);
-        for (int i = 0; i < staleParts.Count; i++) ReleaseProxy(staleParts[i]);
-        partsByCar.Clear();
+        if(!visuals.TryGetValue(part,out var visual))return;
+        visuals.Remove(part);foreach(var copy in visual.copies)if(copy.ownedMesh!=null)Destroy(copy.ownedMesh);
+        if(visual.cornerMesh!=null)Destroy(visual.cornerMesh);if(visual.root!=null)Destroy(visual.root.gameObject);
     }
-
-    private void OnDisable()
-    {
-        ClearProxies();
-        MissingPartCount = 0;
-        AffectedCarCount = 0;
-        traffic = null;
-    }
-
-    private void OnDestroy()
-    {
-        ClearProxies();
-        if (proxyMaterial != null) Destroy(proxyMaterial);
-    }
+    void ClearVisuals()
+    {staleParts.Clear();foreach(var pair in visuals)staleParts.Add(pair.Key);foreach(var part in staleParts)Release(part);partsByCar.Clear();}
+    void RewardPaid(Vector3 point,int amount){rewards[nextReward]=new RewardPopup{point=point,expires=Time.time+1.1f,text="+"+amount+"원"};nextReward=(nextReward+1)%rewards.Length;}
+    void OnDisable(){if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid-=RewardPaid;rewardCycle=null;System.Array.Clear(rewards,0,rewards.Length);ClearVisuals();MissingPartCount=AffectedCarCount=SlotPartCount=OutlinePartCount=PreviewPartCount=VisibleWorkIconCount=VehicleBadgeCount=0;traffic=null;}
+    void OnDestroy(){ClearVisuals();if(cornerMaterial!=null)Destroy(cornerMaterial);if(outlineMaterial!=null)Destroy(outlineMaterial);if(previewMaterial!=null)Destroy(previewMaterial);}
 }

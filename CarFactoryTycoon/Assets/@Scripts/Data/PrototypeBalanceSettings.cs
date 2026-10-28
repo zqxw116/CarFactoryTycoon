@@ -31,6 +31,7 @@ public sealed class PrototypeBalanceSettings : ScriptableObject
     public int startingMoney = 0, vehicleRevenue = 100, dailyWage = 30;
     public int hirePrice = 0, robotPrice = 1000, lostPartCost = 10;
     public int dailyMissionCars = 3, dailyMissionBonus = 300;
+    [Min(0)] public int assemblyReward = 1;
     public float overtimeWageMultiplier = 1.5f, overtimeFatigueMultiplier = 2f;
     public float droppedPartLifetime = 300f, droppedPartWarningSeconds = 30f;
 }

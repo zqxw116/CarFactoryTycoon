@@ -46,6 +46,7 @@ MonoBehaviour:
   lostPartCost: 10
   dailyMissionCars: 3
   dailyMissionBonus: 300
+  assemblyReward: 1
   overtimeWageMultiplier: 1.5
   overtimeFatigueMultiplier: 2
   droppedPartLifetime: 300

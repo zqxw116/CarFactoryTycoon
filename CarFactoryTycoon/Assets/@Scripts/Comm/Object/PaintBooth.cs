@@ -133,7 +133,7 @@ public class PaintBooth : MonoBehaviour
         // 최초 완료(검정이 완전히 사라진 순간)에만 보상 — 재통과/중복 지급 방지
         if (!paint.FinishReveal()) return;
 
-        int reward = StationConfig.Instance.partReward;
+        int reward = ProductionProgression.Current != null && ProductionProgression.Current.prototypeMode ? 0 : StationConfig.Instance.partReward;
         if (reward > 0)
         {
             Vector3 rewardPos = car.transform.position + Vector3.up * 1.2f;

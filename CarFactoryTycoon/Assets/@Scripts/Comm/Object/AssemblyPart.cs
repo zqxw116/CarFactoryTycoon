@@ -1,4 +1,6 @@
 using System.Collections;
+using System;
+using Object = UnityEngine.Object;
 using UnityEngine;
 using UnityEngine.Splines;
 
@@ -8,6 +10,7 @@ using UnityEditor;
 
 public class AssemblyPart : MonoBehaviour
 {
+    public static event Action<AssemblyPart> OnAssemblyCompletedByWork;
     [Header("마스터 설계도 (Scriptable Object)")]
     public AssemblyPartDataSO masterData;
 
@@ -128,6 +131,7 @@ public class AssemblyPart : MonoBehaviour
         hitPulse = IsAssembled ? 1.35f : 1f;
         gameObject.SetActive(true);
         ApplyPlayerPose();
+        if (IsAssembled) NotifyAssemblyCompletedByWork();
         return true;
     }
 
@@ -191,6 +195,7 @@ public class AssemblyPart : MonoBehaviour
     public void SetActive(bool _isActive) => this.gameObject.SetActive(_isActive);
 
     private bool runtimeInitialized;
+    private bool assemblyRewardPaid;
     private void Awake() => EnsureInitialized();
     private void EnsureInitialized()
     {
@@ -218,6 +223,7 @@ public class AssemblyPart : MonoBehaviour
     public void Reset()
     {
         EnsureInitialized();
+        assemblyRewardPaid = false;
         playerOwner = null; playerAttached = false; playerAttaching = false; hitPulse = 0f;
         workSpline = null;
         assembling = false; // 월드 보간 중단
@@ -257,7 +263,23 @@ public class AssemblyPart : MonoBehaviour
     #endregion
 
     /// <summary>체결 값을 amount만큼 누적(증가)시킨다.</summary>
-    public void AddWork(float amount) => SetWork(currentWork + amount);
+    public void AddWork(float amount)
+    {
+        bool wasAssembled = IsAssembled;
+        SetWork(currentWork + amount);
+        if (!wasAssembled && IsAssembled) NotifyAssemblyCompletedByWork();
+    }
+
+    private void NotifyAssemblyCompletedByWork()
+    {
+        if (assemblyRewardPaid || myType == PartType.Frame_1 || myType == PartType.None) return;
+        PrototypeDayCycle cycle = PrototypeDayCycle.Current;
+        if (cycle == null || cycle.IsSettlement || cycle.progression == null || !cycle.progression.prototypeMode) return;
+        if (owner == null) owner = GetComponentInParent<CarController>();
+        if (owner == null || !owner.gameObject.activeInHierarchy || !owner.CanRepair || owner.targetSpline != cycle.progression.mainSpline) return;
+        assemblyRewardPaid = true;
+        OnAssemblyCompletedByWork?.Invoke(this);
+    }
 
     /// <summary>
     /// 체결 값을 직접 설정한다 (0 ~ requiredWork로 clamp).

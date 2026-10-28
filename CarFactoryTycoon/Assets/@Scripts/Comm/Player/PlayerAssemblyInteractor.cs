@@ -19,6 +19,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     public PortableAssemblyPart HeldPart { get; private set; }
     public AssemblyPart WorkingPart { get; private set; }
     public bool IsAttaching => attachingPart != null;
+    public AssemblyPart FocusedPart => IsAttaching ? attachingPart : focusedPart;
     public float AttachmentProgress => IsAttaching ? Mathf.Clamp01(attachElapsed / AttachSeconds) : 0f;
     public string InteractionHint { get; private set; } = "";
     public bool HasInteractionTarget => focusedStack != null || focusedPortable != null || focusedPart != null || IsAttaching;
@@ -375,7 +376,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         InteractionHint = "E 집기·부착   G 던지기   클릭 망치질";
     }
 
-    private static string PartLabel(PartType type)
+    public static string PartLabel(PartType type)
     {
         var progression = ProductionProgression.Current;
         if (progression != null && progression.processes != null)

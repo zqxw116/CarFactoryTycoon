@@ -37,6 +37,7 @@ public sealed class PrototypeDayHUD : MonoBehaviour
         GUILayout.Label("DAY " + cycle.DayNumber + "  ·  22:00 작업 정산");
         GUILayout.Space(10);
         GUILayout.Label("정상 출고   " + cycle.SoldCars + "대     +" + cycle.SalesIncome);
+        GUILayout.Label("부품 체결   +" + cycle.AssemblyIncome);
         GUILayout.Label("하루 미션   " + (cycle.MissionComplete ? "달성  +" + cycle.MissionIncome : "미달성  0"));
         GUILayout.Label("정규 일당   −" + cycle.RegularWages);
         GUILayout.Label("특근비       −" + cycle.OvertimeWages);

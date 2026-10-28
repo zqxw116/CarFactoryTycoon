@@ -6,6 +6,7 @@ using UnityEngine;
 public sealed class PrototypeDayCycle : MonoBehaviour
 {
     public static PrototypeDayCycle Current { get; private set; }
+    public event Action<Vector3, int> OnAssemblyRewardPaid;
     public ProductionProgression progression;
     public PrototypeBalanceSettings settings;
     public FactoryPlayerController player;
@@ -19,6 +20,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     public int SoldCars { get; private set; }
     public int SalesIncome { get; private set; }
     public int MissionIncome { get; private set; }
+    public int AssemblyIncome { get; private set; }
     public int PartLosses { get; private set; }
     public int PurchaseCosts { get; private set; }
     public float RegularWagesAccrued { get; private set; }
@@ -26,7 +28,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     public int RegularWages { get; private set; }
     public int OvertimeWages { get; private set; }
     public bool MissionComplete => MissionIncome > 0 || missionAwarded;
-    public int NetIncome => SalesIncome + MissionIncome - PartLosses - PurchaseCosts - RegularWages - OvertimeWages;
+    public int NetIncome => SalesIncome + MissionIncome + AssemblyIncome - PartLosses - PurchaseCosts - RegularWages - OvertimeWages;
     public int HumanCount
     {
         get
@@ -62,6 +64,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         economy = EconomyManager.Instance;
         economy.OnVehicleSold += RecordVehicleSale;
         economy.OnMoneyChanged += OnMoneyChanged;
+        AssemblyPart.OnAssemblyCompletedByWork += RecordAssemblyReward;
         hiring = FindFirstObjectByType<FactoryHiringUI>();
         ApplyDuty();
     }
@@ -115,6 +118,16 @@ public sealed class PrototypeDayCycle : MonoBehaviour
             economy.Earn(MissionIncome);
         }
     }
+    void RecordAssemblyReward(AssemblyPart part)
+    {
+        if (Current != this || progression == null || !progression.prototypeMode || IsSettlement || part == null || settings == null || economy == null) return;
+        int amount = Mathf.Max(0, settings.assemblyReward);
+        if (amount <= 0) return;
+        AssemblyIncome += amount;
+        Vector3 position = part.transform.position;
+        economy.Earn(amount, position);
+        OnAssemblyRewardPaid?.Invoke(position, amount);
+    }
     public void RecordPartLoss(int amount)
     {
         if (IsSettlement || economy == null || amount <= 0) return;
@@ -150,7 +163,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         if (!IsSettlement) return;
         RestorePause();
         DayNumber++; GameHour = 8f; OvertimeEnabled = false;
-        SoldCars = SalesIncome = MissionIncome = PartLosses = PurchaseCosts = RegularWages = OvertimeWages = 0;
+        SoldCars = SalesIncome = MissionIncome = AssemblyIncome = PartLosses = PurchaseCosts = RegularWages = OvertimeWages = 0;
         RegularWagesAccrued = OvertimeWagesAccrued = 0f;
         missionAwarded = false; IsSettlement = false;
         if (hiring != null) hiring.enabled = previousHiringEnabled;
@@ -169,6 +182,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     {
         RestorePause();
         if (economy != null) { economy.OnVehicleSold -= RecordVehicleSale; economy.OnMoneyChanged -= OnMoneyChanged; }
+        AssemblyPart.OnAssemblyCompletedByWork -= RecordAssemblyReward;
         if (Current == this) Current = null;
     }
 }
