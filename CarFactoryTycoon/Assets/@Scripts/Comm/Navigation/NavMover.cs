@@ -25,6 +25,9 @@ public class NavMover : MonoBehaviour
     [Header("NavMesh 사용")]
     [Tooltip("끄면 항상 직선 이동(기존 방식).")]
     public bool useNavMesh = true;
+    [Tooltip("Prototype safety: wait/retry instead of walking through blocked routes.")]
+    public bool requireCompletePath = true;
+    float nextRouteRetry;
 
     [Tooltip("시작 위치·목적지를 NavMesh에 붙일 때 찾는 최대 거리(m). 이보다 멀면 직선 폴백.")]
     public float sampleRadius = 1.5f;
@@ -209,6 +212,8 @@ public class NavMover : MonoBehaviour
         }
 
         if (agent.pathPending) return false;
+        if (requireCompletePath && agent.pathStatus != NavMeshPathStatus.PathComplete)
+        { straightFallback = true; return MoveStraight(target); }
 
         // 도착 판정: NavMesh에 붙인 목적지 기준(목표가 장애물에 살짝 묻혀 있어도 가장 가까운 지점에서 도착)
         if (FlatDist(pos, sampledDestination) <= arriveRadius && agent.remainingDistance <= arriveRadius)
@@ -390,6 +395,13 @@ public class NavMover : MonoBehaviour
         if (FlatDist(before, goal) <= 0.02f) { transform.position = goal; return true; }
 
         transform.position = Vector3.MoveTowards(before, goal, moveSpeed * Time.deltaTime);
+        if (crossPhase == CrossPhase.Crossing && crossing != null)
+        {
+            var p = transform.position;
+            float across = Mathf.Abs(crossing.transform.InverseTransformPoint(p).z);
+            p.y = goal.y + crossing.walkwayRise * Mathf.Clamp01((crossing.halfSpan - across) / Mathf.Max(.1f, crossing.halfSpan - 1.2f));
+            transform.position = p;
+        }
         AddMoved(Vector3.Distance(before, transform.position));
         if (face) FaceTowards(goal);
         return FlatDist(transform.position, goal) <= 0.02f;
@@ -402,6 +414,17 @@ public class NavMover : MonoBehaviour
     /// <summary>기존 직선 이동(Worker.MoveToward와 동일). 도착했으면 true.</summary>
     private bool MoveStraight(Vector3 target)
     {
+        if (requireCompletePath && useNavMesh)
+        {
+            if (agent != null && agent.enabled && agent.isOnNavMesh) agent.ResetPath();
+            if (Time.time >= nextRouteRetry)
+            {
+                nextRouteRetry = Time.time + 1f;
+                TryInitAgent();
+                if (navReady) { hasDestination = false; SetDestination(target); }
+            }
+            return false;
+        }
         // 직선 이동 중엔 에이전트를 꺼 둔다 — 켜 두면 transform 이동이 NavMesh 경계에 붙잡힌다.
         // 다음 SetDestination에서 EnsureAgentOnMesh가 다시 켜고 현재 위치로 올린다.
         if (agent != null && agent.enabled) agent.enabled = false;

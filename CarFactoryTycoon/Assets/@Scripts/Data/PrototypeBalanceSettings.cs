@@ -15,7 +15,7 @@ public sealed class PrototypeBalanceSettings : ScriptableObject
     public float jumpHeight = 1.2f, playerGravity = -20f;
     public float lookSensitivity = .12f, thirdPersonDistance = 3.2f;
     [Header("Assembly (M2 / M3)")]
-    public float playerAttachSeconds = .6f, playerHitInterval = .3f;
+    public float playerAttachSeconds = 2f, playerHitInterval = .3f;
     public float npcAttachSeconds = 1f, npcHitInterval = .5f;
     public int requiredHits = 3;
     [Header("M3 provisional robot timing (phase 2 tuning pending)")]

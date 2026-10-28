@@ -18,6 +18,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     public PortableAssemblyPart HeldPart { get; private set; }
     public AssemblyPart WorkingPart { get; private set; }
     public bool IsAttaching => attachingPart != null;
+    public float AttachmentProgress => IsAttaching ? Mathf.Clamp01(attachElapsed / AttachSeconds) : 0f;
     public string InteractionHint { get; private set; } = "";
     public bool HasInteractionTarget => focusedStack != null || focusedPortable != null || focusedPart != null || IsAttaching;
     public int PlayerHammerHits => hammerHitsOverride > 0 ? hammerHitsOverride : Mathf.Max(1, settings != null ? settings.requiredHits : 3);
@@ -40,7 +41,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     private Transform runtimeHoldAnchor;
     private Vector3 lastHitPoint;
 
-    private float AttachSeconds => Mathf.Max(.01f, settings != null ? settings.playerAttachSeconds : .6f);
+    private float AttachSeconds => Mathf.Max(.01f, settings != null ? settings.playerAttachSeconds : 2f);
     private float HitInterval => Mathf.Max(.3f, settings != null ? settings.playerHitInterval : .3f);
     private Vector3 ReachOrigin => transform.position + Vector3.up * 1.1f;
     private Transform View => cameraTransform != null ? cameraTransform : (viewCamera != null ? viewCamera.transform : transform);
@@ -74,7 +75,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void Update()
     {
-        AdvanceAttachment(Time.deltaTime);
+        AdvanceHeldAttachment(Keyboard.current != null && Keyboard.current.eKey.isPressed, Time.deltaTime);
         if (WorkingPart != null && (!WorkingPart.gameObject.activeInHierarchy || !WorkingPart.CanPlayerRepair)) WorkingPart = null;
         if (!inputEnabled || Cursor.lockState != CursorLockMode.Locked)
         {
@@ -141,7 +142,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         if (HeldPart == null || IsAttaching || car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
         var part = FindPart(car, HeldPart.PartType, true, AimPoint(car));
-        if (part == null) return false;
+        if (part == null || !IsAimingAt(part)) return false;
         if (!part.TryBeginPlayerAttachment(this, HeldPart.transform.position, HeldPart.transform.rotation)) return false;
         attachingPart = part;
         WorkingPart = part;
@@ -187,8 +188,41 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         attachingPart = null;
         Destroy(HeldPart.gameObject);
         HeldPart = null;
-        // First hit also waits .3 seconds: .6 attachment + three .3 intervals = 1.5 seconds.
+        // First hit also waits the configured click interval after hold attachment completes.
         lastHitTime = Time.time;
+    }
+
+    // Live input and play-mode checks share the same hold, aim, ownership and reach gates.
+    public void AdvanceHeldAttachment(bool held, float deltaTime)
+    {
+        if (!IsAttaching) return;
+        if (!held || !inputEnabled || Cursor.lockState != CursorLockMode.Locked || !IsAimingAt(attachingPart))
+        { CancelAttachment(); return; }
+        AdvanceAttachment(Mathf.Max(0f, deltaTime));
+    }
+
+    public Vector3 AttachmentAimPoint(AssemblyPart part)
+    {
+        var renderer = part.GetComponentInChildren<MeshRenderer>(true);
+        if (renderer == null) return part.AttachmentWorldPosition;
+        var rotation = part.AttachmentWorldRotation * Quaternion.Inverse(part.transform.rotation);
+        return part.AttachmentWorldPosition + rotation * (renderer.bounds.center - part.transform.position);
+    }
+
+    public bool IsAimingAt(AssemblyPart part)
+    {
+        if (part == null) return false;
+        var target = AttachmentAimPoint(part);
+        var ray = new Ray(View.position, View.forward);
+        float along = Vector3.Dot(target - ray.origin, ray.direction);
+        if (along <= 0 || Vector3.Distance(ray.GetPoint(along), target) > .65f) return false;
+        if (Vector3.Distance(ReachOrigin, target) > interactionRange) return false;
+        int count = Physics.RaycastNonAlloc(ray, hits, along, ~(1 << 10), QueryTriggerInteraction.Ignore);
+        var car = part.GetComponentInParent<CarController>();
+        for (int i=0;i<count;i++)
+            if (hits[i].collider != null && hits[i].collider.GetComponentInParent<CarController>() != car &&
+                !hits[i].collider.transform.IsChildOf(transform)) return false;
+        return true;
     }
 
     private void CancelAttachment()
@@ -230,6 +264,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             Vector3 anchor = part.AttachmentWorldPosition;
             if (Vector3.Distance(ReachOrigin, anchor) > interactionRange) continue;
             float distance = (anchor - aimedPoint).sqrMagnitude;
+            if (needsStock && !IsAimingAt(part)) continue;
             if (distance >= best) continue;
             best = distance;
             closest = part;
@@ -246,7 +281,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     private void UpdateFocus()
     {
         ClearFocus();
-        if (IsAttaching) { InteractionHint = "부착 중…"; return; }
+        if (IsAttaching) { InteractionHint = "E 유지 · 조준을 유지해 부착 중…"; return; }
         Transform view = View;
         float rayLength = interactionRange + Vector3.Distance(view.position, ReachOrigin) + 1f;
         int count = Physics.RaycastNonAlloc(view.position, view.forward, hits, rayLength, ~0, QueryTriggerInteraction.Collide);
@@ -278,10 +313,10 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void UpdateHint()
     {
-        if (IsAttaching) { InteractionHint = "부착 중…"; return; }
+        if (IsAttaching) { InteractionHint = "E 유지 · 조준을 유지해 부착 중…"; return; }
         if (HeldPart != null)
         {
-            InteractionHint = focusedPart != null ? $"{PartLabel(HeldPart.PartType)} · E 부착 / G 던지기" : $"{PartLabel(HeldPart.PartType)} · G 던지기";
+            InteractionHint = focusedPart != null ? $"{PartLabel(HeldPart.PartType)} · E 꾹 눌러 부착 / G 던지기" : $"{PartLabel(HeldPart.PartType)} · 부착 지점 조준 / G 던지기";
             return;
         }
         if (focusedPortable != null) { InteractionHint = $"{PartLabel(focusedPortable.PartType)} · E 줍기"; return; }
@@ -314,13 +349,20 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         var tool = new GameObject("PlayerHammer");
         hammerVisual = tool.transform;
         hammerVisual.SetParent(hammerAnchor, false);
-        hammerVisual.localRotation = Quaternion.Euler(0, 0, 90f);
+        Vector3 finger = Vector3.right;
+        if (bodyAnimator != null && bodyAnimator.isHuman)
+        {
+            var middle = bodyAnimator.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
+            if (middle != null) finger = hammerAnchor.InverseTransformPoint(middle.position);
+        }
+        hammerVisual.localPosition = finger * .5f;
+        hammerVisual.localRotation = Quaternion.FromToRotation(Vector3.up, finger.normalized);
         hammerRestRotation = hammerVisual.localRotation;
         var shader = Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) shader = Shader.Find("Standard");
         if (shader != null) { toolMaterial = new Material(shader); toolMaterial.color = new Color(.25f, .27f, .29f); }
-        MakeToolPiece("Handle", PrimitiveType.Cylinder, new Vector3(0, .12f, 0), new Vector3(.035f, .16f, .035f));
-        MakeToolPiece("Head", PrimitiveType.Cube, new Vector3(0, .29f, 0), new Vector3(.21f, .10f, .09f));
+        MakeToolPiece("Handle", PrimitiveType.Cylinder, new Vector3(0, .045f, 0), new Vector3(.035f, .14f, .035f));
+        MakeToolPiece("Head", PrimitiveType.Cube, new Vector3(0, .22f, 0), new Vector3(.21f, .10f, .09f));
     }
 
     private void MakeToolPiece(string label, PrimitiveType shape, Vector3 position, Vector3 scale)
@@ -349,7 +391,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (animator == null || !animator.isHuman) return;
         bool carrying = HeldPart != null && !IsAttaching;
         float workWeight = inputEnabled && (IsAttaching || hammerPulse > 0f) ? .85f : 0f;
-        Vector3 target = IsAttaching ? attachingPart.transform.position : lastHitPoint;
+        Vector3 target = IsAttaching ? AttachmentAimPoint(attachingPart) : lastHitPoint;
+        if (IsAttaching) target = Vector3.Lerp(holdAnchor.position, target, Mathf.SmoothStep(0f, 1f, AttachmentProgress));
         if (carrying)
         {
             float half = Mathf.Clamp(HeldPart.LocalBounds.extents.x, .12f, .45f);
@@ -360,6 +403,13 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         {
             SetHand(animator, AvatarIKGoal.LeftHand, target - transform.right * .15f, IsAttaching ? workWeight : 0f);
             SetHand(animator, AvatarIKGoal.RightHand, target - View.forward * (.15f + Mathf.Sin(hammerPulse * Mathf.PI) * .20f), workWeight);
+            if (!IsAttaching && workWeight > 0f && hammerAnchor != null)
+            {
+                var direction = View.forward;
+                var rotation = Quaternion.FromToRotation(hammerAnchor.rotation * hammerRestRotation * Vector3.up, direction) * hammerAnchor.rotation;
+                animator.SetIKRotationWeight(AvatarIKGoal.RightHand, workWeight);
+                animator.SetIKRotation(AvatarIKGoal.RightHand, rotation);
+            }
         }
     }
 
@@ -404,6 +454,29 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 16 };
         GUI.Box(new Rect(Screen.width * .5f - 310, Screen.height - 86, 620, 38), GUIContent.none);
         GUI.Label(new Rect(Screen.width * .5f - 305, Screen.height - 82, 610, 30), InteractionHint, style);
+        if (HeldPart != null && cachedCar != null && cachedParts != null && viewCamera != null)
+        {
+            foreach (var candidate in cachedParts)
+            {
+                if (candidate == null || candidate.myType != HeldPart.PartType || !candidate.CanPlayerRepair || candidate.IsPlayerAttached) continue;
+                Vector3 target = AttachmentAimPoint(candidate);
+                if (Vector3.Distance(ReachOrigin,target) > interactionRange) continue;
+                var screen = viewCamera.WorldToScreenPoint(target);
+                if (screen.z <= 0) continue;
+                GUI.color = new Color(1f,.78f,.3f);
+                GUI.Label(new Rect(screen.x-8,Screen.height-screen.y-12,24,24),"□");
+                GUI.color = Color.white;
+            }
+        }
+        if (IsAttaching)
+        {
+            var bar = new Rect(Screen.width * .5f - 110, Screen.height * .5f + 30, 220, 12);
+            GUI.Box(bar, GUIContent.none);
+            GUI.color = new Color(.95f,.72f,.25f);
+            GUI.DrawTexture(new Rect(bar.x+2,bar.y+2,(bar.width-4)*AttachmentProgress,bar.height-4),Texture2D.whiteTexture);
+            GUI.color = Color.white;
+            GUI.Label(new Rect(bar.x,bar.y+14,bar.width,25),"부착 " + Mathf.RoundToInt(AttachmentProgress*100) + "% · E 유지",style);
+        }
     }
 
     private void OnDisable()

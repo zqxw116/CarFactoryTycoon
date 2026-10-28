@@ -46,6 +46,71 @@ public class PaintBooth : MonoBehaviour
         gameObject.layer = stationLayer;
     }
 
+    LineRenderer frame;
+    LineRenderer scan;
+    Material idleMaterial;
+    BoxCollider boothBox;
+    readonly Vector3[] framePoints = new Vector3[16];
+
+    private void OnEnable()
+    {
+        if (frame != null && scan != null) return;
+        boothBox = GetComponent<BoxCollider>();
+        var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
+        if (shader == null) return;
+        idleMaterial = new Material(shader) { name = "PaintBooth_IdleGlow_Runtime" };
+        if (idleMaterial.HasProperty("_BaseColor")) idleMaterial.SetColor("_BaseColor", new Color(.25f, .82f, 1f, 1f));
+        if (idleMaterial.HasProperty("_Color")) idleMaterial.SetColor("_Color", new Color(.25f, .82f, 1f, 1f));
+        if (idleMaterial.HasProperty("_EmissionColor")) idleMaterial.SetColor("_EmissionColor", new Color(.15f, 1.3f, 2f));
+        frame = CreateLine("IdleFrame", .035f, true);
+        scan = CreateLine("IdleScan", .075f, false);
+    }
+
+    private LineRenderer CreateLine(string childName, float width, bool loop)
+    {
+        var go = new GameObject(childName);
+        go.transform.SetParent(transform, false);
+        var line = go.AddComponent<LineRenderer>();
+        line.useWorldSpace = true;
+        line.sharedMaterial = idleMaterial;
+        line.widthMultiplier = width;
+        line.positionCount = loop ? 16 : 2;
+        line.loop = loop;
+        line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        line.receiveShadows = false;
+        return line;
+    }
+
+    private void Update()
+    {
+        if (boothBox == null || frame == null || scan == null) return;
+        Bounds b = boothBox.bounds;
+        float inset = .05f;
+        float minX = b.min.x + inset, maxX = b.max.x - inset;
+        float minY = b.min.y + inset, maxY = b.max.y - inset;
+        float minZ = b.min.z + inset, maxZ = b.max.z - inset;
+        framePoints[0] = new Vector3(minX,minY,minZ); framePoints[1] = new Vector3(maxX,minY,minZ);
+        framePoints[2] = new Vector3(maxX,maxY,minZ); framePoints[3] = new Vector3(minX,maxY,minZ);
+        framePoints[4] = new Vector3(minX,minY,minZ); framePoints[5] = new Vector3(minX,minY,maxZ);
+        framePoints[6] = new Vector3(maxX,minY,maxZ); framePoints[7] = new Vector3(maxX,minY,minZ);
+        framePoints[8] = new Vector3(maxX,maxY,minZ); framePoints[9] = new Vector3(maxX,maxY,maxZ);
+        framePoints[10] = new Vector3(minX,maxY,maxZ); framePoints[11] = new Vector3(minX,maxY,minZ);
+        framePoints[12] = new Vector3(minX,minY,maxZ); framePoints[13] = new Vector3(minX,maxY,maxZ);
+        framePoints[14] = new Vector3(maxX,maxY,maxZ); framePoints[15] = new Vector3(maxX,minY,maxZ);
+        frame.SetPositions(framePoints);
+        float pulse = .72f + .28f * Mathf.Sin(Time.time * 3.2f);
+        float y = Mathf.Lerp(minY, maxY, .5f + .45f * Mathf.Sin(Time.time * 1.4f));
+        scan.SetPosition(0, new Vector3(b.center.x, y, minZ));
+        scan.SetPosition(1, new Vector3(b.center.x, y, maxZ));
+        frame.startColor = frame.endColor = new Color(.25f, .8f, 1f, pulse);
+        scan.startColor = scan.endColor = new Color(.45f, .95f, 1f, pulse);
+    }
+
+    private void OnDestroy()
+    {
+        if (idleMaterial != null) Destroy(idleMaterial);
+    }
+
     private void OnTriggerEnter(Collider other)
     {
         if (!other.TryGetComponent<CarController>(out var car)) return;

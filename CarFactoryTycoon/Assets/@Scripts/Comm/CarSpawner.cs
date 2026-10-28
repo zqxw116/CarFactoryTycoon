@@ -1,9 +1,11 @@
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
+using System;
 
 public class CarSpawner : MonoBehaviour
 {
+    public enum RequestFeedback { Idle, Accepted, Full, Blocked, Exiting }
     [Header("생성 설정")]
     public float spawnInterval = 15f;
 
@@ -21,11 +23,31 @@ public class CarSpawner : MonoBehaviour
     [Header("Prototype manual supply")]
     public bool manualInput;
     [Min(1)] public int queueCapacity = 5;
+    [Min(0f)] public float manualPreparationSeconds = .8f;
     public int PendingCount { get; private set; }
+    public int TotalManualRequestsAccepted { get; private set; }
+    public RequestFeedback LastRequestFeedback { get; private set; }
+    public event Action<RequestFeedback> RequestFeedbackChanged;
+    private float preparationRemaining;
+
+    private void SetRequestFeedback(RequestFeedback value)
+    {
+        LastRequestFeedback = value;
+        RequestFeedbackChanged?.Invoke(value);
+    }
+
     public bool RequestVehicle()
     {
-        if (!manualInput || PendingCount >= Mathf.Max(1, queueCapacity)) return false;
+        if (!manualInput) return false;
+        if (PendingCount >= Mathf.Max(1, queueCapacity))
+        {
+            SetRequestFeedback(RequestFeedback.Full);
+            return false;
+        }
         PendingCount++;
+        TotalManualRequestsAccepted++;
+        if (PendingCount == 1) preparationRemaining = Mathf.Max(0f, manualPreparationSeconds);
+        SetRequestFeedback(RequestFeedback.Accepted);
         return true;
     }
 
@@ -55,7 +77,20 @@ public class CarSpawner : MonoBehaviour
         // 라인 속도 배율이 높을수록 생성도 빨라짐
         if (manualInput)
         {
-            if (PendingCount > 0 && SpawnCar()) PendingCount--;
+            if (PendingCount > 0)
+            {
+                preparationRemaining -= Time.deltaTime;
+                if (preparationRemaining <= 0f)
+                {
+                    if (SpawnCar())
+                    {
+                        PendingCount--;
+                        preparationRemaining = PendingCount > 0 ? Mathf.Max(0f, manualPreparationSeconds) : 0f;
+                        SetRequestFeedback(RequestFeedback.Exiting);
+                    }
+                    else SetRequestFeedback(RequestFeedback.Blocked);
+                }
+            }
             return;
         }
         timer += Time.deltaTime * SpeedMultiplier;

@@ -191,6 +191,9 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
     void BeginBreakup()
     {
         currentCar.LeaveLine();
+        // Spawn render-only copies of the assembled parts before hiding the originals.
+        // These debris objects contain no AssemblyPart/gameplay scripts and cannot be reused.
+        PrototypeCarDebris.Burst(currentCar.GetComponentsInChildren<AssemblyPart>(false));
         foreach (var pose in poses)
         {
             if (pose.part == null) continue;
@@ -205,17 +208,9 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
     {
         if (currentCar == null) { SetState(TestState.Cooldown); return; }
         float t = Mathf.Clamp01(elapsed / Mathf.Max(.01f, breakupDuration));
-        float spread = Mathf.Sin(Mathf.Clamp01(t / .72f) * Mathf.PI);
         float drop = Mathf.Clamp01((t - .25f) / .75f);
         currentCar.transform.position = basePosition + Vector3.down * (6.5f * drop * drop);
         currentCar.transform.rotation = baseRotation;
-        foreach (var pose in poses)
-        {
-            if (pose.part == null || !pose.visible) continue;
-            pose.part.transform.localPosition = pose.position + pose.burst * spread;
-            int key = (int)pose.part.myType;
-            pose.part.transform.localRotation = pose.rotation * Quaternion.Euler((key % 3 - 1) * 55 * spread, (key % 5 - 2) * 32 * spread, 45 * spread);
-        }
         if (t < 1) return;
         RestoreParts();
         currentCar.transform.localScale = baseScale;

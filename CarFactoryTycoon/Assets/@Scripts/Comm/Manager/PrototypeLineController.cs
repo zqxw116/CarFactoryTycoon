@@ -13,6 +13,7 @@ public sealed class PrototypeLineController : MonoBehaviour
     public FactoryPlayerController player;
     public Transform supplyTunnel, leverRoot, leverHandle;
     public TextMesh queueLabel;
+    PrototypeTunnelFeedback tunnelFeedback;
     public LeverPosition lever = LeverPosition.Low;
     [SerializeField, Min(0)] int highSpeedLevel;
     public float CurrentSpeed => settings == null ? 0f : lever == LeverPosition.Stop ? 0f :
@@ -35,10 +36,20 @@ public sealed class PrototypeLineController : MonoBehaviour
     {
         EconomyManager.Instance.currentMoney = settings.startingMoney;
         ApplySpeed();
+        tunnelFeedback = GetComponent<PrototypeTunnelFeedback>();
+        if (tunnelFeedback == null) tunnelFeedback = gameObject.AddComponent<PrototypeTunnelFeedback>();
+        tunnelFeedback.tunnel = supplyTunnel;
+        tunnelFeedback.lever = leverRoot;
+        tunnelFeedback.queueLabel = queueLabel;
         var camera = FindFirstObjectByType<CameraController>();
         if (camera != null && player == null) camera.SetOverview(true);
     }
-    public void SetLever(LeverPosition value) { lever = value; ApplySpeed(); }
+    public void SetLever(LeverPosition value)
+    {
+        if (lever == value) return;
+        lever = value; ApplySpeed();
+        if (tunnelFeedback != null) tunnelFeedback.NotifyLeverChanged();
+    }
     // Called by the future paid upgrade interaction. M1 does not grant free upgrades in its UI.
     public void SetHighSpeedLevel(int value) { highSpeedLevel = Mathf.Max(0, value); ApplySpeed(); }
     void ApplySpeed()
@@ -51,18 +62,14 @@ public sealed class PrototypeLineController : MonoBehaviour
     }
     void Update()
     {
-        if (queueLabel != null)
-        {
-            queueLabel.text = "대기 " + spawner.PendingCount + " / " + spawner.queueCapacity;
-            if (Camera.main != null) queueLabel.transform.rotation = Camera.main.transform.rotation;
-        }
         if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
         var mouse = Mouse.current;
         bool localPlayer = player != null && !player.MapMode;
         if (Camera.main == null) return;
         if (localPlayer)
         {
-            if (!player.ControlsActive || Keyboard.current == null || !Keyboard.current.eKey.wasPressedThisFrame) return;
+            bool pressed=Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame || mouse != null && mouse.leftButton.wasPressedThisFrame;
+            if (!player.ControlsActive || !pressed) return;
         }
         else if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
         var pos = localPlayer ? new Vector2(Screen.width * .5f, Screen.height * .5f) : mouse.position.ReadValue();

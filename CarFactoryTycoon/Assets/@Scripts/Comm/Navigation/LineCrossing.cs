@@ -37,6 +37,8 @@ public class LineCrossing : MonoBehaviour
     [Header("치수")]
     [Tooltip("벨트 중심 → 링크 끝점 거리(m). 통행 불가 벨트 폭의 절반 + 작업자 반경 + 여유보다 커야 한다.")]
     public float halfSpan = 2.2f;
+    [Tooltip("Physical walkway rise above floor; zero keeps older flat links.")]
+    public float walkwayRise;
 
     [Tooltip("횡단 통로 반폭(m, 라인 진행 방향). 차체가 이 구간에 걸치면 건너지 않는다.")]
     public float zoneHalfWidth = 0.9f;
@@ -269,7 +271,7 @@ public class LineCrossing : MonoBehaviour
     public Vector3 EnterWait(NavMover mover)
     {
         if (!waiters.Contains(mover)) waiters.Add(mover);
-        int idx = waiters.IndexOf(mover);
+        int idx = Mathf.Min(waiters.IndexOf(mover), 2);
         int k = (idx + 1) / 2;
         float sign = (idx % 2 == 1) ? 1f : -1f;
         return Downstream * (k * sign * waitSlotSpacing);

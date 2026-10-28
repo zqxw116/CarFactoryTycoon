@@ -23,7 +23,7 @@ MonoBehaviour:
   playerGravity: -20
   lookSensitivity: 0.12
   thirdPersonDistance: 3.2
-  playerAttachSeconds: 0.6
+  playerAttachSeconds: 2
   playerHitInterval: 0.3
   npcAttachSeconds: 1
   npcHitInterval: 0.5
