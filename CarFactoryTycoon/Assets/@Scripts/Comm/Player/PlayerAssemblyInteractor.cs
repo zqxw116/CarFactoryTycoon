@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -40,6 +41,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     private PlayerAssemblyHandIK handIK;
     private Transform runtimeHoldAnchor;
     private Vector3 lastHitPoint;
+    private readonly Dictionary<AssemblyPart, Bounds> targetBounds = new Dictionary<AssemblyPart, Bounds>();
 
     private float AttachSeconds => Mathf.Max(.01f, settings != null ? settings.playerAttachSeconds : 2f);
     private float HitInterval => Mathf.Max(.3f, settings != null ? settings.playerHitInterval : .3f);
@@ -154,7 +156,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     public bool TryHammer(AssemblyPart part)
     {
         if (part == null || HeldPart != null || IsAttaching || !part.CanPlayerRepair ||
-            Vector3.Distance(ReachOrigin, part.AttachmentWorldPosition) > interactionRange ||
+            !IsAimingAt(part) || Vector3.Distance(ReachOrigin, InteractionPoint(part)) > interactionRange ||
             Time.time - lastHitTime + .00001f < HitInterval) return false;
         var car = part.GetComponentInParent<CarController>();
         if (car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
@@ -162,7 +164,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (!part.TryPlayerHammer(PlayerHammerHits)) return false;
         WorkingPart = part;
         lastHitTime = Time.time;
-        lastHitPoint = part.AttachmentWorldPosition;
+        lastHitPoint = InteractionPoint(part);
         hammerPulse = 1f;
         EmitImpact(lastHitPoint, part.IsAssembled);
         PrototypeWorkAudio.PlayWorkPulse(lastHitPoint, part.IsAssembled, PlayerHammerHits == 2, false);
@@ -175,7 +177,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (attachingPart == null) return;
         var car = attachingPart.GetComponentInParent<CarController>();
         if (HeldPart == null || car == null || !car.gameObject.activeInHierarchy || !car.CanRepair ||
-            Vector3.Distance(ReachOrigin, attachingPart.AttachmentWorldPosition) > interactionRange)
+            Vector3.Distance(ReachOrigin, InteractionPoint(attachingPart)) > interactionRange)
         {
             CancelAttachment();
             return;
@@ -203,19 +205,67 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     public Vector3 AttachmentAimPoint(AssemblyPart part)
     {
-        var renderer = part.GetComponentInChildren<MeshRenderer>(true);
-        if (renderer == null) return part.AttachmentWorldPosition;
-        var rotation = part.AttachmentWorldRotation * Quaternion.Inverse(part.transform.rotation);
-        return part.AttachmentWorldPosition + rotation * (renderer.bounds.center - part.transform.position);
+        return AttachmentBounds(part).center;
+    }
+
+    private Bounds LocalTargetBounds(AssemblyPart part)
+    {
+        if (targetBounds.TryGetValue(part, out var bounds)) return bounds;
+        bool found = false;
+        // Cache authored geometry in part space; activation and attachment animation never change it.
+        foreach (var filter in part.GetComponentsInChildren<MeshFilter>(true))
+        {
+            if (filter.sharedMesh == null || filter.GetComponentInParent<AssemblyPart>(true) != part) continue;
+            var matrix = part.transform.worldToLocalMatrix * filter.transform.localToWorldMatrix;
+            var meshBounds = filter.sharedMesh.bounds;
+            for (int corner=0;corner<8;corner++)
+            {
+                var point = matrix.MultiplyPoint3x4(Corner(meshBounds,corner));
+                if (!found) {bounds = new Bounds(point,Vector3.zero);found=true;} else bounds.Encapsulate(point);
+            }
+        }
+        if (!found) bounds = new Bounds(Vector3.zero,Vector3.one*.2f);
+        targetBounds.Add(part,bounds);
+        return bounds;
+    }
+
+    private static Vector3 Corner(Bounds bounds,int corner)
+    {
+        var e = bounds.extents;
+        return bounds.center + new Vector3((corner&1)==0?-e.x:e.x,(corner&2)==0?-e.y:e.y,(corner&4)==0?-e.z:e.z);
+    }
+
+    private Bounds TransformBounds(Bounds local,Matrix4x4 matrix)
+    {
+        var bounds = new Bounds(matrix.MultiplyPoint3x4(Corner(local,0)),Vector3.zero);
+        for(int corner=1;corner<8;corner++)bounds.Encapsulate(matrix.MultiplyPoint3x4(Corner(local,corner)));
+        return bounds;
+    }
+
+    public Bounds AttachmentBounds(AssemblyPart part)
+    {
+        return TransformBounds(LocalTargetBounds(part),Matrix4x4.TRS(part.AttachmentWorldPosition,part.AttachmentWorldRotation,part.transform.lossyScale));
+    }
+
+    public Vector3 InteractionPoint(AssemblyPart part)
+    {
+        var bounds = AttachmentBounds(part);
+        var ray = new Ray(View.position,View.forward);
+        if(bounds.IntersectRay(ray,out float distance))return ray.GetPoint(Mathf.Max(0f,distance));
+        float along = Mathf.Max(0f,Vector3.Dot(bounds.center-ray.origin,ray.direction));
+        return bounds.ClosestPoint(ray.GetPoint(along));
     }
 
     public bool IsAimingAt(AssemblyPart part)
     {
         if (part == null) return false;
-        var target = AttachmentAimPoint(part);
+        var bounds = AttachmentBounds(part);
+        var size = bounds.size;
+        // Small lamps/mirrors get a modest minimum target. Large panels accept their whole surface.
+        bounds.size = new Vector3(Mathf.Max(.28f,size.x+.18f),Mathf.Max(.28f,size.y+.18f),Mathf.Max(.28f,size.z+.18f));
         var ray = new Ray(View.position, View.forward);
-        float along = Vector3.Dot(target - ray.origin, ray.direction);
-        if (along <= 0 || Vector3.Distance(ray.GetPoint(along), target) > .65f) return false;
+        if(!bounds.IntersectRay(ray,out float along) || along < 0f)return false;
+        var target = InteractionPoint(part);
         if (Vector3.Distance(ReachOrigin, target) > interactionRange) return false;
         int count = Physics.RaycastNonAlloc(ray, hits, along, ~(1 << 10), QueryTriggerInteraction.Ignore);
         var car = part.GetComponentInParent<CarController>();
@@ -261,10 +311,10 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             if (part == null || !part.CanPlayerRepair || part.IsPlayerAttaching) continue;
             if (type != PartType.None && part.myType != type) continue;
             if (needsStock ? (part.IsPlayerAttached || part.currentWork > 0f) : (!part.IsPlayerAttached && part.currentWork <= 0f)) continue;
-            Vector3 anchor = part.AttachmentWorldPosition;
+            Vector3 anchor = InteractionPoint(part);
             if (Vector3.Distance(ReachOrigin, anchor) > interactionRange) continue;
             float distance = (anchor - aimedPoint).sqrMagnitude;
-            if (needsStock && !IsAimingAt(part)) continue;
+            if (!IsAimingAt(part)) continue;
             if (distance >= best) continue;
             best = distance;
             closest = part;
@@ -391,8 +441,9 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (animator == null || !animator.isHuman) return;
         bool carrying = HeldPart != null && !IsAttaching;
         float workWeight = inputEnabled && (IsAttaching || hammerPulse > 0f) ? .85f : 0f;
-        Vector3 target = IsAttaching ? AttachmentAimPoint(attachingPart) : lastHitPoint;
-        if (IsAttaching) target = Vector3.Lerp(holdAnchor.position, target, Mathf.SmoothStep(0f, 1f, AttachmentProgress));
+        Vector3 target = lastHitPoint;
+        if (IsAttaching)
+            target = TransformBounds(LocalTargetBounds(attachingPart),attachingPart.transform.localToWorldMatrix).center;
         if (carrying)
         {
             float half = Mathf.Clamp(HeldPart.LocalBounds.extents.x, .12f, .45f);
@@ -402,11 +453,14 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         else
         {
             SetHand(animator, AvatarIKGoal.LeftHand, target - transform.right * .15f, IsAttaching ? workWeight : 0f);
-            SetHand(animator, AvatarIKGoal.RightHand, target - View.forward * (.15f + Mathf.Sin(hammerPulse * Mathf.PI) * .20f), workWeight);
+            Vector3 strikeDirection = (target-(transform.position+Vector3.up*1.2f)).normalized;
+            Vector3 gripToHead = hammerVisual != null ? hammerVisual.localPosition + hammerRestRotation * (Vector3.up*.22f) : Vector3.right*.27f;
+            float toolReach = gripToHead.magnitude * (PlayerHammerHits==2?1.2f:1f);
+            Vector3 handTarget = IsAttaching ? target : target-strikeDirection*(toolReach+Mathf.Sin(hammerPulse*Mathf.PI)*.20f);
+            SetHand(animator, AvatarIKGoal.RightHand, handTarget, workWeight);
             if (!IsAttaching && workWeight > 0f && hammerAnchor != null)
             {
-                var direction = View.forward;
-                var rotation = Quaternion.FromToRotation(hammerAnchor.rotation * hammerRestRotation * Vector3.up, direction) * hammerAnchor.rotation;
+                var rotation = Quaternion.FromToRotation(hammerAnchor.rotation * gripToHead.normalized, strikeDirection) * hammerAnchor.rotation;
                 animator.SetIKRotationWeight(AvatarIKGoal.RightHand, workWeight);
                 animator.SetIKRotation(AvatarIKGoal.RightHand, rotation);
             }
@@ -493,5 +547,6 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (runtimeHoldAnchor != null) Destroy(runtimeHoldAnchor.gameObject);
         if (toolMaterial != null) Destroy(toolMaterial);
         if (sparkMaterial != null) Destroy(sparkMaterial);
+        targetBounds.Clear();
     }
 }
