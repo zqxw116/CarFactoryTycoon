@@ -19,6 +19,7 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     Texture2D smokeTexture;
     CarSpawner subscribedSpawner;
     float shakeTime;
+    float smokeTime;
     float messageTime;
     string message = "";
 
@@ -37,6 +38,7 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     {
         if (subscribedSpawner != null) subscribedSpawner.RequestFeedbackChanged -= OnRequestFeedback;
         subscribedSpawner = null;
+        shakeTime = smokeTime = 0f;
         RestoreTunnelVisuals();
         if (smoke != null)
         {
@@ -65,7 +67,7 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
 
     public void NotifyLeverChanged()
     {
-        shakeTime = Mathf.Max(shakeTime, .32f);
+        // Lever feedback belongs to the label; it must never animate the supply tunnel.
         Show("레버 전환");
     }
 
@@ -73,10 +75,10 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     {
         switch (state)
         {
-            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = Mathf.Max(shakeTime, .22f); break;
+            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = .32f; smokeTime = .8f; break;
             case CarSpawner.RequestFeedback.Full: Show("대기열 가득 참"); break;
             case CarSpawner.RequestFeedback.Blocked: Show("출발 위치 막힘"); break;
-            case CarSpawner.RequestFeedback.Exiting: Show("차량 출발"); shakeTime=Mathf.Max(shakeTime,.35f); break;
+            case CarSpawner.RequestFeedback.Exiting: Show("차량 출발"); break;
         }
     }
 
@@ -120,8 +122,8 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     void UpdateSmoke(CarSpawner spawner)
     {
         if (smoke == null) return;
-        bool active = (spawner != null && spawner.PendingCount > 0) ||
-                      (messageTime > 0f && (message == "투입 준비 중" || message == "차량 출발"));
+        smokeTime = Mathf.Max(0f, smokeTime - Time.deltaTime);
+        bool active = smokeTime > 0f;
         var emission = smoke.emission;
         emission.rateOverTime = active ? 6f : 0f;
         if (active && !smoke.isPlaying) smoke.Play(true);

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -30,14 +30,14 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
     class PartPose
     {
         public AssemblyPart part;
-        public Vector3 position, scale, burst;
+        public Vector3 position, scale;
         public Quaternion rotation;
-        public bool active, enabled, visible;
+        public bool active, enabled, visible, released;
     }
     readonly List<PartPose> poses = new List<PartPose>();
     Vector3[] padHome;
     Quaternion[] leafHome;
-    Vector3 basePosition, baseScale;
+    Vector3 basePosition, baseScale, rejectStartPosition;
     Quaternion baseRotation;
     CarDolly dolly;
     float elapsed, hatch;
@@ -117,7 +117,8 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
                 roll = Mathf.Sin(t * Mathf.PI * 6) * 11f * envelope;
                 raise = liftHeight + Mathf.Sin(t * Mathf.PI * 2) * .07f * envelope;
                 PoseCar(raise, pitch, roll);
-                if (t >= 1) SetState(TestState.Settling);
+                ReleaseLooseParts(t);
+                if (t >= 1) { if (MissingCount == 0) SetState(TestState.Settling); else BeginBreakup(); }
                 break;
             case TestState.Settling:
                 raise = liftHeight * (1 - Mathf.SmoothStep(0, 1, elapsed / Mathf.Max(.01f, settleDuration)));
@@ -159,14 +160,9 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
         poses.Clear();
         foreach (var part in parts)
         {
-            int key = (int)part.myType;
-            Vector3 direction = part.transform.localPosition;
-            direction.y = .35f;
-            if (direction.sqrMagnitude < .01f) direction = Vector3.up;
             poses.Add(new PartPose {part = part, position = part.transform.localPosition, rotation = part.transform.localRotation,
                 scale = part.transform.localScale, active = part.gameObject.activeSelf, enabled = part.enabled,
-                visible = part.IsAssembled && part.gameObject.activeInHierarchy,
-                burst = direction.normalized * (.45f + key % 4 * .1f) + Vector3.up * .35f});
+                visible = part.IsAssembled && part.gameObject.activeInHierarchy});
         }
         dolly = car.Dolly;
         if (dolly != null) dolly.DetachInPlace();
@@ -188,12 +184,25 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
         SetState(TestState.Cooldown);
     }
 
+    void ReleaseLooseParts(float progress)
+    {
+        for (int i = 0; i < poses.Count; i++)
+        {
+            var pose = poses[i];
+            if (pose.released || pose.part == null || pose.part.IsAssembled ||
+                VehicleInspectionRules.DomainOf(pose.part.myType) == VehicleInspectionDomain.None) continue;
+            // Stagger partial attachments through the active vibration, never after settling.
+            float releaseAt = .2f + (i % 7) * .065f;
+            if (progress < releaseAt) continue;
+            pose.released = true;
+            PrototypeCarDebris.Drop(pose.part);
+        }
+    }
     void BeginBreakup()
     {
+        rejectStartPosition = currentCar.transform.position;
         currentCar.LeaveLine();
-        // Spawn render-only copies of the assembled parts before hiding the originals.
-        // These debris objects contain no AssemblyPart/gameplay scripts and cannot be reused.
-        PrototypeCarDebris.Burst(currentCar.GetComponentsInChildren<AssemblyPart>(false));
+        // Loose parts have already dropped during testing. The intact frame is lowered away.
         foreach (var pose in poses)
         {
             if (pose.part == null) continue;
@@ -209,7 +218,7 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
         if (currentCar == null) { SetState(TestState.Cooldown); return; }
         float t = Mathf.Clamp01(elapsed / Mathf.Max(.01f, breakupDuration));
         float drop = Mathf.Clamp01((t - .25f) / .75f);
-        currentCar.transform.position = basePosition + Vector3.down * (6.5f * drop * drop);
+        currentCar.transform.position = rejectStartPosition + Vector3.down * (6.5f * drop * drop);
         currentCar.transform.rotation = baseRotation;
         if (t < 1) return;
         RestoreParts();

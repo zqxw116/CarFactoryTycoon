@@ -163,6 +163,7 @@ public class SplineConveyorDeformer : MonoBehaviour
     readonly List<float> m_ZoneEnd = new List<float>();
     float[] m_ZoneOffset = new float[0];
     float[] m_ZoneSpeed = new float[0];
+    float m_LastAppliedLineSpeed = float.NaN;
     float[] m_ZoneTarget = new float[0];
     int m_SurfaceSubmeshCount;         // 줄무늬 서브메시 수 (구간식이면 구간 수, 아니면 1, 줄무늬 없으면 0)
     MeshRenderer m_Renderer;
@@ -187,7 +188,8 @@ public class SplineConveyorDeformer : MonoBehaviour
             if (distance < best) { best = distance; nearestT = t; nearest = i; }
         }
         float speed = CurrentLineSpeed();
-        if (nearest == 0 && m_ZoneSpeed.Length > 0)
+        if (!(m_SyncLineSpeed && m_LineSource != null && m_LineSource.manualInput &&
+              !Mathf.Approximately(speed, m_LastAppliedLineSpeed)) && nearest == 0 && m_ZoneSpeed.Length > 0)
         {
             float distance = nearestT * m_Spline0Length;
             for (int i = 0; i < m_Spline0ZoneCount; i++)
@@ -301,9 +303,12 @@ public class SplineConveyorDeformer : MonoBehaviour
         float invTile = 1f / StripeTileLength;
         for (int k = 0; k < m_ZoneCount; k++)
         {
-            m_ZoneSpeed[k] = Mathf.MoveTowards(m_ZoneSpeed[k], m_ZoneTarget[k], step);
+            // Prototype lever changes are immediate, matching vehicle movement in this frame.
+            m_ZoneSpeed[k] = m_SyncLineSpeed && m_LineSource != null && m_LineSource.manualInput
+                ? m_ZoneTarget[k] : Mathf.MoveTowards(m_ZoneSpeed[k], m_ZoneTarget[k], step);
             m_ZoneOffset[k] = Mathf.Repeat(m_ZoneOffset[k] - m_ZoneSpeed[k] * dt * invTile, 1f);
         }
+        m_LastAppliedLineSpeed = lineSpeed;
     }
 
     /// <summary>

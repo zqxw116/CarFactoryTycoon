@@ -1,4 +1,4 @@
-using Cinemachine;
+﻿using Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,8 +22,8 @@ public sealed class FactoryPlayerController : MonoBehaviour
     public Vector3 BeltVelocity { get; private set; }
     public Vector3 SpawnPoint { get; set; }
     CharacterController controller;
-    Transform head;
-    Vector3 headScale;
+    Renderer[] firstPersonHiddenRenderers;
+    bool[] firstPersonOriginalForceOffStates;
     float yaw, pitch = 12f, verticalSpeed;
     bool grounded;
     int speedId=Animator.StringToHash("Speed"), motionId=Animator.StringToHash("MotionSpeed");
@@ -35,7 +35,17 @@ public sealed class FactoryPlayerController : MonoBehaviour
         SpawnPoint = transform.position;
         yaw = transform.eulerAngles.y;
         if (bodyAnimator != null && bodyAnimator.isHuman)
-        { head = bodyAnimator.GetBoneTransform(HumanBodyBones.Head); if(head!=null)headScale=head.localScale; }
+        {
+            firstPersonHiddenRenderers = bodyAnimator.GetComponentsInChildren<Renderer>(true);
+            firstPersonOriginalForceOffStates = new bool[firstPersonHiddenRenderers.Length];
+            for (int i = 0; i < firstPersonHiddenRenderers.Length; i++)
+            {
+                Renderer renderer = firstPersonHiddenRenderers[i];
+                firstPersonOriginalForceOffStates[i] = renderer != null && renderer.forceRenderingOff;
+            }
+        }
+        // Keep the test controls self-contained: no scene object or serialized reference is required.
+        if (GetComponent<PrototypePlayerTestControls>() == null) gameObject.AddComponent<PrototypePlayerTestControls>();
     }
     void Start()
     {
@@ -47,9 +57,21 @@ public sealed class FactoryPlayerController : MonoBehaviour
     public void SetFirstPerson(bool value)
     {
         FirstPerson = value;
-        firstPersonCamera.Priority = value ? 20 : 10;
-        thirdPersonCamera.Priority = value ? 10 : 20;
-        if (head != null) head.localScale = value && !MapMode ? headScale * .001f : headScale;
+        if (firstPersonCamera != null) firstPersonCamera.Priority = value ? 20 : 10;
+        if (thirdPersonCamera != null) thirdPersonCamera.Priority = value ? 10 : 20;
+        SetFirstPersonBodyHidden(value && !MapMode);
+    }
+
+    private void SetFirstPersonBodyHidden(bool hidden)
+    {
+        if (firstPersonHiddenRenderers == null) return;
+        for (int i = 0; i < firstPersonHiddenRenderers.Length; i++)
+        {
+            Renderer bodyRenderer = firstPersonHiddenRenderers[i];
+            if (bodyRenderer == null) continue;
+            // forceRenderingOff is per-renderer: other characters keep their normal visibility and shadows.
+            bodyRenderer.forceRenderingOff = hidden || firstPersonOriginalForceOffStates[i];
+        }
     }
     public void SetMapMode(bool value)
     {
@@ -70,7 +92,10 @@ public sealed class FactoryPlayerController : MonoBehaviour
         if(!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);
         if(!MapMode && !InteractionUIOpen && keyboard!=null && keyboard.escapeKey.wasPressedThisFrame) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
         // Re-capturing the cursor does not also swing the hammer.
-        bool recaptured=!InteractionUIOpen && !MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
+        Vector2 pointer=mouse!=null?mouse.position.ReadValue():Vector2.zero;
+        pointer.y=Screen.height-pointer.y;
+        bool overPrototypeButtons=new Rect(Screen.width-176,14,158,30).Contains(pointer)||new Rect(18,Screen.height-220,270,158).Contains(pointer);
+        bool recaptured=!overPrototypeButtons&&!InteractionUIOpen && !MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
         if(recaptured){Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}
         if(interactor!=null)interactor.inputEnabled=ControlsActive&&!recaptured;
         if(ControlsActive && mouse!=null)
@@ -122,7 +147,6 @@ public sealed class FactoryPlayerController : MonoBehaviour
     { controller.enabled=false;transform.position=position;controller.enabled=true;verticalSpeed=0; }
     void LateUpdate()
     {
-        if(head!=null)head.localScale=FirstPerson&&!MapMode?headScale*.001f:headScale;
         if(MapMode || viewCamera==null)return;
         var q=Quaternion.Euler(pitch,yaw,0);
         var eye=transform.position+Vector3.up*1.62f;
@@ -144,10 +168,16 @@ public sealed class FactoryPlayerController : MonoBehaviour
     // Existing locomotion clips include these events. Prototype audio is a later polish task.
     void OnFootstep(AnimationEvent e) { }
     void OnLand(AnimationEvent e) { }
-    void OnDisable(){Cursor.lockState=CursorLockMode.None;Cursor.visible=true;if(head!=null)head.localScale=headScale;}
+    void OnDisable()
+    {
+        Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
+        SetFirstPersonBodyHidden(false);
+    }
     void OnGUI()
     {
         GUI.Label(new Rect(18,14,800,25),"WASD 이동 · Shift 달리기 · Space 점프 · C 1/3인칭 · Tab 지도 · Esc 마우스");
+        if (!MapMode && GUI.Button(new Rect(Screen.width - 176, 14, 158, 30), FirstPerson ? "3인칭 전환 (C)" : "1인칭 전환 (C)"))
+            SetFirstPerson(!FirstPerson);
         if(!MapMode && !InteractionUIOpen && !ControlsActive)GUI.Label(new Rect(Screen.width/2-120,Screen.height/2+30,260,25),"클릭하면 공장 작업으로 돌아갑니다");
     }
 }

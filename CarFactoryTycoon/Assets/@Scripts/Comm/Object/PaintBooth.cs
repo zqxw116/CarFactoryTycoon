@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 #if UNITY_EDITOR
 using UnityEditor;
@@ -46,71 +46,158 @@ public class PaintBooth : MonoBehaviour
         gameObject.layer = stationLayer;
     }
 
-    LineRenderer frame;
-    LineRenderer scan;
-    Material idleMaterial;
+    [Header("도색 분사")]
+    [Tooltip("기존 CFXR smoke atlas. 씬에서 참조하여 빌드에도 포함합니다.")]
+    public Texture2D sprayTexture;
+    readonly System.Collections.Generic.HashSet<CarController> paintingCars = new System.Collections.Generic.HashSet<CarController>();
+    Transform portalRoot, leftPost, rightPost, topBeam;
+    readonly Transform[] nozzles = new Transform[3];
+    ParticleSystem spray;
+    Material frameMaterial, beamMaterial, nozzleMaterial, sprayMaterial;
     BoxCollider boothBox;
-    readonly Vector3[] framePoints = new Vector3[16];
+    Bounds visualBounds;
 
     private void OnEnable()
     {
-        if (frame != null && scan != null) return;
+        if (portalRoot != null) { portalRoot.gameObject.SetActive(true); if (spray != null) spray.Play(); return; }
         boothBox = GetComponent<BoxCollider>();
-        var shader = Shader.Find("Universal Render Pipeline/Unlit") ?? Shader.Find("Sprites/Default");
+        var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
         if (shader == null) return;
-        idleMaterial = new Material(shader) { name = "PaintBooth_IdleGlow_Runtime" };
-        if (idleMaterial.HasProperty("_BaseColor")) idleMaterial.SetColor("_BaseColor", new Color(.25f, .82f, 1f, 1f));
-        if (idleMaterial.HasProperty("_Color")) idleMaterial.SetColor("_Color", new Color(.25f, .82f, 1f, 1f));
-        if (idleMaterial.HasProperty("_EmissionColor")) idleMaterial.SetColor("_EmissionColor", new Color(.15f, 1.3f, 2f));
-        frame = CreateLine("IdleFrame", .035f, true);
-        scan = CreateLine("IdleScan", .075f, false);
+        frameMaterial = CreatePortalMaterial(shader, "PaintBooth_Post_Runtime", new Color(.38f, .43f, .42f));
+        beamMaterial = CreatePortalMaterial(shader, "PaintBooth_Beam_Runtime", new Color(.76f, .75f, .65f));
+        nozzleMaterial = CreatePortalMaterial(shader, "PaintBooth_Nozzle_Runtime", new Color(.68f, .59f, .29f));
+        portalRoot = new GameObject("PaintPortal").transform;
+        portalRoot.SetParent(transform, false);
+        leftPost = CreatePortalPiece("LeftPost", PrimitiveType.Cube, frameMaterial);
+        rightPost = CreatePortalPiece("RightPost", PrimitiveType.Cube, frameMaterial);
+        topBeam = CreatePortalPiece("TopBeam", PrimitiveType.Cube, beamMaterial);
+        for (int i = 0; i < nozzles.Length; i++)
+            nozzles[i] = CreatePortalPiece("SprayNozzle" + (i + 1), PrimitiveType.Cylinder, nozzleMaterial);
+        BuildSpray();
+        UpdatePortal();
     }
 
-    private LineRenderer CreateLine(string childName, float width, bool loop)
+    Material CreatePortalMaterial(Shader shader, string materialName, Color color)
     {
-        var go = new GameObject(childName);
+        var material = new Material(shader) { name = materialName, enableInstancing = true };
+        if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
+        if (material.HasProperty("_Color")) material.SetColor("_Color", color);
+        if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", .22f);
+        return material;
+    }
+
+    Transform CreatePortalPiece(string pieceName, PrimitiveType type, Material material)
+    {
+        var piece = GameObject.CreatePrimitive(type);
+        piece.name = pieceName;
+        piece.transform.SetParent(portalRoot, false);
+        var collider = piece.GetComponent<Collider>();
+        if (collider != null) { collider.enabled = false; Destroy(collider); }
+        var renderer = piece.GetComponent<Renderer>();
+        renderer.sharedMaterial = material;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        return piece.transform;
+    }
+    void BuildSpray()
+    {
+#if UNITY_EDITOR
+        if (sprayTexture == null)
+            sprayTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(AssetDatabase.GUIDToAssetPath("44001ef5b09b59b44a589b1c0c0fd31f"));
+#endif
+        var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+        if (shader == null || sprayTexture == null) return;
+        sprayMaterial = new Material(shader) { name = "PaintBooth_SoftSpray_Runtime", renderQueue = 3000 };
+        sprayMaterial.SetFloat("_Surface", 1f);
+        sprayMaterial.SetFloat("_ZWrite", 0f);
+        sprayMaterial.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        sprayMaterial.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        sprayMaterial.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        sprayMaterial.SetTexture("_BaseMap", sprayTexture);
+        sprayMaterial.mainTexture = sprayTexture;
+        var go = new GameObject("PaintSprayCurtain");
         go.transform.SetParent(transform, false);
-        var line = go.AddComponent<LineRenderer>();
-        line.useWorldSpace = true;
-        line.sharedMaterial = idleMaterial;
-        line.widthMultiplier = width;
-        line.positionCount = loop ? 16 : 2;
-        line.loop = loop;
-        line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-        line.receiveShadows = false;
-        return line;
+        spray = go.AddComponent<ParticleSystem>();
+        spray.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        var main = spray.main;
+        main.loop = true;
+        main.maxParticles = 64;
+        main.startSpeed = 1.6f;
+        main.startSize = new ParticleSystem.MinMaxCurve(.18f, .32f);
+        main.startColor = new Color(.8f, .87f, .83f, .13f);
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var emission = spray.emission; emission.rateOverTime = 0f;
+        var shape = spray.shape; shape.shapeType = ParticleSystemShapeType.Box;
+        var sheet = spray.textureSheetAnimation;
+        sheet.enabled = true; sheet.numTilesX = 2; sheet.numTilesY = 2;
+        sheet.startFrame = new ParticleSystem.MinMaxCurve(0f, 1f);
+        sheet.frameOverTime = 0f;
+        var color = spray.colorOverLifetime; color.enabled = true;
+        var gradient = new Gradient();
+        gradient.SetKeys(new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(0f, 0f), new GradientAlphaKey(.55f, .15f), new GradientAlphaKey(0f, 1f) });
+        color.color = gradient;
+        var renderer = spray.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = sprayMaterial;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        spray.Play();
+    }
+
+    void UpdatePortal()
+    {
+        if (boothBox == null || portalRoot == null) return;
+        visualBounds = boothBox.bounds;
+        var b = visualBounds;
+        portalRoot.SetPositionAndRotation(b.center, Quaternion.identity);
+        var parentScale = transform.lossyScale;
+        portalRoot.localScale = new Vector3(1f / Mathf.Max(.001f, Mathf.Abs(parentScale.x)),
+            1f / Mathf.Max(.001f, Mathf.Abs(parentScale.y)), 1f / Mathf.Max(.001f, Mathf.Abs(parentScale.z)));
+        float height = Mathf.Max(.5f, b.size.y), halfWidth = b.extents.z + .13f;
+        leftPost.localPosition = new Vector3(0f, 0f, -halfWidth);
+        rightPost.localPosition = new Vector3(0f, 0f, halfWidth);
+        leftPost.localScale = rightPost.localScale = new Vector3(.42f, height, .24f);
+        topBeam.localPosition = new Vector3(0f, height * .5f + .1f, 0f);
+        topBeam.localScale = new Vector3(.46f, .25f, halfWidth * 2f + .24f);
+        for (int i = 0; i < nozzles.Length; i++)
+        {
+            nozzles[i].localPosition = new Vector3(0f, height * .5f - .09f, (i - 1) * b.size.z * .3f);
+            nozzles[i].localScale = new Vector3(.16f, .09f, .16f);
+        }
+        if (spray == null) return;
+        spray.transform.SetPositionAndRotation(new Vector3(b.center.x, b.max.y - .08f, b.center.z), Quaternion.Euler(90f, 0f, 0f));
+        var shape = spray.shape; shape.scale = new Vector3(.18f, Mathf.Max(.1f, b.size.z - .2f), .02f);
+        var main = spray.main; main.startLifetime = Mathf.Clamp(b.size.y / 1.6f, .4f, 2.2f);
     }
 
     private void Update()
     {
-        if (boothBox == null || frame == null || scan == null) return;
-        Bounds b = boothBox.bounds;
-        float inset = .05f;
-        float minX = b.min.x + inset, maxX = b.max.x - inset;
-        float minY = b.min.y + inset, maxY = b.max.y - inset;
-        float minZ = b.min.z + inset, maxZ = b.max.z - inset;
-        framePoints[0] = new Vector3(minX,minY,minZ); framePoints[1] = new Vector3(maxX,minY,minZ);
-        framePoints[2] = new Vector3(maxX,maxY,minZ); framePoints[3] = new Vector3(minX,maxY,minZ);
-        framePoints[4] = new Vector3(minX,minY,minZ); framePoints[5] = new Vector3(minX,minY,maxZ);
-        framePoints[6] = new Vector3(maxX,minY,maxZ); framePoints[7] = new Vector3(maxX,minY,minZ);
-        framePoints[8] = new Vector3(maxX,maxY,minZ); framePoints[9] = new Vector3(maxX,maxY,maxZ);
-        framePoints[10] = new Vector3(minX,maxY,maxZ); framePoints[11] = new Vector3(minX,maxY,minZ);
-        framePoints[12] = new Vector3(minX,minY,maxZ); framePoints[13] = new Vector3(minX,maxY,maxZ);
-        framePoints[14] = new Vector3(maxX,maxY,maxZ); framePoints[15] = new Vector3(maxX,minY,maxZ);
-        frame.SetPositions(framePoints);
-        float pulse = .72f + .28f * Mathf.Sin(Time.time * 3.2f);
-        float y = Mathf.Lerp(minY, maxY, .5f + .45f * Mathf.Sin(Time.time * 1.4f));
-        scan.SetPosition(0, new Vector3(b.center.x, y, minZ));
-        scan.SetPosition(1, new Vector3(b.center.x, y, maxZ));
-        frame.startColor = frame.endColor = new Color(.25f, .8f, 1f, pulse);
-        scan.startColor = scan.endColor = new Color(.45f, .95f, 1f, pulse);
+        if (boothBox == null) return;
+        if (boothBox.bounds != visualBounds) UpdatePortal();
+        if (spray == null) return;
+        bool painting = false;
+        foreach (var car in paintingCars)
+            if (car != null && car.gameObject.activeInHierarchy) { painting = true; break; }
+        var emission = spray.emission;
+        emission.rateOverTime = painting ? 30f : 10f;
+        var main = spray.main;
+        main.startColor = new Color(.8f, .87f, .83f, painting ? .42f : .24f);
+    }
+
+    private void OnDisable()
+    {
+        paintingCars.Clear();
+        if (portalRoot != null) portalRoot.gameObject.SetActive(false);
+        if (spray != null) spray.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
     }
 
     private void OnDestroy()
     {
-        if (idleMaterial != null) Destroy(idleMaterial);
+        if (frameMaterial != null) Destroy(frameMaterial);
+        if (beamMaterial != null) Destroy(beamMaterial);
+        if (nozzleMaterial != null) Destroy(nozzleMaterial);
+        if (sprayMaterial != null) Destroy(sprayMaterial);
     }
-
     private void OnTriggerEnter(Collider other)
     {
         if (!other.TryGetComponent<CarController>(out var car)) return;
@@ -122,12 +209,14 @@ public class PaintBooth : MonoBehaviour
         if (!paint.EnsureInit()) return;
 
         // 스캔 평면 = 부스 중심, 기준 방향 = 차량 진행 방향(차 앞머리) — 부스 회전 셋업 불필요
+        paintingCars.Add(car);
         paint.BeginReveal(transform.position, car.transform.forward, edgeGlowWidth, edgeGlowColor);
     }
 
     private void OnTriggerExit(Collider other)
     {
         if (!other.TryGetComponent<CarController>(out var car)) return;
+        paintingCars.Remove(car);
         if (!car.TryGetComponent<CarPaintController>(out var paint)) return;
 
         // 최초 완료(검정이 완전히 사라진 순간)에만 보상 — 재통과/중복 지급 방지

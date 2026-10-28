@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System;
 using Object = UnityEngine.Object;
 using UnityEngine;
@@ -11,6 +11,8 @@ using UnityEditor;
 public class AssemblyPart : MonoBehaviour
 {
     public static event Action<AssemblyPart> OnAssemblyCompletedByWork;
+    public static event Action<AssemblyPart, int> OnAssemblyProgressByWork;
+    public const int FasteningUnits = 3;
     [Header("마스터 설계도 (Scriptable Object)")]
     public AssemblyPartDataSO masterData;
 
@@ -126,16 +128,19 @@ public class AssemblyPart : MonoBehaviour
     {
         if (!CanPlayerRepair || playerAttaching || (!playerAttached && currentWork <= 0f)) return false;
         workSpline = null; assembling = false; playerAttached = true;
-        currentWork = Mathf.Min(requiredWork, currentWork + requiredWork / Mathf.Max(1, requiredHits));
+        float before = currentWork;
+        currentWork = Mathf.Min(requiredWork, currentWork + requiredWork * HammerUnits(requiredHits) / FasteningUnits);
         if (requiredWork - currentWork < .0001f) currentWork = requiredWork;
         hitPulse = IsAssembled ? 1.35f : 1f;
         gameObject.SetActive(true);
         ApplyPlayerPose();
+        NotifyWorkProgress(before);
         if (IsAssembled) NotifyAssemblyCompletedByWork();
         return true;
     }
 
-    public int PlayerHitsRemaining(int requiredHits) => IsAssembled ? 0 : Mathf.Max(1, Mathf.CeilToInt((1f - Fill) * Mathf.Max(1, requiredHits) - .0001f));
+    public static int HammerUnits(int requiredHits) => Mathf.Clamp(Mathf.CeilToInt((float)FasteningUnits / Mathf.Max(1, requiredHits)), 1, FasteningUnits);
+    public int PlayerHitsRemaining(int requiredHits) => IsAssembled ? 0 : Mathf.Max(1, Mathf.CeilToInt((1f - Fill) * FasteningUnits / HammerUnits(requiredHits) - .0001f));
 
     private void ApplyPlayerPose()
     {
@@ -196,6 +201,7 @@ public class AssemblyPart : MonoBehaviour
 
     private bool runtimeInitialized;
     private bool assemblyRewardPaid;
+    private int rewardedWorkUnits;
     private void Awake() => EnsureInitialized();
     private void EnsureInitialized()
     {
@@ -224,6 +230,7 @@ public class AssemblyPart : MonoBehaviour
     {
         EnsureInitialized();
         assemblyRewardPaid = false;
+        rewardedWorkUnits = 0;
         playerOwner = null; playerAttached = false; playerAttaching = false; hitPulse = 0f;
         workSpline = null;
         assembling = false; // 월드 보간 중단
@@ -266,8 +273,24 @@ public class AssemblyPart : MonoBehaviour
     public void AddWork(float amount)
     {
         bool wasAssembled = IsAssembled;
+        float before = currentWork;
         SetWork(currentWork + amount);
+        NotifyWorkProgress(before);
         if (!wasAssembled && IsAssembled) NotifyAssemblyCompletedByWork();
+    }
+
+    private void NotifyWorkProgress(float before)
+    {
+        if (currentWork <= before || requiredWork <= 0f || myType == PartType.Frame_1 || myType == PartType.None) return;
+        var cycle = PrototypeDayCycle.Current;
+        if (cycle == null || cycle.IsSettlement || cycle.progression == null || !cycle.progression.prototypeMode) return;
+        if (owner == null) owner = GetComponentInParent<CarController>();
+        if (owner == null || !owner.gameObject.activeInHierarchy || !owner.CanRepair || owner.targetSpline != cycle.progression.mainSpline) return;
+        int previous = Mathf.Clamp(Mathf.FloorToInt(before / requiredWork * FasteningUnits + .0001f), 0, FasteningUnits);
+        int reached = Mathf.Clamp(Mathf.FloorToInt(Fill * FasteningUnits + .0001f), 0, FasteningUnits);
+        int earned = Mathf.Max(0, reached - Mathf.Max(previous, rewardedWorkUnits));
+        rewardedWorkUnits = Mathf.Max(rewardedWorkUnits, reached);
+        if (earned > 0) OnAssemblyProgressByWork?.Invoke(this, earned);
     }
 
     private void NotifyAssemblyCompletedByWork()

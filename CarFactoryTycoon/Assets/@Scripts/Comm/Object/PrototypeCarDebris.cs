@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Short-lived, render-only physics copies of visible assembled car parts.</summary>
@@ -12,6 +12,8 @@ public sealed class PrototypeCarDebris : MonoBehaviour
     Mesh ownedMesh;
 
     public static int ActiveCount { get { PruneDestroyed(); return Active.Count; } }
+
+    public static void Drop(AssemblyPart part) { if (part != null) Burst(new[] { part }); }
 
     public static void Burst(AssemblyPart[] parts)
     {
@@ -71,9 +73,9 @@ public sealed class PrototypeCarDebris : MonoBehaviour
                 if (away.sqrMagnitude < .01f) away = Vector3.up;
                 Vector3 horizontal = Vector3.ProjectOnPlane(away, Vector3.up);
                 if (horizontal.sqrMagnitude < .01f) horizontal = Random.insideUnitSphere;
-                Vector3 burstDirection = (horizontal.normalized * .8f + Vector3.up * Random.Range(.6f, .9f)).normalized;
-                body.AddForce(burstDirection * Random.Range(2f, 4f), ForceMode.VelocityChange);
-                body.AddTorque(Random.insideUnitSphere * Random.Range(1.2f, 3.2f), ForceMode.VelocityChange);
+                Vector3 burstDirection = horizontal.normalized * .8f + Vector3.down * .12f;
+                body.AddForce(burstDirection, ForceMode.VelocityChange);
+                body.AddTorque(Random.insideUnitSphere * .55f, ForceMode.VelocityChange);
                 var lifetime = go.AddComponent<PrototypeCarDebris>();
                 if (ownsMesh) lifetime.ownedMesh = mesh;
                 Active.Add(lifetime);

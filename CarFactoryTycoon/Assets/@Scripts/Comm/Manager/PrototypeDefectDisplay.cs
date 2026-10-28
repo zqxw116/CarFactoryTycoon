@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -17,7 +17,12 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
     public int VisibleWorkIconCount { get; private set; }
     public int VehicleBadgeCount { get; private set; }
     LineTrafficManager traffic;
-    Material cornerMaterial,outlineMaterial,previewMaterial;
+    Material cornerMaterial,activeCornerMaterial,farCornerMaterial,outlineMaterial,previewMaterial;
+    Mesh farCorners;
+    MeshRenderer farRenderer;
+    readonly List<Vector3> farVertices=new List<Vector3>(4096);
+    readonly List<int> farIndices=new List<int>(4096);
+    public int DistantPartMarkerCount {get;private set;}
     readonly Dictionary<CarController,AssemblyPart[]> partsByCar=new Dictionary<CarController,AssemblyPart[]>();
     readonly Dictionary<AssemblyPart,PartVisual> visuals=new Dictionary<AssemblyPart,PartVisual>();
     readonly HashSet<CarController> liveCars=new HashSet<CarController>();
@@ -56,7 +61,7 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
             if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid+=RewardPaid;
         }
         MissingPartCount=AffectedCarCount=SlotPartCount=OutlinePartCount=PreviewPartCount=0;
-        badges.Clear();wanted.Clear();liveCars.Clear();
+        badges.Clear();wanted.Clear();liveCars.Clear();farVertices.Clear();farIndices.Clear();DistantPartMarkerCount=0;
         if(progression==null||progression.mainSpline==null||progression.processes==null){ClearVisuals();return;}
         if(traffic==null)traffic=FindFirstObjectByType<LineTrafficManager>();
         if(player==null)player=FindFirstObjectByType<FactoryPlayerController>();
@@ -84,16 +89,23 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
                 bool attached=part.IsPlayerAttached||part.currentWork>0f;
                 bool missed=overdue.Contains(part.myType);
                 bool selected=part==focused;
+                bool nearbyPreview=interactor!=null&&interactor.PreviewEligible(part);
                 if(attached||missed)count++;
-                if(!attached&&!missed&&!selected)continue;
+                if(!attached&&!missed&&!selected&&!nearbyPreview)continue;
                 float distance=player!=null?Vector3.Distance(player.transform.position,part.AttachmentWorldPosition):0;
-                if(distance>partVisualRange&&!selected)continue;
+                if(distance>partVisualRange&&!nearbyPreview)
+                {
+                    if(distance<=vehicleBadgeRange&&interactor!=null)
+                    {AppendFarCorners(interactor.AttachmentBounds(part));DistantPartMarkerCount++;}
+                    continue;
+                }
                 wanted.Add(part);
                 if(!visuals.TryGetValue(part,out var visual)){visual=CreateVisual(part);visuals.Add(part,visual);}
                 visual.state=attached?PartState.AttachedPending:PartState.MissingSlot;
-                visual.preview=selected&&!attached&&!part.IsPlayerAttaching&&interactor!=null&&interactor.HeldPart!=null&&interactor.HeldPart.PartType==part.myType;
+                visual.preview=nearbyPreview&&!attached&&!part.IsPlayerAttaching;
                 bool showSlot=!attached&&!part.IsPlayerAttaching;
                 visual.corners.enabled=showSlot;
+                visual.corners.sharedMaterial=visual.preview?GetActiveCornerMaterial():GetCornerMaterial();
                 if(showSlot)SlotPartCount++;
                 if(attached)OutlinePartCount++;
                 if(visual.preview)PreviewPartCount++;
@@ -109,6 +121,7 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
             }
             if(count>0){MissingPartCount+=count;AffectedCarCount++;badges.Add(new VehicleBadge{car=car,count=count});}
         }
+        UpdateFarMesh();
         staleParts.Clear();foreach(var pair in visuals)if(pair.Key==null||!wanted.Contains(pair.Key))staleParts.Add(pair.Key);
         foreach(var part in staleParts)Release(part);
         staleCars.Clear();foreach(var pair in partsByCar)if(pair.Key==null||!liveCars.Contains(pair.Key))staleCars.Add(pair.Key);
@@ -125,7 +138,32 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
     }
     Material GetOutlineMaterial()=>Material(ref outlineMaterial,"UnfastenedOutline",new Color(1f,.12f,.05f,.92f),1.8f,CullMode.Front);
     Material GetPreviewMaterial()=>Material(ref previewMaterial,"AttachmentPreview",new Color(1f,.72f,.3f,.16f),0,CullMode.Off);
-    Material GetCornerMaterial()=>Material(ref cornerMaterial,"MissingSlotCorners",new Color(1f,.22f,.08f,.9f),0,CullMode.Off);
+    Material GetCornerMaterial()=>Material(ref cornerMaterial,"MissingSlotCorners",new Color(1f,.22f,.08f,.30f),0,CullMode.Off);
+    Material GetActiveCornerMaterial()=>Material(ref activeCornerMaterial,"ActiveSlotCorners",new Color(1f,.72f,.3f,.9f),0,CullMode.Off);
+    void AppendFarCorners(Bounds bounds)
+    {
+        bounds.Expand(.04f);
+        for(int corner=0;corner<8;corner++)for(int axis=0;axis<3;axis++)
+        {
+            Vector3 start=Corner(bounds,corner),end=Vector3.Lerp(start,Corner(bounds,corner^(1<<axis)),.16f);
+            farIndices.Add(farVertices.Count);farVertices.Add(start);
+            farIndices.Add(farVertices.Count);farVertices.Add(end);
+        }
+    }
+    void UpdateFarMesh()
+    {
+        if(farRenderer==null)
+        {
+            var go=new GameObject("DistantDefectMarkers"){hideFlags=HideFlags.DontSave};
+            farCorners=new Mesh{name="BatchedDistantDefectCorners",hideFlags=HideFlags.DontSave};
+            farCorners.indexFormat=IndexFormat.UInt32;farCorners.MarkDynamic();
+            go.AddComponent<MeshFilter>().sharedMesh=farCorners;
+            farRenderer=go.AddComponent<MeshRenderer>();ConfigureRenderer(farRenderer);
+            farRenderer.sharedMaterial=Material(ref farCornerMaterial,"DistantMissingCorners",new Color(1f,.22f,.08f,.22f),0,CullMode.Off);
+        }
+        farCorners.Clear();farCorners.SetVertices(farVertices);farCorners.SetIndices(farIndices,MeshTopology.Lines,0);farCorners.RecalculateBounds();
+        farRenderer.enabled=farVertices.Count>0;
+    }
     PartVisual CreateVisual(AssemblyPart part)
     {
         var visual=new PartVisual();
@@ -238,6 +276,6 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
     void ClearVisuals()
     {staleParts.Clear();foreach(var pair in visuals)staleParts.Add(pair.Key);foreach(var part in staleParts)Release(part);partsByCar.Clear();}
     void RewardPaid(Vector3 point,int amount){rewards[nextReward]=new RewardPopup{point=point,expires=Time.time+1.1f,text="+"+amount+"원"};nextReward=(nextReward+1)%rewards.Length;}
-    void OnDisable(){if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid-=RewardPaid;rewardCycle=null;System.Array.Clear(rewards,0,rewards.Length);ClearVisuals();MissingPartCount=AffectedCarCount=SlotPartCount=OutlinePartCount=PreviewPartCount=VisibleWorkIconCount=VehicleBadgeCount=0;traffic=null;}
-    void OnDestroy(){ClearVisuals();if(cornerMaterial!=null)Destroy(cornerMaterial);if(outlineMaterial!=null)Destroy(outlineMaterial);if(previewMaterial!=null)Destroy(previewMaterial);}
+    void OnDisable(){if(rewardCycle!=null)rewardCycle.OnAssemblyRewardPaid-=RewardPaid;rewardCycle=null;System.Array.Clear(rewards,0,rewards.Length);ClearVisuals();if(farRenderer!=null)farRenderer.enabled=false;MissingPartCount=AffectedCarCount=SlotPartCount=OutlinePartCount=PreviewPartCount=VisibleWorkIconCount=VehicleBadgeCount=0;traffic=null;}
+    void OnDestroy(){ClearVisuals();if(farRenderer!=null)Destroy(farRenderer.gameObject);if(farCorners!=null)Destroy(farCorners);if(activeCornerMaterial!=null)Destroy(activeCornerMaterial);if(farCornerMaterial!=null)Destroy(farCornerMaterial);if(cornerMaterial!=null)Destroy(cornerMaterial);if(outlineMaterial!=null)Destroy(outlineMaterial);if(previewMaterial!=null)Destroy(previewMaterial);}
 }

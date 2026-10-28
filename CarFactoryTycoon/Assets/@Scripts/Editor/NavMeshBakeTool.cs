@@ -14,6 +14,8 @@ using UnityEngine.Splines;
 ///   Tools ▸ CarFactory ▸ 내비메시 다시 굽기   — 아래 1~6을 전부 다시 하고 씬 저장
 ///   Tools ▸ CarFactory ▸ 횡단보도 추가        — Scene 뷰 중심 근처 라인에 LineCrossing을 하나 만든다(이후 다시 굽기)
 ///
+/// 프로토타입은 벨트 차단/횡단 링크를 제거하고 오르기 0.5m로 일반 경로를 굽는다.
+/// 아래 횡단보도 규칙은 구 모드에만 적용한다.
 /// 하는 일
 ///   1) 에이전트 타입 Humanoid(id 0)를 사람 치수로 맞춤: 반경 0.35 / 높이 1.85 / 오르기 0.2 / 경사 30°
 ///      → 오르기 0.2라 바닥(-0.405)보다 0.2m 넘게 솟은 것(벨트 0.4·받침대 0.4·벽·기계)은 전부 장애물이 된다.
@@ -90,7 +92,9 @@ public static class NavMeshBakeTool
 
     public static void Rebake(StringBuilder log, bool save)
     {
-        EnsureAgentSettings(log);
+        var progression = Object.FindFirstObjectByType<ProductionProgression>();
+        bool dynamicTraffic = progression != null && progression.prototypeMode;
+        EnsureAgentSettings(log, dynamicTraffic ? .5f : AgentClimb);
 
         GameObject root = GetOrCreateRoot();
         NavMeshSurface surface = root.GetComponent<NavMeshSurface>();
@@ -107,7 +111,17 @@ public static class NavMeshBakeTool
         // 루트 자체(볼륨·링크뿐)는 굽기 대상이 아니지만 하위에 렌더러가 생겨도 무시되게
         EnsureIgnore(root);
 
-        BuildBeltBlockers(root.transform, log);
+        if (dynamicTraffic)
+        {
+            var belt = root.transform.Find(BlockersName + "/Belt");
+            if (belt != null) Undo.DestroyObjectImmediate(belt.gameObject);
+            foreach (var crossing in Object.FindObjectsByType<LineCrossing>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                Undo.DestroyObjectImmediate(crossing.gameObject);
+            var marks = GameObject.Find(CrosswalkRootPath + "/" + CrosswalkGroupName);
+            if (marks != null) Undo.DestroyObjectImmediate(marks);
+            log.AppendLine("[NavBake] Prototype: walkable belt, dynamic vehicle avoidance, no crossing links.");
+        }
+        else BuildBeltBlockers(root.transform, log);
         BuildArmBlockers(root.transform, log);
         BuildHatchBlockers(root.transform, log);
         IgnorePeople(log);
@@ -119,7 +133,7 @@ public static class NavMeshBakeTool
             lc.ApplyLink();
             EditorUtility.SetDirty(lc);
         }
-        BuildCrosswalkVisuals(crossings, log);
+        if (!dynamicTraffic) BuildCrosswalkVisuals(crossings, log);
 
         // 굽기 + 저장
         surface.RemoveData();
@@ -135,7 +149,7 @@ public static class NavMeshBakeTool
 
     // ─────────────────────────────────────────────────────────────────────
 
-    static void EnsureAgentSettings(StringBuilder log)
+    static void EnsureAgentSettings(StringBuilder log, float climb)
     {
         Object[] objs = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/NavMeshAreas.asset");
         if (objs == null || objs.Length == 0) { log.AppendLine("[NavBake] NavMeshAreas.asset을 찾지 못함 — 에이전트 설정 생략"); return; }
@@ -147,11 +161,11 @@ public static class NavMeshBakeTool
             if (s.FindPropertyRelative("agentTypeID").intValue != 0) continue;
             s.FindPropertyRelative("agentRadius").floatValue = AgentRadius;
             s.FindPropertyRelative("agentHeight").floatValue = AgentHeight;
-            s.FindPropertyRelative("agentClimb").floatValue = AgentClimb;
+            s.FindPropertyRelative("agentClimb").floatValue = climb;
             s.FindPropertyRelative("agentSlope").floatValue = AgentSlope;
         }
         so.ApplyModifiedPropertiesWithoutUndo();
-        log.AppendLine($"[NavBake] 에이전트 Humanoid: 반경 {AgentRadius} / 높이 {AgentHeight} / 오르기 {AgentClimb} / 경사 {AgentSlope}");
+        log.AppendLine($"[NavBake] 에이전트 Humanoid: 반경 {AgentRadius} / 높이 {AgentHeight} / 오르기 {climb} / 경사 {AgentSlope}");
     }
 
     static void BuildBeltBlockers(Transform root, StringBuilder log)

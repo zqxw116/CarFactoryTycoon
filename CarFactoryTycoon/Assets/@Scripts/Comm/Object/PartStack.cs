@@ -36,6 +36,9 @@ public class PartStack : MonoBehaviour
     [Tooltip("표시용 부품 인스턴스에 적용할 스케일 배율.")]
     public float itemScale = 1f;
 
+    [Tooltip("기본값은 꺼짐: 프리팹의 차량 체결 크기를 그대로 사용한다. 파일별로 의도적 축소가 필요할 때만 켠다.")]
+    public bool useItemScale;
+
     [Tooltip("표시용 부품 인스턴스에 적용할 회전 오프셋(오일러). 범퍼·문짝처럼 납작한 부품을 눕히거나 세워서 " +
              "겹겹이 얇게 쌓기 위한 값. 0이면 프리팹 기본 회전 그대로.")]
     public Vector3 itemRotation = Vector3.zero;
@@ -61,6 +64,8 @@ public class PartStack : MonoBehaviour
     private GameObject[] items;          // 표시용 인스턴스 (capacity개, SetActive로 개수 표현)
     private int[] fillOrder;             // 채워지는 순서 → fillOrder[k] = k번째로 채워질 슬롯 인덱스 (아래→위)
     private int[] rankOfSlot;            // 슬롯 인덱스 → 채움 순번. rank < count 이면 보인다 (소모는 그 역순 = 위→아래)
+    private Vector3 effectiveStepOffset;
+    private const float stackItemGap = 0.015f;
     private PartType builtType = PartType.None;
     private int builtCapacity = 0;
 
@@ -112,6 +117,9 @@ public class PartStack : MonoBehaviour
                 items[i] = CreateItem(prefab, i);
         }
 
+        RecalculateStackSpacing();
+        ApplyItemLayout();
+
         count = startCount < 0 ? capacity : Mathf.Clamp(startCount, 0, capacity);
         BuildFillOrder();
         Refresh();
@@ -131,7 +139,7 @@ public class PartStack : MonoBehaviour
         go.name = $"Stack_{partType}_{index}";
         go.transform.localPosition = GetSlotLocalPos(index);
         go.transform.localRotation = Quaternion.Euler(itemRotation);
-        go.transform.localScale = prefab.transform.localScale * itemScale;
+        go.transform.localScale = prefab.transform.localScale * (useItemScale ? itemScale : 1f);
 
         // 표시 전용이라 물리도 필요 없다. 클릭은 이 오브젝트의 BoxCollider가 받는다.
         if (disableItemColliders)
@@ -187,11 +195,29 @@ public class PartStack : MonoBehaviour
     {
         int row = perRow > 0 ? index / perRow : 0;
         int slot = perRow > 0 ? index % perRow : index;
-        return stepOffset * slot + rowOffset * row;
+        return (effectiveStepOffset == Vector3.zero ? stepOffset : effectiveStepOffset) * slot + rowOffset * row;
     }
 
-    /// <summary>이미 만들어 둔 인스턴스들의 위치/회전을 현재 배치 값으로 다시 맞춘다(값이 바뀔 때만 호출).</summary>
-    private void ApplyLayout()
+    /// <summary>실제 메시 bounds가 겹치지 않도록 한 줄 간격을 최소 부품 두께+여유로 맞춘다.</summary>
+    private void RecalculateStackSpacing()
+    {
+        effectiveStepOffset = stepOffset;
+        if (items == null || items.Length == 0 || items[0] == null || stepOffset.sqrMagnitude < 0.000001f) return;
+
+        items[0].transform.localRotation = Quaternion.Euler(itemRotation);
+        bool hasBounds = false;
+        Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
+        EncapsulateItemBounds(items[0], ref bounds, ref hasBounds);
+        if (!hasBounds) return;
+
+        Vector3 axis = stepOffset.normalized;
+        Vector3 extents = bounds.extents;
+        float halfExtent = Mathf.Abs(axis.x) * extents.x + Mathf.Abs(axis.y) * extents.y + Mathf.Abs(axis.z) * extents.z;
+        float requiredSpacing = halfExtent * 2f + stackItemGap;
+        if (stepOffset.magnitude < requiredSpacing) effectiveStepOffset = axis * requiredSpacing;
+    }
+
+    private void ApplyItemLayout()
     {
         if (items == null) return;
         Quaternion rot = Quaternion.Euler(itemRotation);
@@ -201,6 +227,18 @@ public class PartStack : MonoBehaviour
             items[i].transform.localPosition = GetSlotLocalPos(i);
             items[i].transform.localRotation = rot;
         }
+    }
+
+    /// <summary>이미 만들어 둔 인스턴스들의 위치/회전을 현재 배치 값으로 다시 맞춘다(값이 바뀔 때만 호출).</summary>
+    private void ApplyLayout()
+    {
+        if (items == null) return;
+        GameObject prefab = LoadPrefab();
+        if (prefab != null)
+            for (int i = 0; i < items.Length; i++)
+                if (items[i] != null) items[i].transform.localScale = prefab.transform.localScale * (useItemScale ? itemScale : 1f);
+        RecalculateStackSpacing();
+        ApplyItemLayout();
         // 배치가 바뀌면 높이 순서도 달라지므로 소모 순서를 다시 계산하고 표시를 맞춘다.
         BuildFillOrder();
         Refresh();

@@ -17,8 +17,8 @@ using UnityEngine;
 ///   처리한다 — 상속하면 보급 작업자가 체결 작업자로 오인되어 클릭 시 휴식/작업가속이 걸린다.
 ///   그래서 이동·회전·애니메이터 구동(Worker의 private 메서드들)을 이 클래스에 그대로 복제했다.
 ///
-/// 경로: NavMover(NavMesh 길찾기)로 소품·로봇팔·설비를 돌아가고, 라인은 횡단보도(LineCrossing)에서만
-///   차량이 오지 않을 때 건넌다. NavMesh가 없으면 NavMover가 기존 직선 이동으로 폴백한다.
+/// 경로: NavMover의 NavMesh 길찾기로 설비를 돌아가며, 움직이는 차량에는 양보·측면 우회한다.
+///   경로가 없으면 재시도하며 차량 사이에 끼면 안전한 탈출 방향을 찾는다.
 ///   moveSpeed·arriveRadius·turnSpeed는 이 컴포넌트 값이 원본이며 매 프레임 NavMover로 넘긴다.
 /// </summary>
 public class SupplyWorker : MonoBehaviour
@@ -463,7 +463,7 @@ public class SupplyWorker : MonoBehaviour
         return false;
     }
 
-    /// <summary>이번 프레임 실제 이동 속력(NavMover — 에이전트 속도 또는 직선/횡단 이동량)으로 걷기 애니메이션을 구동한다.</summary>
+    /// <summary>이번 프레임 실제 이동 속력(NavMover — 에이전트 속도 또는 NavMesh 이동량)으로 걷기 애니메이션을 구동한다.</summary>
     private void UpdateAnimator()
     {
         if (animator == null) return;
@@ -475,7 +475,7 @@ public class SupplyWorker : MonoBehaviour
         if (hasGroundedParam) animator.SetBool(groundedHash, true);      // 늘 바닥 위
     }
 
-    /// <summary>목표로 이동한다(NavMesh 길찾기·횡단보도 판단 포함, NavMover 참조). 도착했으면 true.</summary>
+    /// <summary>목표로 이동한다(NavMesh 길찾기·차량 예측 회피 포함, NavMover 참조). 도착했으면 true.</summary>
     private bool MoveToward(Vector3 target) => mover.MoveTo(target);
 
     /// <summary>수평면에서 지정 지점을 바라보도록 turnSpeed로 회전한다.</summary>

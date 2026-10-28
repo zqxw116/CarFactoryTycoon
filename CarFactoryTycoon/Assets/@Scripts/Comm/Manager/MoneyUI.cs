@@ -1,4 +1,4 @@
-using DG.Tweening;
+﻿using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -17,6 +17,8 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     private const string CoinSpritePath = "Sprites/UI_Coin";
     private static readonly Color FallbackCoinColor = new Color(1f, 0.82f, 0.2f, 1f);
 
+    public int LastSpawnedCoinCount {get;private set;}
+    public int LastVisualizedAmount {get;private set;}
     private TextMeshProUGUI moneyText;
     private Image moneyIcon;
     private Sprite coinSprite;
@@ -43,6 +45,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     {
         if (eco != null) eco.OnMoneyChanged -= HandleMoneyChanged;
         countTween?.Kill();
+        DOTween.Kill(this);
     }
 
     private void BuildUI()
@@ -97,7 +100,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         // 1) 숫자 카운트업/다운 (주르륵)
         countTween?.Kill();
         long from = displayed;
-        countTween = DOVirtual.Float(from, newAmount, 0.5f, v =>
+        countTween = DOVirtual.Float(from, newAmount, 0.27f, v =>
         {
             displayed = (long)v;
             moneyText.text = Format(displayed);
@@ -112,12 +115,16 @@ public class MoneyUI : MonoSingleton<MoneyUI>
                .SetLoops(2, LoopType.Yoyo);
 
         // 2) 코인 연출
-        if (delta != 0) SpawnCoins(delta > 0, sourceWorldPos);
+        if (delta != 0) SpawnCoins(delta, sourceWorldPos);
     }
 
-    private void SpawnCoins(bool gain, Vector3? sourceWorldPos)
+    private void SpawnCoins(int delta, Vector3? sourceWorldPos)
     {
-        const int count = 6;
+        bool gain = delta > 0;
+        int amount = Mathf.Abs(delta);
+        int count = Mathf.Min(amount, 32);
+        LastSpawnedCoinCount = count;
+        LastVisualizedAmount = amount;
         // 코인이 모이는/출발하는 지점: 아이콘이 있으면 아이콘, 없으면 텍스트 (변수명은 기존 유지)
         Vector3 textPos = moneyIcon.gameObject.activeSelf
             ? moneyIcon.rectTransform.position
@@ -133,24 +140,26 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         }
 
         for (int i = 0; i < count; i++)
-            SpawnCoin(gain, textPos, sourceScreen, i, count);
+            SpawnCoin(gain, textPos, sourceScreen, i, count, amount / count + (i < amount % count ? 1 : 0));
     }
 
-    private void SpawnCoin(bool gain, Vector3 textPos, Vector3? sourceScreen, int idx, int count)
+    private void SpawnCoin(bool gain, Vector3 textPos, Vector3? sourceScreen, int idx, int count, int value)
     {
         Image img = coinPool.Count > 0 ? coinPool.Dequeue() : CreateCoin();
+        var denomination=img.GetComponentInChildren<TextMeshProUGUI>(true);
+        denomination.text=value>1?value.ToString():"";
         // 스프라이트면 원색 그대로, 폴백 흰 박스면 금색 (재사용 시 알파 원복)
         img.color = coinSprite != null ? Color.white : FallbackCoinColor;
         img.gameObject.SetActive(true);
         var rt = img.rectTransform;
 
-        float spread = (idx - (count - 1) * 0.5f) * 60f;
+        float spread = (idx - (count - 1) * 0.5f) * 18f;
         Vector3 start, end;
         if (gain)
         {
             // 발생 지점 주변에 흩뿌려 출발 → 텍스트로 수렴. 위치 없으면 기존 화면 하단 폴백.
             start = sourceScreen.HasValue
-                ? sourceScreen.Value + (Vector3)(Random.insideUnitCircle * 45f)
+                ? sourceScreen.Value + (Vector3)(new Vector2((idx-(count-1)*.5f)*13f, 0f))
                 : new Vector3(Screen.width * 0.5f + spread, Screen.height * 0.15f, 0f);
             end = textPos;
         }
@@ -161,18 +170,18 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         }
         rt.position = start;
 
-        float dur = 0.6f;
+        float dur = gain ? .27f : .35f;
         var move = DOTween.To(() => rt.position, p => rt.position = p, end, dur)
                           .SetEase(gain ? Ease.InQuad : Ease.OutQuad);
 
-        var seq = DOTween.Sequence();
-        seq.AppendInterval(idx * 0.04f);
+        var seq = DOTween.Sequence().SetTarget(this);
+        seq.AppendInterval(idx * .012f);
         seq.Append(move);
 
         Color clear = new Color(img.color.r, img.color.g, img.color.b, 0f);
         if (gain)
             // 텍스트 도착 후 사라짐
-            seq.Append(DOTween.To(() => img.color, c => img.color = c, clear, 0.15f));
+            seq.Append(DOTween.To(() => img.color, c => img.color = c, clear, 0.03f));
         else
             // 올라가며 동시에 사라짐
             seq.Join(DOTween.To(() => img.color, c => img.color = c, clear, dur));
@@ -189,6 +198,9 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         img.preserveAspect = true;
         img.raycastTarget = false;
         img.rectTransform.sizeDelta = new Vector2(44f, 44f);
+        var labelGo=new GameObject("CoinValue",typeof(RectTransform));labelGo.transform.SetParent(go.transform,false);
+        var label=labelGo.AddComponent<TextMeshProUGUI>();label.fontSize=20;label.alignment=TextAlignmentOptions.Center;label.color=Color.black;label.raycastTarget=false;
+        label.rectTransform.anchorMin=Vector2.zero;label.rectTransform.anchorMax=Vector2.one;label.rectTransform.sizeDelta=Vector2.zero;
         return img;
     }
 

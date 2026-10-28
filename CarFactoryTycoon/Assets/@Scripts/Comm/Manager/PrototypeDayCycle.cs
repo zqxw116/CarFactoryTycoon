@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 /// <summary>Prototype 08:00-22:00 ledger. Prices and pacing remain phase-two tuning values.</summary>
@@ -64,7 +64,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         economy = EconomyManager.Instance;
         economy.OnVehicleSold += RecordVehicleSale;
         economy.OnMoneyChanged += OnMoneyChanged;
-        AssemblyPart.OnAssemblyCompletedByWork += RecordAssemblyReward;
+        AssemblyPart.OnAssemblyProgressByWork += RecordAssemblyReward;
         hiring = FindFirstObjectByType<FactoryHiringUI>();
         ApplyDuty();
     }
@@ -118,10 +118,10 @@ public sealed class PrototypeDayCycle : MonoBehaviour
             economy.Earn(MissionIncome);
         }
     }
-    void RecordAssemblyReward(AssemblyPart part)
+    void RecordAssemblyReward(AssemblyPart part, int units)
     {
         if (Current != this || progression == null || !progression.prototypeMode || IsSettlement || part == null || settings == null || economy == null) return;
-        int amount = Mathf.Max(0, settings.assemblyReward);
+        int amount = Mathf.Max(0, settings.assemblyReward) * Mathf.Max(0, units);
         if (amount <= 0) return;
         AssemblyIncome += amount;
         Vector3 position = part.transform.position;
@@ -182,7 +182,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     {
         RestorePause();
         if (economy != null) { economy.OnVehicleSold -= RecordVehicleSale; economy.OnMoneyChanged -= OnMoneyChanged; }
-        AssemblyPart.OnAssemblyCompletedByWork -= RecordAssemblyReward;
+        AssemblyPart.OnAssemblyProgressByWork -= RecordAssemblyReward;
         if (Current == this) Current = null;
     }
 }

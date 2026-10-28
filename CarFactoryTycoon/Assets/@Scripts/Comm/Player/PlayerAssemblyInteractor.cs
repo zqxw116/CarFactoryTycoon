@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>Local-player interaction. Scene/controller code owns camera mode and cursor capture.</summary>
+[DefaultExecutionOrder(100)]
 public sealed class PlayerAssemblyInteractor : MonoBehaviour
 {
     public Transform cameraTransform;
@@ -36,7 +37,19 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     private int hammerHitsOverride;
     private Transform hammerVisual;
     private Quaternion hammerRestRotation;
-    private float hammerPulse;
+
+    private BoxCollider hammerHead;
+    private PrototypeHammerContact hammerContact;
+    private bool swingActive, swingContacted;
+    private float swingElapsed, swingDepth;
+    private Vector3 previousHeadPosition;
+    private Quaternion previousHeadRotation;
+    public bool IsSwinging => swingActive;
+    public Vector3 HammerHeadPosition => hammerHead != null ? hammerHead.transform.position : Vector3.zero;
+    public float attachmentPreviewRadius = 4f;
+    readonly Collider[] nearbyCarColliders = new Collider[64];
+    readonly List<CarController> nearbyCars = new List<CarController>();
+    public IReadOnlyList<CarController> NearbyCars => nearbyCars;
     private ParticleSystem sparks;
     private Material toolMaterial, sparkMaterial;
     private PlayerAssemblyHandIK handIK;
@@ -53,6 +66,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         EnsureAnchors();
         CreateHammer();
+        hammerContact = gameObject.AddComponent<PrototypeHammerContact>();
         if (bodyAnimator != null && bodyAnimator.isHuman)
         {
             handIK = bodyAnimator.GetComponent<PlayerAssemblyHandIK>();
@@ -78,6 +92,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void Update()
     {
+        RefreshNearbyCars();
         AdvanceHeldAttachment(Keyboard.current != null && Keyboard.current.eKey.isPressed, Time.deltaTime);
         if (WorkingPart != null && (!WorkingPart.gameObject.activeInHierarchy || !WorkingPart.CanPlayerRepair)) WorkingPart = null;
         if (!inputEnabled || Cursor.lockState != CursorLockMode.Locked)
@@ -95,7 +110,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             else if (focusedStack != null) TryTake(focusedStack);
         }
         if (keyboard != null && keyboard.gKey.wasPressedThisFrame) TryThrow();
-        if (mouse != null && mouse.leftButton.wasPressedThisFrame && focusedPart != null) TryHammer(focusedPart);
+        if (mouse != null && mouse.leftButton.wasPressedThisFrame) TrySwingHammer();
         UpdateHint();
     }
 
@@ -143,7 +158,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     public bool TryAttach(CarController car)
     {
-        if (HeldPart == null || IsAttaching || car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
+        if (swingActive || HeldPart == null || IsAttaching || car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
         var part = FindPart(car, HeldPart.PartType, true, AimPoint(car));
         if (part == null || !IsAimingAt(part)) return false;
         if (!part.TryBeginPlayerAttachment(this, HeldPart.transform.position, HeldPart.transform.rotation)) return false;
@@ -154,23 +169,97 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         return true;
     }
 
-    public bool TryHammer(AssemblyPart part)
+    // Compatibility entry point: requests a swing, never awards work on click.
+    public bool TryHammer(AssemblyPart part) => TrySwingHammer();
+
+    public bool TrySwingHammer()
     {
-        if (part == null || HeldPart != null || IsAttaching || !part.CanPlayerRepair ||
-            !IsAimingAt(part) || Vector3.Distance(ReachOrigin, InteractionPoint(part)) > interactionRange ||
+        if (!inputEnabled || Cursor.lockState != CursorLockMode.Locked || HeldPart != null || IsAttaching || swingActive ||
             Time.time - lastHitTime + .00001f < HitInterval) return false;
-        var car = part.GetComponentInParent<CarController>();
-        if (car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
-        // Detached placeholders require a real carried stock item. Partial NPC work is repairable.
-        if (!part.TryPlayerHammer(PlayerHammerHits)) return false;
-        WorkingPart = part;
+        EnsureAnchors(); CreateHammer();
+        if (hammerContact == null) hammerContact = gameObject.AddComponent<PrototypeHammerContact>();
         lastHitTime = Time.time;
-        lastHitPoint = InteractionPoint(part);
-        hammerPulse = 1f;
-        EmitImpact(lastHitPoint, part.IsAssembled);
-        PrototypeWorkAudio.PlayWorkPulse(lastHitPoint, part.IsAssembled, PlayerHammerHits == 2, false);
-        HammerHit?.Invoke(part);
+        hammerVisual.gameObject.SetActive(true);
+        swingActive = true; swingContacted = false; swingElapsed = 0f;
+        Vector3 idleTarget = transform.position + Vector3.up * 1.35f + View.forward * 1.2f;
+        swingDepth = focusedPart != null && IsAimingAt(focusedPart)
+            ? Vector3.Distance(View.position, InteractionPoint(focusedPart)) : Vector3.Distance(View.position, idleTarget);
+        if(focusedPart!=null && hammerContact.TrySurfacePoint(focusedPart,new Ray(View.position,View.forward),ReachOrigin,interactionRange,out var surfacePoint))
+            swingDepth=Vector3.Distance(View.position,surfacePoint)+.025f;
+        swingDepth = Mathf.Max(.45f, swingDepth);
+        PlaceHammer(0f);
+        previousHeadPosition = hammerHead.transform.position; previousHeadRotation = hammerHead.transform.rotation;
         return true;
+    }
+
+    public void RefreshNearbyCars()
+    {
+        nearbyCars.Clear();
+        int count = Physics.OverlapSphereNonAlloc(transform.position + Vector3.up * .9f, attachmentPreviewRadius,
+            nearbyCarColliders, (1 << 6) | (1 << 11), QueryTriggerInteraction.Collide);
+        for (int i = 0; i < count; i++)
+        {
+            var car = nearbyCarColliders[i].GetComponentInParent<CarController>();
+            if (car != null && car.gameObject.activeInHierarchy && car.CanRepair && !nearbyCars.Contains(car)) nearbyCars.Add(car);
+        }
+    }
+    public bool PreviewEligible(AssemblyPart part)
+    {
+        if (part == null || HeldPart == null || !inputEnabled || Cursor.lockState != CursorLockMode.Locked ||
+            part.myType != HeldPart.PartType || !part.CanPlayerRepair || part.IsPlayerAttached || part.IsPlayerAttaching || part.currentWork > 0f) return false;
+        return nearbyCars.Contains(part.GetComponentInParent<CarController>());
+    }
+
+    Vector3 SwingTarget(float t)
+    {
+        // The direction is read throughout the swing. Nothing tracks the initially selected part.
+        Vector3 shoulder = transform.position + Vector3.up * 1.35f + transform.right * .22f;
+        Vector3 aimed = View.position + View.forward * swingDepth;
+        aimed = shoulder + Vector3.ClampMagnitude(aimed - shoulder, 2.05f);
+        float windup = t < .25f ? t / .25f : 1f - Mathf.Clamp01((t - .25f) / .30f);
+        float recover = Mathf.Clamp01((t - .66f) / .34f);
+        return Vector3.Lerp(aimed + View.up * (.42f * windup) + View.right * (.24f * windup),
+            shoulder + View.forward * .55f - View.up * .1f, recover);
+    }
+    void PlaceHammer(float t)
+    {
+        if (hammerHead == null || hammerVisual == null) return;
+        Vector3 target = SwingTarget(t);
+        Quaternion rotation = Quaternion.LookRotation(View.forward, View.up) * Quaternion.Euler(0, 0, -18f + 48f * Mathf.Sin(t * Mathf.PI));
+        hammerVisual.SetPositionAndRotation(target, rotation);
+        hammerVisual.localScale = Vector3.one * (PlayerHammerHits == 2 ? 1.2f : 1f);
+        hammerVisual.position += target - hammerHead.transform.position;
+    }
+    public void AdvanceHammerSwing(float deltaTime)
+    {
+        float remaining=Mathf.Min(.5f,Mathf.Max(0f,deltaTime));
+        while(remaining>0f&&swingActive){float step=Mathf.Min(.016f,remaining);AdvanceHammerStep(step);remaining-=step;}
+    }
+    void AdvanceHammerStep(float deltaTime)
+    {
+        if (!swingActive) return;
+        if (!inputEnabled || Cursor.lockState != CursorLockMode.Locked || HeldPart != null || IsAttaching)
+        { swingActive = false; return; }
+        swingElapsed += Mathf.Max(0f, deltaTime);
+        float t = Mathf.Clamp01(swingElapsed / .34f);
+        PlaceHammer(t);
+        if (!swingContacted && t >= .25f && t <= .82f)
+        {
+            if (hammerContact.Sweep(hammerHead, previousHeadPosition, previousHeadRotation,
+                hammerHead.transform.position, hammerHead.transform.rotation, ReachOrigin, interactionRange, out var part, out var point))
+            {
+                swingContacted = true;
+                if (part != null && part.CanPlayerRepair && part.GetComponentInParent<CarController>().CanRepair && part.TryPlayerHammer(PlayerHammerHits))
+                {
+                    WorkingPart = part; lastHitPoint = point;
+                    EmitImpact(point, part.IsAssembled);
+                    PrototypeWorkAudio.PlayWorkPulse(point, part.IsAssembled, PlayerHammerHits == 2, false);
+                    HammerHit?.Invoke(part);
+                }
+            }
+        }
+        previousHeadPosition = hammerHead.transform.position; previousHeadRotation = hammerHead.transform.rotation;
+        if (t >= 1f) swingActive = false;
     }
 
     private void AdvanceAttachment(float deltaTime)
@@ -423,17 +512,18 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         piece.layer = gameObject.layer;
         piece.transform.SetParent(hammerVisual, false);
         piece.transform.localPosition = position; piece.transform.localScale = scale;
-        var collider = piece.GetComponent<Collider>(); collider.enabled = false; Destroy(collider);
+        var collider = piece.GetComponent<Collider>(); collider.enabled = false;
+        if (label == "Head") hammerHead = collider as BoxCollider; else Destroy(collider);
         if (toolMaterial != null) piece.GetComponent<Renderer>().sharedMaterial = toolMaterial;
     }
 
     private void LateUpdate()
     {
-        hammerPulse = Mathf.MoveTowards(hammerPulse, 0f, Time.deltaTime * 5f);
         if (hammerVisual == null) return;
         hammerVisual.gameObject.SetActive(inputEnabled && HeldPart == null);
-        float swing = Mathf.Sin(hammerPulse * Mathf.PI);
-        hammerVisual.localRotation = hammerRestRotation * Quaternion.Euler(-70f * swing, 0f, 0f);
+        if (swingActive) { AdvanceHammerSwing(Time.deltaTime); return; }
+        hammerVisual.localPosition = bodyAnimator != null && bodyAnimator.isHuman ? hammerAnchor.InverseTransformDirection(hammerAnchor.right) * .025f : Vector3.zero;
+        hammerVisual.localRotation = hammerRestRotation;
         hammerVisual.localScale = Vector3.one * (PlayerHammerHits == 2 ? 1.2f : 1f);
     }
 
@@ -441,8 +531,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         if (animator == null || !animator.isHuman) return;
         bool carrying = HeldPart != null && !IsAttaching;
-        float workWeight = inputEnabled && (IsAttaching || hammerPulse > 0f) ? .85f : 0f;
-        Vector3 target = lastHitPoint;
+        float workWeight = inputEnabled && (IsAttaching || swingActive) ? .85f : 0f;
+        Vector3 target = swingActive ? SwingTarget(Mathf.Clamp01(swingElapsed / .34f)) : lastHitPoint;
         if (IsAttaching)
             target = TransformBounds(LocalTargetBounds(attachingPart),attachingPart.transform.localToWorldMatrix).center;
         if (carrying)
@@ -457,7 +547,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             Vector3 strikeDirection = (target-(transform.position+Vector3.up*1.2f)).normalized;
             Vector3 gripToHead = hammerVisual != null ? hammerVisual.localPosition + hammerRestRotation * (Vector3.up*.22f) : Vector3.right*.27f;
             float toolReach = gripToHead.magnitude * (PlayerHammerHits==2?1.2f:1f);
-            Vector3 handTarget = IsAttaching ? target : target-strikeDirection*(toolReach+Mathf.Sin(hammerPulse*Mathf.PI)*.20f);
+            Vector3 handTarget = IsAttaching ? target : target-strikeDirection*(toolReach+0f);
             SetHand(animator, AvatarIKGoal.RightHand, handTarget, workWeight);
             if (!IsAttaching && workWeight > 0f && hammerAnchor != null)
             {
@@ -509,20 +599,6 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         var style = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 16 };
         GUI.Box(new Rect(Screen.width * .5f - 310, Screen.height - 86, 620, 38), GUIContent.none);
         GUI.Label(new Rect(Screen.width * .5f - 305, Screen.height - 82, 610, 30), InteractionHint, style);
-        if (HeldPart != null && cachedCar != null && cachedParts != null && viewCamera != null)
-        {
-            foreach (var candidate in cachedParts)
-            {
-                if (candidate == null || candidate.myType != HeldPart.PartType || !candidate.CanPlayerRepair || candidate.IsPlayerAttached) continue;
-                Vector3 target = AttachmentAimPoint(candidate);
-                if (Vector3.Distance(ReachOrigin,target) > interactionRange) continue;
-                var screen = viewCamera.WorldToScreenPoint(target);
-                if (screen.z <= 0) continue;
-                GUI.color = new Color(1f,.78f,.3f);
-                GUI.Label(new Rect(screen.x-8,Screen.height-screen.y-12,24,24),"□");
-                GUI.color = Color.white;
-            }
-        }
         if (IsAttaching)
         {
             var bar = new Rect(Screen.width * .5f - 110, Screen.height * .5f + 30, 220, 12);
@@ -536,6 +612,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void OnDisable()
     {
+        swingActive = false;
         CancelAttachment();
         if (HeldPart != null) { HeldPart.Throw(this, Vector3.zero); HeldPart = null; }
         if (hammerVisual != null) hammerVisual.gameObject.SetActive(false);
