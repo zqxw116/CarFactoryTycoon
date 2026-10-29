@@ -1,8 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>Runtime-only prototype controls for nearby test vehicles. No scene wiring or economy rewards.</summary>
+/// <summary>Runtime-only administrator controls for camera, nearby test vehicles, and prototype economy.</summary>
 [DefaultExecutionOrder(50)]
 public sealed class PrototypePlayerTestControls : MonoBehaviour
 {
@@ -25,6 +25,16 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
     }
 
     public CarController ContactCar => closestCar;
+
+    public static Rect AdminPanelRect => new Rect(18f, Screen.height - 264f, 296f, 246f);
+
+    public static bool PointerOverAdminPanel(Mouse mouse)
+    {
+        if (mouse == null) return false;
+        Vector2 pointer = mouse.position.ReadValue();
+        pointer.y = Screen.height - pointer.y;
+        return AdminPanelRect.Contains(pointer);
+    }
 
     public void RefreshContactCar()
     {
@@ -130,18 +140,51 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
 
     private void OnGUI()
     {
-        const float width = 270f;
-        float x = 18f;
-        float y = Screen.height - 220f;
-        string carLabel = closestCar != null ? "가까운 차량 · 테스트 가능" : "접촉 차량 없음 — 사용 불가";
-        GUI.Box(new Rect(x, y, width, 118f), "프로토타입 테스트");
-        GUI.Label(new Rect(x + 10f, y + 24f, width - 20f, 22f), carLabel);
-        bool available = IsAvailable();
-        GUI.enabled = available && !IsModalOpen();
-        if (GUI.Button(new Rect(x + 10f, y + 49f, width - 20f, 27f), "1 · 마지막 2개 미체결")) TrySetNearbyVehicle(false);
-        if (GUI.Button(new Rect(x + 10f, y + 80f, width - 20f, 27f), "2 · 전체 완성")) TrySetNearbyVehicle(true);
+        FactoryPlayerController player = GetComponent<FactoryPlayerController>();
+        if (player != null && (player.MapMode || player.InteractionUIOpen)) return;
+
+        Rect panel = AdminPanelRect;
+        float x = panel.x + 10f;
+        float y = panel.y + 8f;
+        GUI.Box(panel, "관리자 모드 · 테스트 도구");
+        bool modal = IsModalOpen();
+        ProductionProgression progression = ProductionProgression.Current;
+        bool prototype = progression != null && progression.prototypeMode;
+        PrototypeDayCycle cycle = PrototypeDayCycle.Current;
+        bool settlement = cycle != null && cycle.IsSettlement;
+        bool canEdit = prototype && !settlement && !modal;
+        string carLabel = closestCar == null ? "차량 없음 · 반경 1.65m" :
+            closestCar.CanRepair ? "차량 접촉 중 · 테스트 가능" : "수리 기한 만료 · 변경 불가";
+        GUI.Label(new Rect(x, y + 17f, 276f, 20f), carLabel);
+
+        GUI.enabled = !modal;
+        if (GUI.Button(new Rect(x, y + 39f, 276f, 27f), player == null ? "카메라 전환 (C)" : (player.FirstPerson ? "카메라 · 3인칭 (C)" : "카메라 · 1인칭 (C)")))
+        {
+            if (player != null) player.SetFirstPerson(!player.FirstPerson);
+            else status = "플레이어 카메라를 찾지 못했습니다";
+        }
+        GUI.enabled = canEdit && IsAvailable();
+        if (GUI.Button(new Rect(x, y + 70f, 276f, 27f), "1 · 마지막 2개 미체결")) TrySetNearbyVehicle(false);
+        if (GUI.Button(new Rect(x, y + 101f, 276f, 27f), "2 · 전체 완성")) TrySetNearbyVehicle(true);
+        GUI.enabled = canEdit;
+        if (GUI.Button(new Rect(x, y + 132f, 276f, 27f), "+1,000 자금 지급")) TryGrantDebugMoney();
         GUI.enabled = true;
-        if (!string.IsNullOrEmpty(status)) GUI.Label(new Rect(x, y + 121f, width, 36f), status);
+
+        string availability = modal ? "창을 닫으면 사용할 수 있습니다" : !prototype ? "프로토타입 장면에서만 사용 가능" :
+            settlement ? "정산 중 · 경제/차량 변경 잠김" : closestCar == null ? "차량 가까이에서 1·2 사용 가능" :
+            !closestCar.CanRepair ? "수리 기한이 지난 차량입니다" : "차량 테스트 및 자금 조정 가능";
+        GUI.Label(new Rect(x, y + 162f, 276f, 34f), availability);
+        if (!string.IsNullOrEmpty(status)) GUI.Label(new Rect(x, y + 197f, 276f, 36f), status);
+    }
+
+    private void TryGrantDebugMoney()
+    {
+        ProductionProgression progression = ProductionProgression.Current;
+        if (progression == null || !progression.prototypeMode) { status = "프로토타입에서만 사용할 수 있습니다"; return; }
+        PrototypeDayCycle cycle = PrototypeDayCycle.Current;
+        if (cycle != null && cycle.IsSettlement) { status = "정산 중에는 사용할 수 없습니다"; return; }
+        EconomyManager.Instance.Earn(1000);
+        status = "자금 +1,000 · 미션 진행에는 반영되지 않음";
     }
 
     private bool IsAvailable()

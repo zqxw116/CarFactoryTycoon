@@ -8,6 +8,6 @@ public sealed class PlayerAssemblyHandIK : MonoBehaviour
     private void Awake() => animator = GetComponent<Animator>();
     private void OnAnimatorIK(int layerIndex)
     {
-        if (interactor != null && interactor.isActiveAndEnabled) interactor.ApplyHandIK(animator);
+        if (animator != null && WorkerHammerAnimation.IsFinalIKPass(animator, layerIndex) && interactor != null && interactor.isActiveAndEnabled) interactor.ApplyHandIK(animator);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -37,6 +37,9 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     private int hammerHitsOverride;
     private Transform hammerVisual;
     private Quaternion hammerRestRotation;
+    private Vector3 hammerRestPosition;
+    private Quaternion rightHandRestRotation;
+    private float rightArmLength = .65f;
 
     private BoxCollider hammerHead;
     private PrototypeHammerContact hammerContact;
@@ -66,6 +69,14 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         EnsureAnchors();
         CreateHammer();
+        if (bodyAnimator != null && bodyAnimator.isHuman)
+        {
+            var upper = bodyAnimator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+            var lower = bodyAnimator.GetBoneTransform(HumanBodyBones.RightLowerArm);
+            rightHandRestRotation = Quaternion.Inverse(transform.rotation) * hammerAnchor.rotation;
+            if (upper != null && lower != null)
+                rightArmLength = Vector3.Distance(upper.position, lower.position) + Vector3.Distance(lower.position, hammerAnchor.position);
+        }
         hammerContact = gameObject.AddComponent<PrototypeHammerContact>();
         if (bodyAnimator != null && bodyAnimator.isHuman)
         {
@@ -92,6 +103,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void Update()
     {
+        if (swingActive) AdvanceHammerSwing(Time.deltaTime);
         RefreshNearbyCars();
         AdvanceHeldAttachment(Keyboard.current != null && Keyboard.current.eKey.isPressed, Time.deltaTime);
         if (WorkingPart != null && (!WorkingPart.gameObject.activeInHierarchy || !WorkingPart.CanPlayerRepair)) WorkingPart = null;
@@ -180,6 +192,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (hammerContact == null) hammerContact = gameObject.AddComponent<PrototypeHammerContact>();
         lastHitTime = Time.time;
         hammerVisual.gameObject.SetActive(true);
+        if (!WorkerHammerAnimation.Play(bodyAnimator)) return false;
         swingActive = true; swingContacted = false; swingElapsed = 0f;
         Vector3 idleTarget = transform.position + Vector3.up * 1.35f + View.forward * 1.2f;
         swingDepth = focusedPart != null && IsAimingAt(focusedPart)
@@ -215,33 +228,28 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         // The direction is read throughout the swing. Nothing tracks the initially selected part.
         Vector3 shoulder = transform.position + Vector3.up * 1.35f + transform.right * .22f;
         Vector3 aimed = View.position + View.forward * swingDepth;
-        aimed = shoulder + Vector3.ClampMagnitude(aimed - shoulder, 2.05f);
-        float windup = t < .25f ? t / .25f : 1f - Mathf.Clamp01((t - .25f) / .30f);
-        float recover = Mathf.Clamp01((t - .66f) / .34f);
-        return Vector3.Lerp(aimed + View.up * (.42f * windup) + View.right * (.24f * windup),
-            shoulder + View.forward * .55f - View.up * .1f, recover);
+        aimed = shoulder + Vector3.ClampMagnitude(aimed - shoulder, rightArmLength + .22f);
+        return aimed; // The real clip supplies the arc; aim only steers it slightly.
     }
     void PlaceHammer(float t)
     {
         if (hammerHead == null || hammerVisual == null) return;
-        Vector3 target = SwingTarget(t);
-        Quaternion rotation = Quaternion.LookRotation(View.forward, View.up) * Quaternion.Euler(0, 0, -18f + 48f * Mathf.Sin(t * Mathf.PI));
-        hammerVisual.SetPositionAndRotation(target, rotation);
+        // A real grip: only the arm IK moves the tool through space. Never teleport the
+        // hammer to the aim point, which detached it from the hand and granted remote hits.
+        hammerVisual.localPosition = hammerRestPosition;
+        hammerVisual.localRotation = hammerRestRotation;
         hammerVisual.localScale = Vector3.one * (PlayerHammerHits == 2 ? 1.2f : 1f);
-        hammerVisual.position += target - hammerHead.transform.position;
     }
     public void AdvanceHammerSwing(float deltaTime)
     {
-        float remaining=Mathf.Min(.5f,Mathf.Max(0f,deltaTime));
-        while(remaining>0f&&swingActive){float step=Mathf.Min(.016f,remaining);AdvanceHammerStep(step);remaining-=step;}
+        if (swingActive) swingElapsed += Mathf.Min(.5f, Mathf.Max(0f, deltaTime));
     }
     void AdvanceHammerStep(float deltaTime)
     {
         if (!swingActive) return;
         if (!inputEnabled || Cursor.lockState != CursorLockMode.Locked || HeldPart != null || IsAttaching)
-        { swingActive = false; return; }
-        swingElapsed += Mathf.Max(0f, deltaTime);
-        float t = Mathf.Clamp01(swingElapsed / .34f);
+        { swingActive = false; WorkerHammerAnimation.Stop(bodyAnimator); return; }
+        float t = Mathf.Clamp01(swingElapsed / WorkerHammerAnimation.Duration);
         PlaceHammer(t);
         if (!swingContacted && t >= .25f && t <= .82f)
         {
@@ -259,7 +267,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             }
         }
         previousHeadPosition = hammerHead.transform.position; previousHeadRotation = hammerHead.transform.rotation;
-        if (t >= 1f) swingActive = false;
+        if (t >= 1f) { swingActive = false; WorkerHammerAnimation.Stop(bodyAnimator); }
     }
 
     private void AdvanceAttachment(float deltaTime)
@@ -489,20 +497,14 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         var tool = new GameObject("PlayerHammer");
         hammerVisual = tool.transform;
         hammerVisual.SetParent(hammerAnchor, false);
-        Vector3 finger = Vector3.right;
-        if (bodyAnimator != null && bodyAnimator.isHuman)
-        {
-            var middle = bodyAnimator.GetBoneTransform(HumanBodyBones.RightMiddleProximal);
-            if (middle != null) finger = hammerAnchor.InverseTransformPoint(middle.position);
-        }
-        hammerVisual.localPosition = finger * .5f;
-        hammerVisual.localRotation = Quaternion.FromToRotation(Vector3.up, finger.normalized);
+        float shaftWidth = WorkerHammerAnimation.CalibrateGrip(bodyAnimator, hammerVisual);
+        hammerRestPosition = hammerVisual.localPosition;
         hammerRestRotation = hammerVisual.localRotation;
         var shader = Shader.Find("Universal Render Pipeline/Lit");
         if (shader == null) shader = Shader.Find("Standard");
         if (shader != null) { toolMaterial = new Material(shader); toolMaterial.color = new Color(.25f, .27f, .29f); }
-        MakeToolPiece("Handle", PrimitiveType.Cylinder, new Vector3(0, .045f, 0), new Vector3(.035f, .14f, .035f));
-        MakeToolPiece("Head", PrimitiveType.Cube, new Vector3(0, .22f, 0), new Vector3(.21f, .10f, .09f));
+        MakeToolPiece("Handle", PrimitiveType.Cylinder, new Vector3(0, .10f, 0), new Vector3(shaftWidth, .15f, shaftWidth));
+        MakeToolPiece("Head", PrimitiveType.Cube, new Vector3(0, WorkerHammerAnimation.HeadDistance, 0), new Vector3(.21f, .10f, .09f));
     }
 
     private void MakeToolPiece(string label, PrimitiveType shape, Vector3 position, Vector3 scale)
@@ -521,8 +523,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         if (hammerVisual == null) return;
         hammerVisual.gameObject.SetActive(inputEnabled && HeldPart == null);
-        if (swingActive) { AdvanceHammerSwing(Time.deltaTime); return; }
-        hammerVisual.localPosition = bodyAnimator != null && bodyAnimator.isHuman ? hammerAnchor.InverseTransformDirection(hammerAnchor.right) * .025f : Vector3.zero;
+        if (swingActive) { AdvanceHammerStep(0f); return; }
+        hammerVisual.localPosition = hammerRestPosition;
         hammerVisual.localRotation = hammerRestRotation;
         hammerVisual.localScale = Vector3.one * (PlayerHammerHits == 2 ? 1.2f : 1f);
     }
@@ -531,8 +533,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         if (animator == null || !animator.isHuman) return;
         bool carrying = HeldPart != null && !IsAttaching;
-        float workWeight = inputEnabled && (IsAttaching || swingActive) ? .85f : 0f;
-        Vector3 target = swingActive ? SwingTarget(Mathf.Clamp01(swingElapsed / .34f)) : lastHitPoint;
+        float workWeight = inputEnabled && (IsAttaching || swingActive) ? 1f : 0f;
+        Vector3 target = swingActive ? SwingTarget(Mathf.Clamp01(swingElapsed / WorkerHammerAnimation.Duration)) : lastHitPoint;
         if (IsAttaching)
             target = TransformBounds(LocalTargetBounds(attachingPart),attachingPart.transform.localToWorldMatrix).center;
         if (carrying)
@@ -544,17 +546,17 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         else
         {
             SetHand(animator, AvatarIKGoal.LeftHand, target - transform.right * .15f, IsAttaching ? workWeight : 0f);
-            Vector3 strikeDirection = (target-(transform.position+Vector3.up*1.2f)).normalized;
-            Vector3 gripToHead = hammerVisual != null ? hammerVisual.localPosition + hammerRestRotation * (Vector3.up*.22f) : Vector3.right*.27f;
-            float toolReach = gripToHead.magnitude * (PlayerHammerHits==2?1.2f:1f);
-            Vector3 handTarget = IsAttaching ? target : target-strikeDirection*(toolReach+0f);
-            SetHand(animator, AvatarIKGoal.RightHand, handTarget, workWeight);
-            if (!IsAttaching && workWeight > 0f && hammerAnchor != null)
+            if (IsAttaching)
+                SetHand(animator, AvatarIKGoal.RightHand, target, workWeight);
+            else if (swingActive)
             {
-                var rotation = Quaternion.FromToRotation(hammerAnchor.rotation * gripToHead.normalized, strikeDirection) * hammerAnchor.rotation;
-                animator.SetIKRotationWeight(AvatarIKGoal.RightHand, workWeight);
-                animator.SetIKRotation(AvatarIKGoal.RightHand, rotation);
+                Vector3 gripToHead = hammerHead != null && hammerAnchor != null
+                    ? hammerHead.transform.position - hammerAnchor.position : Vector3.zero;
+                SetHand(animator, AvatarIKGoal.RightHand,
+                    WorkerHammerAnimation.Aim(animator, HumanBodyBones.RightUpperArm, HumanBodyBones.RightLowerArm,
+                        HumanBodyBones.RightHand, target - gripToHead), .35f);
             }
+            else SetHand(animator, AvatarIKGoal.RightHand, Vector3.zero, 0f);
         }
     }
 
@@ -562,7 +564,14 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     {
         animator.SetIKPositionWeight(goal, weight);
         animator.SetIKRotationWeight(goal, 0f);
-        if (weight > 0f) animator.SetIKPosition(goal, target);
+        if (weight > 0f)
+        {
+            bool left = goal == AvatarIKGoal.LeftHand;
+            animator.SetIKPosition(goal, WorkerHammerAnimation.Aim(animator,
+                left ? HumanBodyBones.LeftUpperArm : HumanBodyBones.RightUpperArm,
+                left ? HumanBodyBones.LeftLowerArm : HumanBodyBones.RightLowerArm,
+                left ? HumanBodyBones.LeftHand : HumanBodyBones.RightHand, target, 1f));
+        }
     }
 
     private void EmitImpact(Vector3 position, bool completed)
@@ -574,8 +583,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             sparks = go.AddComponent<ParticleSystem>();
             sparks.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             var main = sparks.main; main.loop = false; main.playOnAwake = false;
-            main.startLifetime = .15f; main.startSpeed = 1.1f; main.startSize = .035f;
-            main.maxParticles = 40; main.simulationSpace = ParticleSystemSimulationSpace.World;
+            main.startLifetime = new ParticleSystem.MinMaxCurve(.24f, .48f); main.startSpeed = new ParticleSystem.MinMaxCurve(2.8f, 5.2f); main.startSize = new ParticleSystem.MinMaxCurve(.045f, .085f);
+            main.maxParticles = 96; main.simulationSpace = ParticleSystemSimulationSpace.World;
             var emission = sparks.emission; emission.enabled = false;
             var shape = sparks.shape; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = .015f;
             Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
@@ -589,7 +598,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         sparks.transform.position = position;
         var settings = sparks.main;
         settings.startColor = completed ? new Color(.5f, 1f, 1f) : new Color(1f, .7f, .15f);
-        sparks.Emit(completed ? 18 : 8);
+        sparks.Emit(completed ? 36 : 22);
     }
 
     private void OnGUI()
@@ -612,7 +621,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     private void OnDisable()
     {
-        swingActive = false;
+        swingActive = false; WorkerHammerAnimation.Stop(bodyAnimator);
         CancelAttachment();
         if (HeldPart != null) { HeldPart.Throw(this, Vector3.zero); HeldPart = null; }
         if (hammerVisual != null) hammerVisual.gameObject.SetActive(false);

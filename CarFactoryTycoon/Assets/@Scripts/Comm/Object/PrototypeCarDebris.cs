@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>Short-lived, render-only physics copies of visible assembled car parts.</summary>
@@ -22,7 +22,7 @@ public sealed class PrototypeCarDebris : MonoBehaviour
         int layer = LayerMask.NameToLayer("Parts");
         foreach (var part in parts)
         {
-            if (part == null || !part.gameObject.activeInHierarchy ||
+            if (part == null || part.myType == PartType.Frame_1 || !part.gameObject.activeInHierarchy ||
                 !(part.IsAssembled || part.currentWork > 0f || part.IsPlayerAttached || part.IsPlayerAttaching)) continue;
             bool copiedPart = false;
             var renderers = part.GetComponentsInChildren<Renderer>(false);
@@ -73,9 +73,12 @@ public sealed class PrototypeCarDebris : MonoBehaviour
                 if (away.sqrMagnitude < .01f) away = Vector3.up;
                 Vector3 horizontal = Vector3.ProjectOnPlane(away, Vector3.up);
                 if (horizontal.sqrMagnitude < .01f) horizontal = Random.insideUnitSphere;
-                Vector3 burstDirection = horizontal.normalized * .8f + Vector3.down * .12f;
+                // Radial launch plus independent azimuth makes side, roof and rear pieces separate visibly.
+                Vector3 direction = Vector3.Slerp(horizontal.normalized, Random.onUnitSphere, .45f);
+                direction.y = Random.Range(.45f, 1.15f);
+                Vector3 burstDirection = direction.normalized * Random.Range(3.2f, 5.4f);
                 body.AddForce(burstDirection, ForceMode.VelocityChange);
-                body.AddTorque(Random.insideUnitSphere * .55f, ForceMode.VelocityChange);
+                body.AddTorque(Random.insideUnitSphere * 2.4f, ForceMode.VelocityChange);
                 var lifetime = go.AddComponent<PrototypeCarDebris>();
                 if (ownsMesh) lifetime.ownedMesh = mesh;
                 Active.Add(lifetime);

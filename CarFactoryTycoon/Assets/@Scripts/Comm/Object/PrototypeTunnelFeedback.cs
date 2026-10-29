@@ -75,7 +75,7 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     {
         switch (state)
         {
-            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = .32f; smokeTime = .8f; break;
+            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = .32f; smokeTime = 4.5f; break;
             case CarSpawner.RequestFeedback.Full: Show("대기열 가득 참"); break;
             case CarSpawner.RequestFeedback.Blocked: Show("출발 위치 막힘"); break;
             case CarSpawner.RequestFeedback.Exiting: Show("차량 출발"); break;
@@ -125,7 +125,7 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
         smokeTime = Mathf.Max(0f, smokeTime - Time.deltaTime);
         bool active = smokeTime > 0f;
         var emission = smoke.emission;
-        emission.rateOverTime = active ? 6f : 0f;
+        emission.rateOverTime = active ? 18f : 0f;
         if (active && !smoke.isPlaying) smoke.Play(true);
     }
 
@@ -177,13 +177,15 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
         AddChimneyPiece("ChimneyRim", new Vector3(0, .68f, 0), new Vector3(.31f, .07f, .31f), chimneyMaterial);
         var puff = new GameObject("TunnelSmoke"); puff.transform.SetParent(chimney, false); puff.transform.localPosition = new Vector3(0, .78f, 0); puff.transform.localRotation = Quaternion.Euler(-90f,0,0);
         smoke = puff.AddComponent<ParticleSystem>();
-        var main = smoke.main; main.loop = true; main.startLifetime = 2.2f; main.startSpeed = .22f; main.startSize = new ParticleSystem.MinMaxCurve(.18f, .42f);
-        main.startColor = new Color(.72f, .75f, .76f, .38f); main.maxParticles = 36; main.simulationSpace = ParticleSystemSimulationSpace.World;
+        var main = smoke.main; main.loop = true; main.startLifetime = new ParticleSystem.MinMaxCurve(5.5f, 7.5f); main.startSpeed = new ParticleSystem.MinMaxCurve(1.8f, 2.8f); main.startSize = new ParticleSystem.MinMaxCurve(.7f, 1.25f);
+        main.startColor = new Color(.72f, .75f, .76f, .65f); main.maxParticles = 144; main.simulationSpace = ParticleSystemSimulationSpace.World;
         var emission = smoke.emission; emission.rateOverTime = 0f;
-        var shape = smoke.shape; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 12f; shape.radius = .11f;
+        var shape = smoke.shape; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 9f; shape.radius = .22f;
+        var size = smoke.sizeOverLifetime; size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, .65f, 1f, 2.8f));
         var color = smoke.colorOverLifetime; color.enabled = true;
         var gradient = new Gradient();
-        gradient.SetKeys(new[] { new GradientColorKey(new Color(.62f,.65f,.67f),0), new GradientColorKey(new Color(.48f,.51f,.53f),1) }, new[] { new GradientAlphaKey(.35f,0), new GradientAlphaKey(.05f,1) });
+        gradient.SetKeys(new[] { new GradientColorKey(new Color(.62f,.65f,.67f),0), new GradientColorKey(new Color(.48f,.51f,.53f),1) }, new[] { new GradientAlphaKey(.6f,0), new GradientAlphaKey(.05f,1) });
         color.color = gradient;
         CreateSmokeMaterial();
     }

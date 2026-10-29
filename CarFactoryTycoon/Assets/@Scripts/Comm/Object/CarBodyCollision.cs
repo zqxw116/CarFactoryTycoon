@@ -45,6 +45,46 @@ public sealed class CarBodyCollision : MonoBehaviour
         return collision;
     }
 
+    // Shared scratch buffers: Unity actor movement runs sequentially on the main thread.
+    static readonly Collider[] actorOverlaps = new Collider[32];
+    public static Vector3 ConstrainActorStep(Vector3 position, Vector3 step, float radius = .32f, float height = 1.8f)
+    {
+        radius = Mathf.Max(.1f, radius);
+        height = Mathf.Max(radius * 2f, height);
+        Vector3 start = position;
+        // A moving kinematic hull can reach an idle actor between its own movement calls.
+        // Resolve against the same primitive boxes used by the sweep, without adding actor rigidbodies.
+        for (int pass = 0; pass < 3; pass++)
+        {
+            int count = Physics.OverlapCapsuleNonAlloc(position + Vector3.up * radius,
+                position + Vector3.up * (height - radius), radius, actorOverlaps, 1 << CarBodyLayer, QueryTriggerInteraction.Ignore);
+            bool pushed = false;
+            for (int i = 0; i < count; i++)
+            {
+                if (!(actorOverlaps[i] is BoxCollider box)) continue;
+                var t = box.transform;
+                Vector3 p = t.InverseTransformPoint(position + Vector3.up * (height * .5f)) - box.center;
+                Vector3 scale = t.lossyScale;
+                Vector3 e = box.size * .5f;
+                e.x += radius / Mathf.Max(.001f, Mathf.Abs(scale.x));
+                e.z += radius / Mathf.Max(.001f, Mathf.Abs(scale.z));
+                if (Mathf.Abs(p.x) >= e.x || Mathf.Abs(p.z) >= e.z) continue;
+                float x = (e.x - Mathf.Abs(p.x)) * Mathf.Abs(scale.x);
+                float z = (e.z - Mathf.Abs(p.z)) * Mathf.Abs(scale.z);
+                Vector3 correction = x < z ? t.right * ((p.x < 0 ? -1 : 1) * (x + .015f)) :
+                    t.forward * ((p.z < 0 ? -1 : 1) * (z + .015f));
+                correction.y = 0; position += correction; pushed = true;
+            }
+            if (!pushed) break;
+        }
+        float distance = step.magnitude;
+        if (distance > .00001f && Physics.CapsuleCast(position + Vector3.up * radius,
+            position + Vector3.up * (height - radius), radius, step / distance, out var hit,
+            distance + .02f, 1 << CarBodyLayer, QueryTriggerInteraction.Ignore))
+            step *= Mathf.Clamp01((hit.distance - .02f) / distance);
+        return position - start + step;
+    }
+
     void CreateLocalHull(Vector3 sourceCenter, Vector3 sourceSize)
     {
         // Match the authored car footprint in local space while leaving its outer wheel

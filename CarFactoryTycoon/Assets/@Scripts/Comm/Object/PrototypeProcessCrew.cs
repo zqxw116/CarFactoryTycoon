@@ -212,7 +212,12 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
             case Phase.Hits:
                 if(s.worker!=null)s.worker.PrototypeMoveTo(Stand(s),Worker.WorkerState.Working,s.part);
                 s.effects.WorkingPart=s.part;
+                if(s.worker!=null && !s.effects.HammerRunning && Time.time>=s.nextHit-WorkerHammerAnimation.Duration)
+                    s.effects.BeginHammerSwing();
                 if(Time.time<s.nextHit||!RobotReached(s))break;
+                // Automatic crew keeps the established timed work rule; physical contact gates player input.
+                if(s.worker!=null)s.effects.EndHammerSwing();
+
                 if(s.part.TryPlayerHammer(3))
                 {
                     StrikeCount++;s.effects.Pulse(Contact(s),s.part.IsAssembled);
@@ -257,6 +262,3 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
     }
     void OnDisable(){CancelAll();}
 }
-
-
-

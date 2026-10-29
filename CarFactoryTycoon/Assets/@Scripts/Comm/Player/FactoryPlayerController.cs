@@ -1,4 +1,4 @@
-﻿using Cinemachine;
+using Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -28,6 +28,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     bool grounded;
     int speedId=Animator.StringToHash("Speed"), motionId=Animator.StringToHash("MotionSpeed");
     int groundId=Animator.StringToHash("Grounded"), jumpId=Animator.StringToHash("Jump"), fallId=Animator.StringToHash("FreeFall");
+    int moveXId=Animator.StringToHash("MoveX"), moveZId=Animator.StringToHash("MoveZ");
 
     void Awake()
     {
@@ -86,16 +87,17 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     void Update()
     {
-        if(PrototypeDayCycle.Current!=null && PrototypeDayCycle.Current.IsSettlement) {if(interactor!=null)interactor.inputEnabled=false;return;}
         var keyboard=Keyboard.current; var mouse=Mouse.current;
+        // Escape always makes the pointer available, including during settlement or while a UI is open.
+        if(keyboard!=null && keyboard.escapeKey.wasPressedThisFrame)
+        { Cursor.lockState=CursorLockMode.None; Cursor.visible=true; }
+        if(PrototypeDayCycle.Current!=null && PrototypeDayCycle.Current.IsSettlement) {if(interactor!=null)interactor.inputEnabled=false;return;}
         if(keyboard!=null && keyboard.tabKey.wasPressedThisFrame) SetMapMode(!MapMode);
         if(!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);
-        if(!MapMode && !InteractionUIOpen && keyboard!=null && keyboard.escapeKey.wasPressedThisFrame) {Cursor.lockState=CursorLockMode.None;Cursor.visible=true;}
-        // Re-capturing the cursor does not also swing the hammer.
-        Vector2 pointer=mouse!=null?mouse.position.ReadValue():Vector2.zero;
-        pointer.y=Screen.height-pointer.y;
-        bool overPrototypeButtons=new Rect(Screen.width-176,14,158,30).Contains(pointer)||new Rect(18,Screen.height-220,270,158).Contains(pointer);
-        bool recaptured=!overPrototypeButtons&&!InteractionUIOpen && !MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
+        // Clicking any visible admin control must remain a UI click, never cursor recapture or a hammer hit.
+        bool overAdminPanel=PrototypePlayerTestControls.PointerOverAdminPanel(mouse);
+        bool overGameUI=UnityEngine.EventSystems.EventSystem.current!=null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+        bool recaptured=!overAdminPanel&&!overGameUI&&!InteractionUIOpen && !MapMode && Cursor.lockState!=CursorLockMode.Locked && mouse!=null && mouse.leftButton.wasPressedThisFrame;
         if(recaptured){Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;}
         if(interactor!=null)interactor.inputEnabled=ControlsActive&&!recaptured;
         if(ControlsActive && mouse!=null)
@@ -128,7 +130,8 @@ public sealed class FactoryPlayerController : MonoBehaviour
             if(belt!=null)BeltVelocity=belt.GetSurfaceVelocity(ground.point);
         }
         if(grounded && verticalSpeed<0)verticalSpeed=-2f;
-        if(grounded && jump){verticalSpeed=Mathf.Sqrt(2f*settings.jumpHeight*-settings.playerGravity);grounded=false;BeltVelocity=Vector3.zero;}
+        bool tookOff=grounded && jump;
+        if(tookOff){verticalSpeed=Mathf.Sqrt(2f*settings.jumpHeight*-settings.playerGravity);grounded=false;BeltVelocity=Vector3.zero;}
         verticalSpeed+=settings.playerGravity*dt;
         var direction=transform.TransformDirection(new Vector3(input.x,0,input.y));
         if(direction.sqrMagnitude>1)direction.Normalize();
@@ -136,11 +139,19 @@ public sealed class FactoryPlayerController : MonoBehaviour
         // In map/cursor mode the character stands still relative to the belt, rather than freezing in world space.
         controller.Move((direction*speed+BeltVelocity+Vector3.up*verticalSpeed)*dt);
         if((controller.collisionFlags&CollisionFlags.Above)!=0 && verticalSpeed>0)verticalSpeed=0;
+        if(!tookOff)grounded=controller.isGrounded;
         if(bodyAnimator!=null)
         {
             bodyAnimator.SetFloat(speedId,direction.magnitude*speed,.1f,Mathf.Max(.001f,dt));
-            bodyAnimator.SetFloat(motionId,1f);bodyAnimator.SetBool(groundId,grounded);
-            bodyAnimator.SetBool(jumpId,!grounded && verticalSpeed>0);bodyAnimator.SetBool(fallId,!grounded && verticalSpeed<-3f);
+            bodyAnimator.SetFloat(motionId,1f);
+            Vector3 localPlanarVelocity=new Vector3(input.x,0,input.y);
+            if(localPlanarVelocity.sqrMagnitude>1f)localPlanarVelocity.Normalize();
+            localPlanarVelocity*=speed;
+            bodyAnimator.SetFloat(moveXId,localPlanarVelocity.x);
+            bodyAnimator.SetFloat(moveZId,localPlanarVelocity.z);
+            bodyAnimator.SetBool(groundId,grounded);
+            bodyAnimator.SetBool(jumpId,tookOff);
+            bodyAnimator.SetBool(fallId,!grounded && verticalSpeed<-3f);
         }
     }
     public void Teleport(Vector3 position)
@@ -176,8 +187,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     void OnGUI()
     {
         GUI.Label(new Rect(18,14,800,25),"WASD 이동 · Shift 달리기 · Space 점프 · C 1/3인칭 · Tab 지도 · Esc 마우스");
-        if (!MapMode && GUI.Button(new Rect(Screen.width - 176, 14, 158, 30), FirstPerson ? "3인칭 전환 (C)" : "1인칭 전환 (C)"))
-            SetFirstPerson(!FirstPerson);
-        if(!MapMode && !InteractionUIOpen && !ControlsActive)GUI.Label(new Rect(Screen.width/2-120,Screen.height/2+30,260,25),"클릭하면 공장 작업으로 돌아갑니다");
+        if(!MapMode && !InteractionUIOpen)
+            GUI.Label(new Rect(Screen.width/2-160,Screen.height-36,320,25),ControlsActive?"Esc · 마우스 해제 / 관리자 패널 클릭":"마우스 해제됨 · 클릭은 관리자 패널에서 사용, 바깥 클릭으로 작업 복귀");
     }
 }

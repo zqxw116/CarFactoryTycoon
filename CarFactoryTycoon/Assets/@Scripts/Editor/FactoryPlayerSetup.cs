@@ -20,7 +20,7 @@ public static class FactoryPlayerSetup
         var player=Object.FindFirstObjectByType<FactoryPlayerController>();
         if(player==null)
         {
-            var prefab=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/UnityTechnologies/SpaceRobotKyle/Prefabs/RobotKyle.prefab");
+            var prefab=AssetDatabase.LoadAssetAtPath<GameObject>("Assets/@Resource/Prefabs/Characters/Worker_Base.prefab");
             var go=(GameObject)PrefabUtility.InstantiatePrefab(prefab);
             Undo.RegisterCreatedObjectUndo(go,"M2 factory player");
             PrefabUtility.UnpackPrefabInstance(go,PrefabUnpackMode.Completely,InteractionMode.AutomatedAction);
@@ -41,9 +41,9 @@ public static class FactoryPlayerSetup
         }
         foreach(var t in player.GetComponentsInChildren<Transform>(true))t.gameObject.layer=10;
         var cc=player.GetComponent<CharacterController>();
-        cc.height=1.8f;cc.radius=.28f;cc.center=Vector3.up*.9f;cc.stepOffset=.3f;cc.skinWidth=.03f;
-        var animator=player.GetComponent<Animator>();
-        animator.runtimeAnimatorController=AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/@Resource/Animations/WorkerAnimator.controller");
+        cc.height=player.transform.Find("CharacterVisual") != null ? 1.75f : 1.8f;cc.radius=.28f;cc.center=Vector3.up*(cc.height*.5f);cc.stepOffset=.3f;cc.skinWidth=.03f;
+        var animator=player.GetComponentInChildren<Animator>();
+        animator.runtimeAnimatorController=AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(player.transform.Find("CharacterVisual") != null ? "Assets/@Resource/Animations/FactoryPlayer.controller" : "Assets/@Resource/Animations/WorkerAnimator.controller");
         animator.applyRootMotion=false;animator.cullingMode=AnimatorCullingMode.AlwaysAnimate;
         player.settings=line.settings;player.bodyAnimator=animator;
         player.interactor=player.GetComponent<PlayerAssemblyInteractor>();
@@ -65,7 +65,7 @@ public static class FactoryPlayerSetup
         {water.passBonus=0;EditorUtility.SetDirty(water);} // Prototype income is paid once at export.
         foreach(var item in new Object[]{player,player.interactor,animator,cc,line,belt,player.brain})EditorUtility.SetDirty(item);
         EditorSceneManager.MarkSceneDirty(scene);AssetDatabase.SaveAssets();EditorSceneManager.SaveScene(scene);
-        return "M2 player ready: RobotKyle, CharacterController, two Cinemachine views, map, physical belt, Parts/Player/CarBody matrix.";
+        return "Factory player ready: Worker_Base, CharacterController, two Cinemachine views, map, physical belt, Parts/Player/CarBody matrix.";
     }
     static CinemachineVirtualCamera Vcam(Transform parent,string name,float fov)
     {

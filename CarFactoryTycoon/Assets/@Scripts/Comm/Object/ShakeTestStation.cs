@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -201,8 +201,14 @@ public class ShakeTestStation : MonoBehaviour, ILineGate
     void BeginBreakup()
     {
         rejectStartPosition = currentCar.transform.position;
+        // Bring the pallet under the lifted frame before lowering the complete rejected load.
+        if (dolly != null) dolly.Restore();
         currentCar.LeaveLine();
-        // Loose parts have already dropped during testing. The intact frame is lowered away.
+        // The loose fittings release while shaking; rejection flings remaining fittings radially.
+        // Frame and pallet stay intact and descend together.
+        var rejectedParts = new AssemblyPart[poses.Count];
+        for (int i = 0; i < poses.Count; i++) rejectedParts[i] = poses[i].part;
+        PrototypeCarDebris.Burst(rejectedParts);
         foreach (var pose in poses)
         {
             if (pose.part == null) continue;

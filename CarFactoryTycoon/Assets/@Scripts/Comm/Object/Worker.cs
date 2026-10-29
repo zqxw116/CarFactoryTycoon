@@ -28,6 +28,7 @@ public class Worker : MonoBehaviour
     public bool PrototypeMoveTo(Vector3 point, WorkerState state, AssemblyPart held)
     {
         movedThisFrame = 0f; currentState = state;
+        transform.position += CarBodyCollision.ConstrainActorStep(transform.position, Vector3.zero);
         bool arrived = MoveToward(point);
         if (state == WorkerState.Working && held != null) FaceTowards(held.AttachmentWorldPosition);
         UpdateAnimator(); return arrived;
@@ -835,7 +836,7 @@ public class Worker : MonoBehaviour
         if (Vector3.Distance(transform.position, flatTarget) <= stopRadius) return;
 
         Vector3 before = transform.position;
-        transform.position = Vector3.MoveTowards(before, flatTarget, speed * Time.deltaTime);
+        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, speed * Time.deltaTime) - before);
         movedThisFrame += Vector3.Distance(before, transform.position);
     }
 
@@ -852,7 +853,7 @@ public class Worker : MonoBehaviour
         if (dist <= arriveRadius) return true;
 
         Vector3 before = transform.position;
-        transform.position = Vector3.MoveTowards(before, flatTarget, moveSpeed * Time.deltaTime);
+        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, moveSpeed * Time.deltaTime) - before);
         movedThisFrame += Vector3.Distance(before, transform.position);
 
         FaceTowards(flatTarget);

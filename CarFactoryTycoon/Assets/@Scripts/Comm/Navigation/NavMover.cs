@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>Explicit NavMesh corner following with vehicle-aware local routes.
@@ -21,11 +21,12 @@ public class NavMover : MonoBehaviour
     Vector3 destination,sampledDestination;
     bool hasDestination;
     float nextRetry,currentSpeed;
+    Vector3 requestedStep,contactStep;
     public float Speed {get=>speed;set=>speed=Mathf.Max(0,value);}
     public float CurrentSpeed=>moveFrame==Time.frameCount?currentSpeed:0;
     public bool IsWaitingToCross=>avoidance!=null&&avoidance.IsYielding;
     public bool UsingNavMesh=>agent!=null&&agent.enabled&&agent.isOnNavMesh;
-    public string DiagnosticState=>$"nav={UsingNavMesh}, corners={cornerCount}, destination={sampledDestination}, speed={currentSpeed:F2}";
+    public string DiagnosticState=>$"nav={UsingNavMesh}, corners={cornerCount}, destination={sampledDestination}, speed={currentSpeed:F2}, position={transform.position}, next={(UsingNavMesh?agent.nextPosition:transform.position)}, wanted={requestedStep}, guarded={contactStep}, avoidance=[{(avoidance!=null?avoidance.DiagnosticState:"none")}]";
     void Awake()
     {
         route=new NavMeshPath();agent=GetComponent<NavMeshAgent>();
@@ -85,6 +86,8 @@ public class NavMover : MonoBehaviour
         if(corner>=cornerCount){nextRetry=0;return false;}
         Vector3 goal=corners[corner];
         var delta=avoidance.SelectStep(agent,goal,sampledDestination,speed,agentRadius,Time.deltaTime);
+        requestedStep=delta;
+        delta=CarBodyCollision.ConstrainActorStep(before,delta,agentRadius,agentHeight);contactStep=delta;
         if(delta.sqrMagnitude>.000001f)agent.Move(delta);
         var moved=Flat(agent.nextPosition-before);
         currentSpeed=Time.deltaTime>0?moved.magnitude/Time.deltaTime:0;
@@ -97,6 +100,8 @@ public class NavMover : MonoBehaviour
         if(moveFrame==Time.frameCount||!UsingNavMesh||avoidance==null)return;
         var before=agent.nextPosition;
         var delta=avoidance.SelectStep(agent,before,before,Mathf.Max(.5f,speed),agentRadius,Time.deltaTime);
+        requestedStep=delta;
+        delta=CarBodyCollision.ConstrainActorStep(before,delta,agentRadius,agentHeight);contactStep=delta;
         if(delta.sqrMagnitude>.000001f){agent.Move(delta);FaceTowards(before+delta);}
     }
     public void Stop()

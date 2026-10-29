@@ -92,6 +92,75 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         return result;
     }
 
+    SplineConveyorDeformer contactBelt;
+    Vector3 contactPoint;
+    float contactAt = float.NegativeInfinity;
+    PhysicsMaterial beltContactMaterial;
+    PhysicsMaterial originalContactMaterial;
+    bool beltMaterialApplied;
+    public string BeltSupportDiagnostic => "contact=" + (contactBelt != null ? contactBelt.name : "none") +
+        ", age=" + (Time.fixedTime - contactAt).ToString("F3") + ", bounds=" + (PhysicsCollider != null ? PhysicsCollider.bounds.ToString() : "none") +
+        ", beltFriction=" + beltMaterialApplied;
+
+    void OnCollisionEnter(Collision collision) => CacheBeltContact(collision);
+    void OnCollisionStay(Collision collision) => CacheBeltContact(collision);
+    void CacheBeltContact(Collision collision)
+    {
+        if (IsHeld || Body == null || Body.isKinematic) return;
+        var belt = collision.collider.GetComponentInParent<SplineConveyorDeformer>();
+        if (belt == null) return;
+        for (int i = 0, count = Mathf.Min(collision.contactCount, 8); i < count; i++)
+        {
+            var contact = collision.GetContact(i);
+            if (contact.normal.y < .55f) continue;
+            contactBelt = belt; contactPoint = contact.point; contactAt = Time.fixedTime;
+            break;
+        }
+    }
+    void SetBeltFriction(bool supported)
+    {
+        if (PhysicsCollider == null || supported == beltMaterialApplied) return;
+        if (supported)
+        {
+            originalContactMaterial = PhysicsCollider.sharedMaterial;
+            if (beltContactMaterial == null)
+                beltContactMaterial = new PhysicsMaterial("PortableConveyorContact")
+                { staticFriction = 0f, dynamicFriction = 0f, frictionCombine = PhysicsMaterialCombine.Minimum };
+            PhysicsCollider.sharedMaterial = beltContactMaterial;
+        }
+        else PhysicsCollider.sharedMaterial = originalContactMaterial;
+        beltMaterialApplied = supported;
+    }
+    private void FixedUpdate()
+    {
+        if (IsHeld || IsExpired || Body == null || Body.isKinematic || PhysicsCollider == null)
+        { SetBeltFriction(false); return; }
+        SplineConveyorDeformer belt = null;
+        Vector3 point = contactPoint;
+        // Contacts cover tilted/overhanging pieces whose centre is outside the supporting surface.
+        if (contactBelt != null && Time.fixedTime - contactAt <= Time.fixedDeltaTime * 2.5f)
+            belt = contactBelt;
+        else
+        {
+            // Start above the whole box: a sleeping or slightly penetrating box cannot hide the belt.
+            // This probe wakes a resting part when the lever restarts; contact callbacks alone don't.
+            Bounds bounds = PhysicsCollider.bounds;
+            Vector3 origin = new Vector3(bounds.center.x, bounds.max.y + .05f, bounds.center.z);
+            if (Physics.Raycast(origin, Vector3.down, out var support, bounds.size.y + .17f,
+                (1 << 0) | (1 << 7), QueryTriggerInteraction.Ignore) && support.normal.y >= .55f)
+            { belt = support.collider.GetComponentInParent<SplineConveyorDeformer>(); point = support.point; }
+        }
+        SetBeltFriction(belt != null);
+        if (belt == null) return;
+        // The rendered belt mesh is static. Its ordinary world friction would oppose the motor,
+        // so replace friction only while supported and supply the belt's tangential acceleration.
+        Vector3 target = belt.GetSurfaceVelocity(point);
+        Vector3 current = Vector3.ProjectOnPlane(Body.linearVelocity, Vector3.up);
+        Vector3 delta = Vector3.ClampMagnitude(target - current, 10f * Time.fixedDeltaTime);
+        if (delta.sqrMagnitude > .000001f) Body.AddForce(delta, ForceMode.VelocityChange);
+    }
+    void OnDestroy() { if (beltContactMaterial != null) Destroy(beltContactMaterial); }
+
     private void Update() => AdvanceDroppedLifetime(Time.deltaTime);
 
     /// <summary>Advances the dropped timer deterministically; held and never-thrown items do not age.</summary>
@@ -131,6 +200,7 @@ public sealed class PortableAssemblyPart : MonoBehaviour
     public bool TryHold(PlayerAssemblyInteractor holder, Transform anchor)
     {
         if (holder == null || anchor == null || IsHeld || IsExpired) return false;
+        SetBeltFriction(false); contactBelt = null; contactAt = float.NegativeInfinity;
         HeldBy = holder;
         blinkVisible = true;
         if (!Body.isKinematic) { Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero; }
@@ -148,6 +218,7 @@ public sealed class PortableAssemblyPart : MonoBehaviour
     public bool Throw(PlayerAssemblyInteractor holder, Vector3 velocity)
     {
         if (HeldBy != holder || holder == null) return false;
+        contactBelt = null; contactAt = float.NegativeInfinity;
         HeldBy = null;
         droppedLifetimeActive = true;
         transform.SetParent(null, true);

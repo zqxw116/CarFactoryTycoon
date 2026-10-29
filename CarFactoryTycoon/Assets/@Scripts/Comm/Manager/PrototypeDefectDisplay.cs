@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -261,10 +261,15 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
         {
             if(badge.car==null)continue;
             float distance=Vector3.Distance(player.transform.position,badge.car.transform.position);
-            if((distance<=workIconRange&&!player.MapMode)||distance>vehicleBadgeRange)continue;
+            if(distance>vehicleBadgeRange)continue;
             var screen=camera.WorldToScreenPoint(badge.car.transform.position+Vector3.up*2.15f);
-            if(screen.z<=0||screen.x<55||screen.x>Screen.width-55||screen.y<20||screen.y>Screen.height-20)continue;
-            VehicleBadgeCount++;GUI.Box(new Rect(screen.x-48,Screen.height-screen.y-12,96,25),"미체결 "+badge.count);
+            // The overhead anchor can leave the frustum while standing beside/inside a car.
+            // Nearby defects keep a clamped top-edge badge even when its world anchor is behind the eye.
+            if(screen.z<=0)
+            {if(distance>workIconRange||player.MapMode)continue;screen=new Vector3(Screen.width*.5f,Screen.height-48f,1f);}
+            float badgeX=Mathf.Clamp(screen.x-48,8,Mathf.Max(8,Screen.width-104));
+            float badgeY=Mathf.Clamp(Screen.height-screen.y-12,36,Mathf.Max(36,Screen.height-40));
+            VehicleBadgeCount++;GUI.Box(new Rect(badgeX,badgeY,96,25),"미체결 "+badge.count);
         }
     }
     void Release(AssemblyPart part)

@@ -122,7 +122,7 @@ public static class WorkerSetupTool
         Debug.Log($"{LOG_TAG} {ok}/{targets.Length}개 세팅 완료. (Ctrl+Z로 되돌릴 수 있습니다)");
     }
 
-    private static bool SetupOne(GameObject go)
+    public static bool SetupOne(GameObject go)
     {
         // 프로젝트 창에서 고른 프리팹 에셋은 건드리지 않는다 — 씬 인스턴스만 대상.
         if (!go.scene.IsValid())
@@ -134,7 +134,7 @@ public static class WorkerSetupTool
 
         // ── 1. Humanoid 검증 ──────────────────────────────────────────────
         // Animator는 자식(모델 루트)에 붙어 있는 경우가 흔하므로 자식까지 훑는다.
-        Animator animator = go.GetComponentInChildren<Animator>();
+        Animator animator = go.GetComponentInChildren<Animator>(true);
         if (animator == null)
         {
             Debug.LogError($"{LOG_TAG} '{go.name}': Animator가 없습니다. " +
@@ -468,7 +468,7 @@ public static class WorkerSetupTool
             return false;
         }
 
-        Animator animator = go.GetComponentInChildren<Animator>();
+        Animator animator = go.GetComponentInChildren<Animator>(true);
         if (animator == null || animator.avatar == null || !animator.avatar.isValid || !animator.isHuman)
         {
             Debug.LogError($"{LOG_TAG} '{go.name}': Humanoid Animator가 없습니다." +
