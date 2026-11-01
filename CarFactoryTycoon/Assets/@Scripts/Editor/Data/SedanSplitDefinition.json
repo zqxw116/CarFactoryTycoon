@@ -1,0 +1,290 @@
+{
+  "comment": "Car_Sedan 부품 분할 정의 (차량 메쉬 로컬 좌표, m, +Z 앞, +Y 위, -X 왼쪽). 평면 안쪽 조건: dot(normal, p - point) <= 0. refine=true 이면 BaseColor 텍스처의 어두운 선에 맞춰 ±refineRange 안에서 자동 보정. sameAs='부품/평면' 은 이미 보정된 다른 부품 평면을 그대로(flip=true면 뒤집어) 공유. usePoints=true 면 p1,p2,p3 를 지나는 평면, inside 점이 안쪽이 되게 법선 방향 결정. extraRegions=합집합 볼록 영역(보정 안 함), excludeCylinders=X축 원기둥(다각형) 영역을 부품에서 빼서 차체로 돌려보냄, noThickBoxes=안쪽 껍데기 생성 제외 상자(이미 닫힌 돌출물: 사이드미러). includePolygons=z축 볼록 다각형 기둥(center 기준 anglesDeg/radii 꼭짓점, 헤드램프 림처럼 실제 림 꼭짓점에 맞춤), removeFins=원본 지느러미(열린 변+3면 공유 변) 삼각형을 이 부품에서 버림. pivot: frontEdge|rearEdgeTop|frontEdgeTop|rearFace|frontFace|cutCenter(자기 절단면 위 정점=뿌리의 중심)|center",
+  "panelThickness": 0.02,
+  "innerWallDepth": 0.025,
+  "depthClampRatio": 0.45,
+  "interiorColor": { "r": 0.38, "g": 0.35, "b": 0.32, "a": 1.0 },
+  "interiorClearComment": "빈 차체: 원본(유리까지 불투명한 통짜)에서 밖에서 안 보이는 삼각형(타이어 윗부분 등 차체 속에 묻힌 면) 중 boxes 안의 것을 Frame 에서 뺀다. 부품 몫은 그대로. 바닥 외판(y<0.30)은 상자 밖이라 보존.",
+  "interiorClear": {
+    "enabled": true,
+    "rays": 160,
+    "boxes": [
+      { "name": "cabinClear", "min": { "x": -0.95, "y": 0.30, "z": -1.15 }, "max": { "x": 0.95, "y": 1.95, "z": 1.15 } },
+      { "name": "engineBayClear", "min": { "x": -0.95, "y": 0.30, "z": 1.15 }, "max": { "x": 0.95, "y": 1.40, "z": 1.95 } },
+      { "name": "trunkClear", "min": { "x": -0.95, "y": 0.30, "z": -1.95 }, "max": { "x": 0.95, "y": 1.40, "z": -1.15 } }
+    ],
+    "fillBoxes": [
+      { "name": "firewallLow", "min": { "x": -0.60, "y": 0.27, "z": 1.08 }, "max": { "x": 0.60, "y": 0.87, "z": 1.11 } },
+      { "name": "firewallHigh", "min": { "x": -0.86, "y": 0.74, "z": 1.08 }, "max": { "x": 0.86, "y": 1.15, "z": 1.11 } },
+      { "name": "radiatorPanel", "min": { "x": -0.58, "y": 0.40, "z": 1.60 }, "max": { "x": 0.58, "y": 0.95, "z": 1.63 } },
+      { "name": "rearPanelCover", "min": { "x": -0.88, "y": 0.40, "z": -1.69 }, "max": { "x": 0.88, "y": 0.92, "z": -1.66 } },
+      { "name": "noseCover", "min": { "x": -0.50, "y": 0.955, "z": 1.60 }, "max": { "x": 0.50, "y": 0.979, "z": 1.75 } },
+      { "name": "headlampBackL", "min": { "x": -0.86, "y": 0.64, "z": 1.60 }, "max": { "x": -0.575, "y": 1.04, "z": 1.63 } },
+      { "name": "headlampBackR", "min": { "x": 0.575, "y": 0.64, "z": 1.60 }, "max": { "x": 0.86, "y": 1.04, "z": 1.63 } }
+    ],
+    "fillBoxesComment2": "headlampBackL/R: 헤드램프를 뗀 구멍 너머로 펜더 안쪽 공동이 들쭉날쭉 보이지 않게 radiatorPanel(|x|<0.58)과 같은 깊이(z1.60~1.63)로 이어 붙인 가림판. 조립 상태에선 램프 뒤라 안 보임(화소 비교로 확인).",
+    "wheelTubsComment": "휠하우스: 상자(옆판+윗판) 대신 X축 반원통 아치(반지름 radius, 축 cy/cz) + 안쪽 반원 마개(xIn). 타이어 |x| 0.60~0.90, 반지름 ~0.36 → radius 0.42. 지붕은 yMin(축 높이) 위 반원만(낮추면 아치 끝이 바깥에서 보임), 마개는 capYMin 까지. xOut 은 차체 옆벽 속.",
+    "wheelTubs": [
+      { "name": "archFL", "side": -1, "xIn": 0.575, "xOut": 0.89, "cy": 0.36, "cz": 1.26, "radius": 0.42, "yMin": 0.38, "capYMin": 0.27, "capBottomHalf": 0.30, "segments": 20 },
+      { "name": "archFR", "side": 1, "xIn": 0.575, "xOut": 0.89, "cy": 0.36, "cz": 1.26, "radius": 0.42, "yMin": 0.38, "capYMin": 0.27, "capBottomHalf": 0.30, "segments": 20 },
+      { "name": "archRL", "side": -1, "xIn": 0.575, "xOut": 0.89, "cy": 0.36, "cz": -1.12, "radius": 0.42, "yMin": 0.38, "capYMin": 0.27, "capBottomHalf": 0.30, "segments": 20 },
+      { "name": "archRR", "side": 1, "xIn": 0.575, "xOut": 0.89, "cy": 0.36, "cz": -1.12, "radius": 0.42, "yMin": 0.38, "capYMin": 0.27, "capBottomHalf": 0.30, "segments": 20 }
+    ]
+  },
+  "frameInnerWallComment": "Frame 안쪽 벽(내장): 바닥 외판 안쪽을 floorY 로 평탄화 + 라플라시안 평활(경계 고정, 바깥 면에서 minDepthRatio×깊이 이상 안쪽 유지) + 평활 법선.",
+  "frameInnerWall": {
+    "smoothIterations": 12,
+    "smoothLambda": 0.5,
+    "minDepthRatio": 0.4,
+    "inwardOnly": false,
+    "maxDepth": 0,
+    "smoothNormals": true,
+    "flattenFloor": true,
+    "floorMin": { "x": -0.56, "y": 0.18, "z": -1.65 },
+    "floorMax": { "x": 0.56, "y": 0.30, "z": 1.60 },
+    "floorY": 0.285,
+    "floorNormalY": -0.7
+  },
+  "partInnerWallComment": "부품(문/후드/트렁크 등) 안쪽 면만 평활(바깥 면·경계·assembledPos 불변). 문 안쪽에 창틀/손잡이가 비치는 것 완화.",
+  "partInnerWall": {
+    "smoothIterations": 12,
+    "smoothLambda": 0.5,
+    "minDepthRatio": 0.4,
+    "smoothNormals": true
+  },
+  "refineRange": 0.03,
+  "refineStep": 0.002,
+  "refineSide": 0.012,
+  "refineMinContrast": -0.03,
+  "partsComment": "backCapNormal=안쪽 오프셋 대신 평평한 뒷판으로 닫음(그릴/램프처럼 요철이 깊은 부품). 정의 순서 = 우선순위. 미러는 문(Door_FL/FR) 영역과 겹치므로 문보다 먼저 둔다(문에 미러 팔 잔여가 남지 않게). 미러 아래 경계 sill 은 문 윗선(벨트라인) 경사면에 평행하게 2mm 위 → 벨트라인 판은 문에 남고 미러 목/받침만 떨어진다. 헤드램프/그릴/테일램프는 기존 부품 뒤(기존 부품 메쉬 불변).",
+  "parts": [
+    {
+      "name": "Mirror_L", "stage": 3, "pivot": "cutCenter", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": -0.8, "y": 0.7, "z": 0.9 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "sill", "normal": { "x": 0.7425, "y": -0.6699, "z": 0 }, "point": { "x": -0.88299, "y": 1.14734, "z": 0 }, "refine": false },
+        { "name": "inner", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": -0.8205, "y": 0, "z": 0 }, "refine": false },
+        { "name": "zmin", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 0.56 }, "refine": false },
+        { "name": "zmax", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.745 }, "refine": false },
+        { "name": "ymax", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.45, "z": 0 }, "refine": false }
+      ],
+      "extraRegionsComment": "미러 안쪽 벽(x-0.8217)과 창유리 앞모서리(x-0.7918)를 잇는 경사 삼각형(미러 뒷면)이 문에 남아 삐죽해 보이므로, 벨트라인 턱(y1.2419)보다 위·유리 3mm 앞까지를 합집합 영역으로 더 가져간다.",
+      "extraRegions": [
+        { "name": "innerFace", "planes": [
+          { "name": "glass", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": -0.7965, "y": 0, "z": 0 } },
+          { "name": "ledge", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 1.2445, "z": 0 } },
+          { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.40, "z": 0 } },
+          { "name": "zmin", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 0.645 } },
+          { "name": "zmax", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.70 } }
+        ] }
+      ]
+    },
+    {
+      "name": "Mirror_R", "stage": 3, "pivot": "cutCenter", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0.8, "y": 0.7, "z": 0.9 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "sill", "normal": { "x": -0.7425, "y": -0.6699, "z": 0 }, "point": { "x": 0.88299, "y": 1.14734, "z": 0 }, "refine": false },
+        { "name": "inner", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": 0.8205, "y": 0, "z": 0 }, "refine": false },
+        { "name": "zmin", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 0.56 }, "refine": false },
+        { "name": "zmax", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.745 }, "refine": false },
+        { "name": "ymax", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.45, "z": 0 }, "refine": false }
+      ],
+      "extraRegionsComment": "미러 안쪽 벽(x0.8217)과 창유리 앞모서리(x0.7918)를 잇는 경사 삼각형(미러 뒷면)이 문에 남아 삐죽해 보이므로, 벨트라인 턱(y1.2419)보다 위·유리 3mm 앞까지를 합집합 영역으로 더 가져간다.",
+      "extraRegions": [
+        { "name": "innerFace", "planes": [
+          { "name": "glass", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": 0.7965, "y": 0, "z": 0 } },
+          { "name": "ledge", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 1.2445, "z": 0 } },
+          { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.40, "z": 0 } },
+          { "name": "zmin", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 0.645 } },
+          { "name": "zmax", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.70 } }
+        ] }
+      ]
+    },
+    {
+      "name": "Door_FL", "stage": 1, "pivot": "frontEdge", "hingeAxis": { "x": 0, "y": 1, "z": 0 },
+      "explodeOffset": { "x": -1.5, "y": 0, "z": 0.35 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "outerSide", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": -0.60, "y": 0, "z": 0 }, "refine": false },
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.836 }, "refine": true },
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": -0.210 }, "refine": true },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.345, "z": 0 }, "refine": true },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.885, "z": 0 }, "refine": true },
+        { "name": "aPillarSlant", "normal": { "x": 0, "y": 0.4839, "z": 0.8751 }, "point": { "x": 0, "y": 1.21, "z": 0.836 }, "refine": true }
+      ]
+    },
+    {
+      "name": "Door_FR", "stage": 1, "pivot": "frontEdge", "hingeAxis": { "x": 0, "y": 1, "z": 0 },
+      "explodeOffset": { "x": 1.5, "y": 0, "z": 0.35 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "outerSide", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": 0.60, "y": 0, "z": 0 }, "refine": false },
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": 0.836 }, "refine": true },
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": -0.210 }, "refine": true },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.345, "z": 0 }, "refine": true },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.885, "z": 0 }, "refine": true },
+        { "name": "aPillarSlant", "normal": { "x": 0, "y": 0.4839, "z": 0.8751 }, "point": { "x": 0, "y": 1.21, "z": 0.836 }, "refine": true }
+      ]
+    },
+    {
+      "name": "Door_RL", "stage": 1, "pivot": "frontEdge", "hingeAxis": { "x": 0, "y": 1, "z": 0 },
+      "explodeOffset": { "x": -1.5, "y": 0, "z": -0.45 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "outerSide", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": -0.60, "y": 0, "z": 0 }, "refine": false },
+        { "name": "front", "sameAs": "Door_FL/rear", "flip": true },
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": -1.064 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.345, "z": 0 }, "refine": true },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.885, "z": 0 }, "refine": true },
+        { "name": "cPillarSlant", "normal": { "x": 0, "y": 0.3257, "z": -0.9455 }, "point": { "x": 0, "y": 1.19, "z": -1.063 }, "refine": true }
+      ],
+      "excludeCylinders": [ { "name": "rearWheelArch", "center": { "x": 0, "y": 0.375, "z": -1.10 }, "radius": 0.39, "segments": 24 } ]
+    },
+    {
+      "name": "Door_RR", "stage": 1, "pivot": "frontEdge", "hingeAxis": { "x": 0, "y": 1, "z": 0 },
+      "explodeOffset": { "x": 1.5, "y": 0, "z": -0.45 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "outerSide", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": 0.60, "y": 0, "z": 0 }, "refine": false },
+        { "name": "front", "sameAs": "Door_FR/rear", "flip": true },
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": -1.064 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.345, "z": 0 }, "refine": true },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.885, "z": 0 }, "refine": true },
+        { "name": "cPillarSlant", "normal": { "x": 0, "y": 0.3257, "z": -0.9455 }, "point": { "x": 0, "y": 1.19, "z": -1.063 }, "refine": true }
+      ],
+      "excludeCylinders": [ { "name": "rearWheelArch", "center": { "x": 0, "y": 0.375, "z": -1.10 }, "radius": 0.39, "segments": 24 } ]
+    },
+    {
+      "name": "Hood", "stage": 1, "pivot": "rearEdgeTop", "hingeAxis": { "x": 1, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 0.9, "z": 0.9 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 1.135 }, "refine": true },
+        { "name": "lip", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.98, "z": 0 }, "refine": false },
+        { "name": "left", "normal": { "x": -1, "y": 0, "z": 0.096774 }, "point": { "x": -0.585, "y": 0, "z": 1.12 }, "refine": true },
+        { "name": "right", "normal": { "x": 1, "y": 0, "z": 0.096774 }, "point": { "x": 0.585, "y": 0, "z": 1.12 }, "refine": true }
+      ]
+    },
+    {
+      "name": "Trunk", "stage": 1, "pivot": "frontEdgeTop", "hingeAxis": { "x": 1, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 0.8, "z": -0.9 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": -1.42 }, "refine": false },
+        { "name": "topLimit", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.32, "z": 0 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.94, "z": 0 }, "refine": true },
+        {"name": "left", "normal": {"x": -1, "y": 0, "z": 0}, "point": {"x": -0.666, "y": 0, "z": 0}, "refine": false},
+        {"name": "right", "normal": {"x": 1, "y": 0, "z": 0}, "point": {"x": 0.666, "y": 0, "z": 0}, "refine": false},
+        {"name": "leftLow", "normal": {"x": -0.979, "y": -0.2036, "z": 0.0}, "point": {"x": -0.636, "y": 0.94, "z": 0}, "refine": false},
+        {"name": "rightLow", "normal": {"x": 0.979, "y": -0.2036, "z": 0.0}, "point": {"x": 0.636, "y": 0.94, "z": 0}, "refine": false}
+      ]
+    },
+    {
+      "name": "Bumper_F", "stage": 2, "pivot": "rearFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 0, "z": 1.1 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "rear", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 1.665 }, "refine": true },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.318, "z": 0 }, "refine": false },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 0.626, "z": 0 }, "refine": false }
+      ]
+    },
+    {
+      "name": "Bumper_R", "stage": 2, "pivot": "frontFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 0, "z": -1.1 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": -1.621 }, "refine": true },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.345, "z": 0 }, "refine": false },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 0.622, "z": 0 }, "refine": false }
+      ]
+    },
+    {
+      "name": "Windshield", "stage": 2, "pivot": "center", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 1.0, "z": 0.6 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        {"name": "zLimit", "normal": {"x": 0, "y": 0, "z": -1}, "point": {"x": 0, "y": 0, "z": 0.45}, "refine": false},
+        {"name": "bottom", "usePoints": true, "p1": {"x": 0, "y": 1.282, "z": 1.045}, "p2": {"x": -0.55, "y": 1.262, "z": 0.982}, "p3": {"x": 0.55, "y": 1.262, "z": 0.982}, "inside": {"x": 0, "y": 1.5, "z": 0.85}, "refine": false},
+        {"name": "topCenterL", "normal": {"x": -0.04, "y": 0.9992, "z": 0.0}, "point": {"x": 0, "y": 1.896, "z": 0}, "refine": false},
+        {"name": "topCenterR", "normal": {"x": 0.04, "y": 0.9992, "z": 0.0}, "point": {"x": 0, "y": 1.896, "z": 0}, "refine": false},
+        {"name": "topOuterL", "normal": {"x": -0.1309, "y": 0.9914, "z": 0.0}, "point": {"x": -0.3, "y": 1.884, "z": 0}, "refine": false},
+        {"name": "topOuterR", "normal": {"x": 0.1309, "y": 0.9914, "z": 0.0}, "point": {"x": 0.3, "y": 1.884, "z": 0}, "refine": false},
+        {"name": "leftLow", "normal": {"x": -0.9798, "y": 0.1999, "z": 0.0}, "point": {"x": -0.74, "y": 1.3, "z": 0}, "refine": false},
+        {"name": "leftHigh", "normal": {"x": -0.9589, "y": 0.2838, "z": 0.0}, "point": {"x": -0.615, "y": 1.8, "z": 0}, "refine": false},
+        {"name": "rightLow", "normal": {"x": 0.9798, "y": 0.1999, "z": 0.0}, "point": {"x": 0.74, "y": 1.3, "z": 0}, "refine": false},
+        {"name": "rightHigh", "normal": {"x": 0.9589, "y": 0.2838, "z": 0.0}, "point": {"x": 0.615, "y": 1.8, "z": 0}, "refine": false}
+      ]
+    },
+    {
+      "name": "RearWindow", "stage": 2, "pivot": "center", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 1.0, "z": -0.6 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        {"name": "zLimit", "normal": {"x": 0, "y": 0, "z": 1}, "point": {"x": 0, "y": 0, "z": -0.95}, "refine": false},
+        {"name": "bottom", "usePoints": true, "p1": {"x": 0, "y": 1.2925, "z": -1.41}, "p2": {"x": -0.55, "y": 1.273, "z": -1.353}, "p3": {"x": 0.55, "y": 1.273, "z": -1.353}, "inside": {"x": 0, "y": 1.5, "z": -1.25}, "refine": false},
+        {"name": "topL", "normal": {"x": -0.0886, "y": 0.9961, "z": 0.0}, "point": {"x": 0, "y": 1.875, "z": 0}, "refine": false},
+        {"name": "topR", "normal": {"x": 0.0886, "y": 0.9961, "z": 0.0}, "point": {"x": 0, "y": 1.875, "z": 0}, "refine": false},
+        {"name": "leftLow", "normal": {"x": -0.9798, "y": 0.1999, "z": 0.0}, "point": {"x": -0.71, "y": 1.3, "z": 0}, "refine": false},
+        {"name": "leftHigh", "normal": {"x": -0.962, "y": 0.2732, "z": 0.0}, "point": {"x": -0.588, "y": 1.8, "z": 0}, "refine": false},
+        {"name": "rightLow", "normal": {"x": 0.9798, "y": 0.1999, "z": 0.0}, "point": {"x": 0.71, "y": 1.3, "z": 0}, "refine": false},
+        {"name": "rightHigh", "normal": {"x": 0.962, "y": 0.2732, "z": 0.0}, "point": {"x": 0.588, "y": 1.8, "z": 0}, "refine": false}
+      ]
+    },
+    {
+      "name": "Headlight_L", "stage": 3, "backCapNormal": { "x": 0, "y": 0, "z": -1 }, "pivot": "rearFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": -0.45, "y": 0.1, "z": 1.0 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "polygonComment": "렌즈 중심(-0.6804,0.8403) 기준 림(메쉬 방사선 16개). 반지름 = 각 방사선에서 림 바깥 옆벽 마지막 정점과 주변 면 첫 정점의 중간(원본 메쉬 실측). 꼭짓점이 메쉬 방사 모서리 위에 놓이면 두 평면이 한 모서리 위 한 점에서 만나 비다양체 조각이 생기므로 각도를 1.5도 돌림(좌 +1.5, 우 -1.5: 거울 대칭).", "removeFins": true,
+      "planes": [
+        { "name": "back", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 1.65 }, "refine": false }
+      ],
+      "includePolygons": [
+        { "name": "rim", "axis": "z", "center": { "x": -0.6804, "y": 0.8403, "z": 0 },
+          "anglesDeg": [ 1.5, 25.0, 49.0, 70.9, 91.5, 112.1, 134.0, 156.5, -178.5, -153.5, -131.0, -109.1, -88.5, -67.9, -46.0, -22.0 ],
+          "radii":     [ 0.186, 0.1865, 0.2025, 0.2085, 0.2045, 0.205, 0.203, 0.1945, 0.1895, 0.1965, 0.2025, 0.2085, 0.197, 0.199, 0.204, 0.188 ] }
+      ]
+    },
+    {
+      "name": "Headlight_R", "stage": 3, "backCapNormal": { "x": 0, "y": 0, "z": -1 }, "pivot": "rearFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0.45, "y": 0.1, "z": 1.0 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "polygonComment": "렌즈 중심(0.6805,0.8403) 기준. 오른쪽 메쉬에서 같은 방법으로 따로 실측(반지름 표가 왼쪽과 0.1mm 이내로 같음), 각도 = 178.5 - 왼쪽 기준각.", "removeFins": true,
+      "planes": [
+        { "name": "back", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 1.65 }, "refine": false }
+      ],
+      "includePolygons": [
+        { "name": "rim", "axis": "z", "center": { "x": 0.6805, "y": 0.8403, "z": 0 },
+          "anglesDeg": [ 178.5, 155.0, 131.0, 109.1, 88.5, 67.9, 46.0, 23.5, -1.5, -26.5, -49.0, -70.9, -91.5, -112.1, -134.0, -158.0 ],
+          "radii":     [ 0.186, 0.1865, 0.2025, 0.2085, 0.2045, 0.205, 0.203, 0.1945, 0.1895, 0.1965, 0.2025, 0.2085, 0.197, 0.199, 0.204, 0.188 ] }
+      ]
+    },
+    {
+      "name": "Grille", "stage": 3, "backCapNormal": { "x": 0, "y": 0, "z": -1 }, "pivot": "rearFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0, "y": 0.15, "z": 1.3 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planesComment": "검은 슬랫 판+테두리+엠블럼. 위=후드 립(y0.968~0.98, 프레임 몫) 바로 아래, 아래=그릴 밑 크림색 띠(y0.647~0.663) 바로 위, 좌우=헤드램프 림 0° 꼭짓점(x∓0.4944)보다 3mm 바깥(램프가 먼저 정의돼 겹친 곳은 램프 몫, 평면이 램프 꼭짓점과 겹치면 Frame 에 비다양체가 생김). 원본의 떠 있는 판 조각(y0.706 슬롯 속 지느러미)은 removeFins 로 버림.", "removeFins": true,
+      "planes": [
+        { "name": "back", "normal": { "x": 0, "y": 0, "z": -1 }, "point": { "x": 0, "y": 0, "z": 1.68 }, "refine": false },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 0.9665, "z": 0 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.6645, "z": 0 }, "refine": false },
+        { "name": "left", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": -0.4975, "y": 0, "z": 0 }, "refine": false },
+        { "name": "right", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": 0.4975, "y": 0, "z": 0 }, "refine": false }
+      ]
+    },
+    {
+      "name": "Taillight_L", "stage": 3, "backCapNormal": { "x": 0, "y": 0, "z": 1 }, "pivot": "frontFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": -0.35, "y": 0.15, "z": -1.0 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planesComment": "빨강/주황 상자형 램프(뒤로 3~6cm 돌출). 좌우=램프 옆벽 꼭대기(x-0.8668/-0.6432)와 차체 첫 정점 사이, 위=램프 윗벽(y1.034) 바로 위, 아래=아랫벽과 뒤판 모서리(y0.686) 바로 위. 위쪽 모서리는 램프 옆벽 꼭대기가 안쪽으로 기울어(바깥 x-0.8663→-0.8514, 안쪽 모따기) 사선 평면 outerTop/innerTop 로 차체 크림색 조각을 뺀다. 빨강 텍스처가 램프 옆벽 너머 차체 첫 줄 정점(|x|0.8737, 위 y1.0411)까지 번져 있어, 램프를 떼면 Frame 구멍 가장자리에 빨간 띠가 남으므로 바깥/위 경계를 빨강이 끝나는 곳(|x|0.8845, y1.0445)으로 잡았다(형상 주름선이 아니라 텍스처 경계 기준).",
+      "planes": [
+        { "name": "inner", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": -0.640, "y": 0, "z": 0 }, "refine": false },
+        { "name": "outer", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": -0.8845, "y": 0, "z": 0 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.6875, "z": 0 }, "refine": false },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.0445, "z": 0 }, "refine": false },
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": -1.70 }, "refine": false },
+        { "name": "outerTop", "normal": { "x": -0.9731, "y": 0.2302, "z": 0 }, "point": { "x": -0.8845, "y": 0.925, "z": 0 }, "refine": false },
+        { "name": "innerTop", "normal": { "x": 0.633, "y": 0.774, "z": 0 }, "point": { "x": -0.6400, "y": 1.0190, "z": 0 }, "refine": false }
+      ]
+    },
+    {
+      "name": "Taillight_R", "stage": 3, "backCapNormal": { "x": 0, "y": 0, "z": 1 }, "pivot": "frontFace", "hingeAxis": { "x": 0, "y": 0, "z": 0 },
+      "explodeOffset": { "x": 0.35, "y": 0.15, "z": -1.0 }, "explodeEuler": { "x": 0, "y": 0, "z": 0 },
+      "planes": [
+        { "name": "inner", "normal": { "x": -1, "y": 0, "z": 0 }, "point": { "x": 0.640, "y": 0, "z": 0 }, "refine": false },
+        { "name": "outer", "normal": { "x": 1, "y": 0, "z": 0 }, "point": { "x": 0.8845, "y": 0, "z": 0 }, "refine": false },
+        { "name": "bottom", "normal": { "x": 0, "y": -1, "z": 0 }, "point": { "x": 0, "y": 0.6875, "z": 0 }, "refine": false },
+        { "name": "top", "normal": { "x": 0, "y": 1, "z": 0 }, "point": { "x": 0, "y": 1.0445, "z": 0 }, "refine": false },
+        { "name": "front", "normal": { "x": 0, "y": 0, "z": 1 }, "point": { "x": 0, "y": 0, "z": -1.70 }, "refine": false },
+        { "name": "outerTop", "normal": { "x": 0.9731, "y": 0.2302, "z": 0 }, "point": { "x": 0.8845, "y": 0.925, "z": 0 }, "refine": false },
+        { "name": "innerTop", "normal": { "x": -0.633, "y": 0.774, "z": 0 }, "point": { "x": 0.6400, "y": 1.0190, "z": 0 }, "refine": false }
+      ]
+    }
+  ]
+}

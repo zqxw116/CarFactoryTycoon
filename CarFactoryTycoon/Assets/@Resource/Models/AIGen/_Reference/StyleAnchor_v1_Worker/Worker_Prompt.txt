@@ -1,0 +1,6 @@
+﻿StyleAnchor_v1_Worker (2026-10-28)
+Source: Meshy text-to-3D, model "Meshy 6", texture Meshy 7 (PBR off), 266,226 tris, license CC BY 4.0 (free plan)
+Captured from the Meshy web viewer (not a render of a downloaded file).
+
+Prompt:
+Semi-realistic stylized 3D game character with soft rounded animated-film features. Full body, standing upright, arms hanging down and angled away from the torso, empty open hands not touching the body, legs slightly apart. A friendly young factory worker, about 5.5 heads tall, mustard yellow hard hat, cream work shirt with chest pocket and rolled-up sleeves, slate blue denim overalls with stitched seams, side pockets, straps and brass buttons, brown leather work gloves, small leather tool pouch on the belt, sturdy brown lace-up work boots. Warm friendly face, expressive eyes, rosy cheeks, short brown hair. Matte hand-painted texture, warm muted colors.

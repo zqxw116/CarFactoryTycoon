@@ -1,0 +1,1755 @@
+{
+ "comment": "3단계 타당성 시험용: 바퀴/미러/헤드램프/테일램프를 1·2단계 부품보다 먼저 정의(먼저 정의된 부품이 우선). 결과는 SedanParts/Stage3Test 하위 폴더.",
+ "panelThickness": 0.02,
+ "innerWallDepth": 0.025,
+ "depthClampRatio": 0.45,
+ "interiorColor": {
+  "r": 0.22,
+  "g": 0.19,
+  "b": 0.165,
+  "a": 1.0
+ },
+ "refineRange": 0.03,
+ "refineStep": 0.002,
+ "refineSide": 0.012,
+ "refineMinContrast": -0.03,
+ "parts": [
+  {
+   "name": "Mirror_L",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -0.7,
+    "y": 0.3,
+    "z": 0.4
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "x",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.92,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymin",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.05,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymax",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.5,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "zmin",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.5
+     },
+     "refine": false
+    },
+    {
+     "name": "zmax",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.85
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Mirror_R",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0.7,
+    "y": 0.3,
+    "z": 0.4
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "x",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.92,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymin",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.05,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymax",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.5,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "zmin",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.5
+     },
+     "refine": false
+    },
+    {
+     "name": "zmax",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.85
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Wheel_FL",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -0.9,
+    "y": 0,
+    "z": 0
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "tire",
+     "axis": "x",
+     "center": {
+      "x": 0,
+      "y": 0.35,
+      "z": 1.25
+     },
+     "radius": 0.345,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "Wheel_FR",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0.9,
+    "y": 0,
+    "z": 0
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "tire",
+     "axis": "x",
+     "center": {
+      "x": 0,
+      "y": 0.35,
+      "z": 1.25
+     },
+     "radius": 0.345,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "Wheel_RL",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -0.9,
+    "y": 0,
+    "z": 0
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "tire",
+     "axis": "x",
+     "center": {
+      "x": 0,
+      "y": 0.35,
+      "z": -1.1
+     },
+     "radius": 0.345,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "Wheel_RR",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0.9,
+    "y": 0,
+    "z": 0
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "tire",
+     "axis": "x",
+     "center": {
+      "x": 0,
+      "y": 0.35,
+      "z": -1.1
+     },
+     "radius": 0.345,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "HeadLamp_L",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -0.3,
+    "y": 0.2,
+    "z": 0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "zmin",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 1.6
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "lamp",
+     "axis": "z",
+     "center": {
+      "x": -0.675,
+      "y": 0.85,
+      "z": 0
+     },
+     "radius": 0.185,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "HeadLamp_R",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0.3,
+    "y": 0.2,
+    "z": 0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "zmin",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 1.6
+     },
+     "refine": false
+    }
+   ],
+   "includeCylinders": [
+    {
+     "name": "lamp",
+     "axis": "z",
+     "center": {
+      "x": 0.675,
+      "y": 0.85,
+      "z": 0
+     },
+     "radius": 0.185,
+     "segments": 32
+    }
+   ]
+  },
+  {
+   "name": "TailLamp_L",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -0.3,
+    "y": 0.2,
+    "z": -0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.643,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "outer",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.88,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymin",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.685,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymax",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.058,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "zmax",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.7
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "TailLamp_R",
+   "stage": 3,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0.3,
+    "y": 0.2,
+    "z": -0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "inner",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.643,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "outer",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.88,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymin",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.685,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "ymax",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.058,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "zmax",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.7
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Door_FL",
+   "stage": 1,
+   "pivot": "frontEdge",
+   "hingeAxis": {
+    "x": 0,
+    "y": 1,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -1.5,
+    "y": 0,
+    "z": 0.35
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "outerSide",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "front",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.836
+     },
+     "refine": true
+    },
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -0.21
+     },
+     "refine": true
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.345,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.885,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "aPillarSlant",
+     "normal": {
+      "x": 0,
+      "y": 0.4839,
+      "z": 0.8751
+     },
+     "point": {
+      "x": 0,
+      "y": 1.21,
+      "z": 0.836
+     },
+     "refine": true
+    }
+   ]
+  },
+  {
+   "name": "Door_FR",
+   "stage": 1,
+   "pivot": "frontEdge",
+   "hingeAxis": {
+    "x": 0,
+    "y": 1,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 1.5,
+    "y": 0,
+    "z": 0.35
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "outerSide",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "front",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.836
+     },
+     "refine": true
+    },
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -0.21
+     },
+     "refine": true
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.345,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.885,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "aPillarSlant",
+     "normal": {
+      "x": 0,
+      "y": 0.4839,
+      "z": 0.8751
+     },
+     "point": {
+      "x": 0,
+      "y": 1.21,
+      "z": 0.836
+     },
+     "refine": true
+    }
+   ]
+  },
+  {
+   "name": "Door_RL",
+   "stage": 1,
+   "pivot": "frontEdge",
+   "hingeAxis": {
+    "x": 0,
+    "y": 1,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": -1.5,
+    "y": 0,
+    "z": -0.45
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "outerSide",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "front",
+     "sameAs": "Door_FL/rear",
+     "flip": true
+    },
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.064
+     },
+     "refine": false
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.345,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.885,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "cPillarSlant",
+     "normal": {
+      "x": 0,
+      "y": 0.3257,
+      "z": -0.9455
+     },
+     "point": {
+      "x": 0,
+      "y": 1.19,
+      "z": -1.063
+     },
+     "refine": true
+    }
+   ],
+   "excludeCylinders": [
+    {
+     "name": "rearWheelArch",
+     "center": {
+      "x": 0,
+      "y": 0.375,
+      "z": -1.1
+     },
+     "radius": 0.39,
+     "segments": 24
+    }
+   ]
+  },
+  {
+   "name": "Door_RR",
+   "stage": 1,
+   "pivot": "frontEdge",
+   "hingeAxis": {
+    "x": 0,
+    "y": 1,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 1.5,
+    "y": 0,
+    "z": -0.45
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "outerSide",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.6,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "front",
+     "sameAs": "Door_FR/rear",
+     "flip": true
+    },
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.064
+     },
+     "refine": false
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.345,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.885,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "cPillarSlant",
+     "normal": {
+      "x": 0,
+      "y": 0.3257,
+      "z": -0.9455
+     },
+     "point": {
+      "x": 0,
+      "y": 1.19,
+      "z": -1.063
+     },
+     "refine": true
+    }
+   ],
+   "excludeCylinders": [
+    {
+     "name": "rearWheelArch",
+     "center": {
+      "x": 0,
+      "y": 0.375,
+      "z": -1.1
+     },
+     "radius": 0.39,
+     "segments": 24
+    }
+   ]
+  },
+  {
+   "name": "Hood",
+   "stage": 1,
+   "pivot": "rearEdgeTop",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 0.9,
+    "z": 0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 1.135
+     },
+     "refine": true
+    },
+    {
+     "name": "lip",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.98,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "left",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0.096774
+     },
+     "point": {
+      "x": -0.585,
+      "y": 0,
+      "z": 1.12
+     },
+     "refine": true
+    },
+    {
+     "name": "right",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0.096774
+     },
+     "point": {
+      "x": 0.585,
+      "y": 0,
+      "z": 1.12
+     },
+     "refine": true
+    }
+   ]
+  },
+  {
+   "name": "Trunk",
+   "stage": 1,
+   "pivot": "frontEdgeTop",
+   "hingeAxis": {
+    "x": 1,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 0.8,
+    "z": -0.9
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "front",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.42
+     },
+     "refine": false
+    },
+    {
+     "name": "topLimit",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.32,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.94,
+      "z": 0
+     },
+     "refine": true
+    },
+    {
+     "name": "left",
+     "normal": {
+      "x": -1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": -0.666,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "right",
+     "normal": {
+      "x": 1,
+      "y": 0,
+      "z": 0
+     },
+     "point": {
+      "x": 0.666,
+      "y": 0,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "leftLow",
+     "normal": {
+      "x": -0.979,
+      "y": -0.2036,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.636,
+      "y": 0.94,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "rightLow",
+     "normal": {
+      "x": 0.979,
+      "y": -0.2036,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.636,
+      "y": 0.94,
+      "z": 0
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Bumper_F",
+   "stage": 2,
+   "pivot": "rearFace",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 0,
+    "z": 1.1
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "rear",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 1.665
+     },
+     "refine": true
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.352,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.626,
+      "z": 0
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Bumper_R",
+   "stage": 2,
+   "pivot": "frontFace",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 0,
+    "z": -1.1
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "front",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -1.621
+     },
+     "refine": true
+    },
+    {
+     "name": "bottom",
+     "normal": {
+      "x": 0,
+      "y": -1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.345,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "top",
+     "normal": {
+      "x": 0,
+      "y": 1,
+      "z": 0
+     },
+     "point": {
+      "x": 0,
+      "y": 0.622,
+      "z": 0
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "Windshield",
+   "stage": 2,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 1.0,
+    "z": 0.6
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "zLimit",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": -1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": 0.45
+     },
+     "refine": false
+    },
+    {
+     "name": "bottom",
+     "usePoints": true,
+     "p1": {
+      "x": 0,
+      "y": 1.282,
+      "z": 1.045
+     },
+     "p2": {
+      "x": -0.55,
+      "y": 1.262,
+      "z": 0.982
+     },
+     "p3": {
+      "x": 0.55,
+      "y": 1.262,
+      "z": 0.982
+     },
+     "inside": {
+      "x": 0,
+      "y": 1.5,
+      "z": 0.85
+     },
+     "refine": false
+    },
+    {
+     "name": "topCenterL",
+     "normal": {
+      "x": -0.04,
+      "y": 0.9992,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.896,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "topCenterR",
+     "normal": {
+      "x": 0.04,
+      "y": 0.9992,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.896,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "topOuterL",
+     "normal": {
+      "x": -0.1309,
+      "y": 0.9914,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.3,
+      "y": 1.884,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "topOuterR",
+     "normal": {
+      "x": 0.1309,
+      "y": 0.9914,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.3,
+      "y": 1.884,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "leftLow",
+     "normal": {
+      "x": -0.9798,
+      "y": 0.1999,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.74,
+      "y": 1.3,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "leftHigh",
+     "normal": {
+      "x": -0.9589,
+      "y": 0.2838,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.615,
+      "y": 1.8,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "rightLow",
+     "normal": {
+      "x": 0.9798,
+      "y": 0.1999,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.74,
+      "y": 1.3,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "rightHigh",
+     "normal": {
+      "x": 0.9589,
+      "y": 0.2838,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.615,
+      "y": 1.8,
+      "z": 0
+     },
+     "refine": false
+    }
+   ]
+  },
+  {
+   "name": "RearWindow",
+   "stage": 2,
+   "pivot": "center",
+   "hingeAxis": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "explodeOffset": {
+    "x": 0,
+    "y": 1.0,
+    "z": -0.6
+   },
+   "explodeEuler": {
+    "x": 0,
+    "y": 0,
+    "z": 0
+   },
+   "planes": [
+    {
+     "name": "zLimit",
+     "normal": {
+      "x": 0,
+      "y": 0,
+      "z": 1
+     },
+     "point": {
+      "x": 0,
+      "y": 0,
+      "z": -0.95
+     },
+     "refine": false
+    },
+    {
+     "name": "bottom",
+     "usePoints": true,
+     "p1": {
+      "x": 0,
+      "y": 1.2925,
+      "z": -1.41
+     },
+     "p2": {
+      "x": -0.55,
+      "y": 1.273,
+      "z": -1.353
+     },
+     "p3": {
+      "x": 0.55,
+      "y": 1.273,
+      "z": -1.353
+     },
+     "inside": {
+      "x": 0,
+      "y": 1.5,
+      "z": -1.25
+     },
+     "refine": false
+    },
+    {
+     "name": "topL",
+     "normal": {
+      "x": -0.0886,
+      "y": 0.9961,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.875,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "topR",
+     "normal": {
+      "x": 0.0886,
+      "y": 0.9961,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0,
+      "y": 1.875,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "leftLow",
+     "normal": {
+      "x": -0.9798,
+      "y": 0.1999,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.71,
+      "y": 1.3,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "leftHigh",
+     "normal": {
+      "x": -0.962,
+      "y": 0.2732,
+      "z": 0.0
+     },
+     "point": {
+      "x": -0.588,
+      "y": 1.8,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "rightLow",
+     "normal": {
+      "x": 0.9798,
+      "y": 0.1999,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.71,
+      "y": 1.3,
+      "z": 0
+     },
+     "refine": false
+    },
+    {
+     "name": "rightHigh",
+     "normal": {
+      "x": 0.962,
+      "y": 0.2732,
+      "z": 0.0
+     },
+     "point": {
+      "x": 0.588,
+      "y": 1.8,
+      "z": 0
+     },
+     "refine": false
+    }
+   ]
+  }
+ ],
+ "outputSubfolder": "Stage3Test"
+}
