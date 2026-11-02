@@ -27,7 +27,7 @@ public static class FactoryPrototypeServicesSetup
         var interaction=p.GetComponent<PrototypeServicesInteraction>();
         if(interaction==null)interaction=Undo.AddComponent<PrototypeServicesInteraction>(p.gameObject);
         interaction.player=player;interaction.progression=p;interaction.supply=supply;interaction.fuel=fuel;
-        interaction.warehousePost=Post(p.transform,"PrototypeSupplyDesk",supply.LoadPoint+Vector3.right*1.3f,"SUPPLY");
+        interaction.warehousePost=Post(p.transform,"PrototypeSupplyDesk",supply.LoadPoint+Vector3.right*1.3f+Vector3.back*4f,"SUPPLY");
         interaction.fuelPost=Post(p.transform,"PrototypeFuelDesk",fuel.homePoint.position+Vector3.left*1.3f+Vector3.back*.6f,"FUEL");
         var day=p.GetComponent<PrototypeDayCycle>();Undo.RecordObject(day,"Connect service wages");
         day.supply=supply;day.fuel=fuel;day.services=interaction;
@@ -38,7 +38,7 @@ public static class FactoryPrototypeServicesSetup
     static Transform Post(Transform parent,string name,Vector3 position,string title)
     {
         var root=parent.Find(name);
-        if(root!=null)return root;
+        if(root!=null){Undo.RecordObject(root,"Move service desk to aisle");root.position=position;return root;}
         var go=new GameObject(name);Undo.RegisterCreatedObjectUndo(go,"Prototype service desk");
         root=go.transform;root.SetParent(parent,true);root.position=position;
         var body=GameObject.CreatePrimitive(PrimitiveType.Cube);body.name="Desk";body.transform.SetParent(root,false);

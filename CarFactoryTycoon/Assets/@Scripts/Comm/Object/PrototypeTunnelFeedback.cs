@@ -9,6 +9,8 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     public TextMesh queueLabel;
     public float feedbackHoldSeconds = 1.4f;
 
+    readonly List<Renderer> originalRenderers=new List<Renderer>();
+    readonly List<GameObject> shakeCopies=new List<GameObject>();
     readonly List<Transform> tunnelVisuals = new List<Transform>();
     readonly List<Vector3> visualPositions = new List<Vector3>();
     readonly List<Quaternion> visualRotations = new List<Quaternion>();
@@ -50,6 +52,8 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
 
     void OnDestroy()
     {
+        foreach(var renderer in originalRenderers)if(renderer!=null)renderer.forceRenderingOff=false;
+        foreach(var copy in shakeCopies)if(copy!=null)Destroy(copy);
         if (chimney != null) Destroy(chimney.gameObject);
         if (chimneyMaterial != null) Destroy(chimneyMaterial);
         if (smokeMaterial != null) Destroy(smokeMaterial);
@@ -75,8 +79,8 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     {
         switch (state)
         {
-            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = .32f; smokeTime = 4.5f; break;
-            case CarSpawner.RequestFeedback.Full: Show("대기열 가득 참"); break;
+            case CarSpawner.RequestFeedback.Accepted: Show("투입 준비 중"); shakeTime = .65f; smokeTime = 4.5f; break;
+            case CarSpawner.RequestFeedback.Full: Show("대기열 가득 참"); shakeTime=.65f; smokeTime=1.2f; break;
             case CarSpawner.RequestFeedback.Blocked: Show("출발 위치 막힘"); break;
             case CarSpawner.RequestFeedback.Exiting: Show("차량 출발"); break;
         }
@@ -91,10 +95,12 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
         if (shakeTime > 0f)
         {
             shakeTime -= Time.deltaTime;
-            float fade = Mathf.Clamp01(shakeTime / .32f);
-            Vector3 offset = new Vector3(Mathf.Sin(Time.time * 47f), Mathf.Sin(Time.time * 61f) * .45f, Mathf.Cos(Time.time * 53f)) * (.018f * fade);
-            for (int i = 0; i < tunnelVisuals.Count; i++)
-                if (tunnelVisuals[i] != null) tunnelVisuals[i].localPosition = visualPositions[i] + offset;
+            float fade=Mathf.Clamp01(shakeTime/.65f);
+            float pulse=Mathf.Floor(Time.time*27f);
+            Vector3 offset=new Vector3(Mathf.PerlinNoise(pulse,1)*2-1,Mathf.PerlinNoise(7,pulse)*2-1,Mathf.PerlinNoise(pulse,19)*2-1)*(.085f*fade);
+            var twist=Quaternion.Euler(offset.z*27f,offset.x*19f,offset.y*32f);
+            for(int i=0;i<tunnelVisuals.Count;i++)
+                if(tunnelVisuals[i]!=null){tunnelVisuals[i].localPosition=visualPositions[i]+offset;tunnelVisuals[i].localRotation=visualRotations[i]*twist;}
         }
         else RestoreTunnelVisuals();
 
@@ -114,8 +120,9 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
     {
         var hint = messageTime > 0f ? message : GetAimHint().TrimStart('\n');
         if (string.IsNullOrEmpty(hint)) return;
+        using var gui=PrototypeGui.Scope();
         const float width = 260f, height = 38f;
-        var rect = new Rect(Screen.width - width - 16f, Screen.height - height - 18f, width, height);
+        var rect = new Rect(PrototypeGui.Width - width - 16f, PrototypeGui.Height - height - 18f, width, height);
         GUI.Label(rect, hint, GUI.skin.box);
     }
 
@@ -137,8 +144,8 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
         var reach = player.transform.position + Vector3.up * 1.1f;
         float rayLength = 4.5f + Vector3.Distance(Camera.main.transform.position, reach);
         if (!Physics.Raycast(Camera.main.ViewportPointToRay(new Vector3(.5f, .5f)), out var hit, rayLength, ~(1 << 10), QueryTriggerInteraction.Collide) || Vector3.Distance(reach, hit.point) > 3.5f) return "";
-        if (tunnel != null && (hit.transform == tunnel || hit.transform.IsChildOf(tunnel))) return "\nE / 클릭 · 차량 투입";
-        if (lever != null && (hit.transform == lever || hit.transform.IsChildOf(lever))) return "\nE / 클릭 · 레버 전환";
+        if (tunnel != null && (hit.transform == tunnel || hit.transform.IsChildOf(tunnel))) return "\n망치 접촉 · 차량 투입";
+        if (lever != null && (hit.transform == lever || hit.transform.IsChildOf(lever))) return "\n망치 접촉 · 레버 전환";
         return "";
     }
 
@@ -148,8 +155,17 @@ public sealed class PrototypeTunnelFeedback : MonoBehaviour
         foreach (var renderer in tunnel.GetComponentsInChildren<Renderer>(true))
         {
             var t = renderer.transform;
-            // Don't animate a collider owner or a parent of colliders; the interaction target stays fixed.
-            if (t.GetComponent<Collider>() != null || t.GetComponentInChildren<Collider>(true) != null) continue;
+            if(t.GetComponent<Collider>()!=null || t.GetComponentInChildren<Collider>(true)!=null)
+            {
+                var filter=t.GetComponent<MeshFilter>();
+                if(filter==null || filter.sharedMesh==null)continue;
+                var visual=new GameObject("TunnelShakeVisual");visual.transform.SetParent(t,false);
+                visual.AddComponent<MeshFilter>().sharedMesh=filter.sharedMesh;
+                visual.AddComponent<MeshRenderer>().sharedMaterials=renderer.sharedMaterials;
+                renderer.forceRenderingOff=true;
+                originalRenderers.Add(renderer);shakeCopies.Add(visual);
+                t=visual.transform;
+            }
             tunnelVisuals.Add(t); visualPositions.Add(t.localPosition); visualRotations.Add(t.localRotation);
         }
     }

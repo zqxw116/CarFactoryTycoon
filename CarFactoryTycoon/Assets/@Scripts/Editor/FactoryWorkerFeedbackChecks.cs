@@ -237,8 +237,8 @@ public static class FactoryWorkerFeedbackChecks
         Result = "running: capsule/navigation/badge";
         car = Spawn(progression.processes[0].gateProgress + 12f / progression.mainSpline.CalculateLength()); car.isMoving = false;
         Physics.SyncTransforms(); var hull = car.GetComponentInChildren<CarBodyCollision>(); Need(hull != null, "car hull missing");
-        Need(hull.GetComponents<BoxCollider>().Length == 3 && hull.GetComponentsInChildren<MeshCollider>().Length == 0, "vehicle primitive collision budget changed");
-        Bounds bounds = hull.GetComponents<BoxCollider>()[0].bounds;
+        Need(hull.GetComponents<Collider>().Length == 1 && hull.GetComponent<MeshCollider>() != null && hull.GetComponent<MeshCollider>().convex, "vehicle convex collision budget changed");
+        Bounds bounds = hull.GetComponent<Collider>().bounds;
         Vector3 start = bounds.center + Vector3.forward * (bounds.extents.z + 1.4f); start.y = 0;
         Vector3 goal = bounds.center - Vector3.forward * (bounds.extents.z + 1.4f); goal.y = 0;
         Vector3 stopped = start + CarBodyCollision.ConstrainActorStep(start, goal - start);
@@ -257,7 +257,7 @@ public static class FactoryWorkerFeedbackChecks
         while (Time.time < until && !navArrived)
         {
             Physics.SyncTransforms();
-            foreach (var box in hull.GetComponents<BoxCollider>())
+            foreach (var box in hull.GetComponents<Collider>())
                 Need(!Physics.ComputePenetration(capsule, go.transform.position, go.transform.rotation, box, box.transform.position, box.transform.rotation, out _, out float depth) || depth < .025f, "navigation capsule penetrated vehicle primitive");
             yield return null;
         }

@@ -22,12 +22,13 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         public Worker worker;
         public StationController robot;
         public Transform tracker;
-        public Vector3 home, source;
+        public Vector3 home, source, gripOffset;
         public AssemblyPart part;
         public PartStack stock;
         public Phase phase;
         public float elapsed, nextHit;
         public bool consumed, attached;
+        public UnityEngine.Object pickupOwner;
         public PrototypeAssemblyEffects effects;
         public Renderer[] renderers;
     }
@@ -85,7 +86,7 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
     }
     public void SetDutyStatus(bool onDuty,bool overtime)
     { if(WorkersOnDuty==onDuty&&Overtime==overtime)return;WorkersOnDuty=onDuty;Overtime=overtime;if(!onDuty&&!robotMode)CancelAll(); }
-    public float HammerInterval(Worker worker) => Settings.npcHitInterval*(2f-Mathf.Clamp01(worker.condition/100f));
+    public float HammerInterval(Worker worker) => Mathf.Max(WorkerHammerAnimation.Duration,Settings.npcHitInterval)*(2f-Mathf.Clamp01(worker.condition/100f));
 
     void Update()
     {
@@ -98,10 +99,12 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
             if(s.part==null)s.worker.PrototypeMoveTo(s.home,Worker.WorkerState.Idle,null);
         }
         if(!Entry.hired || (!robotMode&&!WorkersOnDuty)){ReturnArms();return;}
+        if(car==null && parts!=null){CancelAll();parts=null;attempted.Clear();}
         if(car!=null && !StationWorkZone.Contains(car,progression.mainSpline,Entry.gateProgress,Settings.workZoneMeters))
         {CancelAll();car=null;parts=null;attempted.Clear();}
         if(car==null)
         {
+            attempted.Clear();
             car=StationWorkZone.Find(progression.mainSpline,Entry.gateProgress,Settings.workZoneMeters);
             if(car!=null)parts=car.GetComponentsInChildren<AssemblyPart>(true);
         }
@@ -109,7 +112,7 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         {
             foreach(var s in slots)
             {
-                if(s.part==null)Assign(s);
+                if(s.part==null){if(s.stock!=null)Clear(s);Assign(s);}
                 if(s.part!=null)Tick(s);
             }
         }
@@ -136,12 +139,13 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
             }
             if(!stocks.TryGetValue(type,out var stock))continue;
             bool alreadyAttached=part.IsPlayerAttached||part.currentWork>0;
-            Vector3 source=slot.robot!=null&&slot.robot.stationPilePos!=null?slot.robot.stationPilePos.position:stock.GetTopSlotWorldPos();
-            if(!alreadyAttached && !stock.TryConsume())continue;
-            if(!alreadyAttached && !part.TryBeginPlayerAttachment(this,source,stock.GetTopSlotWorldRot())){stock.Add(1);continue;}
-            attempted.Add(type);slot.part=part;slot.renderers=part.GetComponentsInChildren<Renderer>(true);slot.stock=stock;slot.source=source;slot.consumed=!alreadyAttached;
-            slot.attached=alreadyAttached;slot.elapsed=0;
+            var owner=slot.worker!=null?(UnityEngine.Object)slot.worker:slot.robot.robotArm;
+            if(!alreadyAttached && !stock.TryReserveReady(owner))continue;
+            Vector3 source=stock.ReadyPosition;
+            attempted.Add(type);slot.part=part;slot.renderers=car.GetPartRenderers(part);slot.stock=stock;slot.source=source;slot.consumed=false;
+            slot.pickupOwner=owner;slot.attached=alreadyAttached;slot.elapsed=0;
             slot.phase=alreadyAttached?Phase.Hits:Phase.Fetch;
+            if(slot.robot!=null)slot.gripOffset=part.AttachmentWorldPosition-AssembledContact(slot);
             slot.nextHit=Time.time+(slot.worker!=null?HammerInterval(slot.worker):Settings.robotSparkInterval);
             if(slot.effects==null)
             {
@@ -161,6 +165,27 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         {
             if(renderer==null)continue;Vector3 point=renderer.bounds.ClosestPoint(origin);float d=(point-origin).sqrMagnitude;
             if(d<distance){distance=d;best=point;}
+        }
+        return best;
+    }
+    Vector3 AssembledContact(Slot s)
+    {
+        var origin=s.robot.robotArm.joints[0].bone.position;
+        var goal=s.part.AttachmentWorldPosition;
+        var rotation=s.part.AttachmentWorldRotation*Quaternion.Inverse(s.part.transform.rotation);
+        var best=goal;float distance=float.MaxValue;
+        foreach(var renderer in s.renderers)
+        {
+            if(renderer==null)continue;
+            var local=renderer.localBounds;var bounds=new Bounds();bool first=true;
+            for(int x=-1;x<=1;x+=2)for(int y=-1;y<=1;y+=2)for(int z=-1;z<=1;z+=2)
+            {
+                var world=renderer.transform.TransformPoint(local.center+Vector3.Scale(local.extents,new Vector3(x,y,z)));
+                var point=goal+rotation*(world-s.part.transform.position);
+                if(first){bounds=new Bounds(point,Vector3.zero);first=false;}else bounds.Encapsulate(point);
+            }
+            var contact=bounds.ClosestPoint(origin);float d=(contact-origin).sqrMagnitude;
+            if(d<distance){distance=d;best=contact;}
         }
         return best;
     }
@@ -184,12 +209,21 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
         if(!StationWorkZone.Contains(car,progression.mainSpline,Entry.gateProgress,Settings.workZoneMeters))return;
         if(s.part.IsAssembled){Finish(s);return;}
         if(s.tracker!=null)
-            s.tracker.position=Vector3.MoveTowards(s.tracker.position,Contact(s),StationConfig.Instance.trackingTargetSpeed*Time.deltaTime);
+            s.tracker.position=Vector3.MoveTowards(s.tracker.position,
+                s.robot!=null && (s.phase==Phase.Approach || s.phase==Phase.Attach)
+                    ? s.part.AttachmentWorldPosition-s.gripOffset : s.phase==Phase.Fetch ? s.source-s.gripOffset : Contact(s),
+                StationConfig.Instance.trackingTargetSpeed*Time.deltaTime);
         switch(s.phase)
         {
             case Phase.Fetch:
-                bool fetched=s.worker!=null?s.worker.PrototypeMoveTo(s.source,Worker.WorkerState.Fetching,s.part):RobotReached(s);
-                if(fetched){if(s.worker!=null)s.worker.PrototypeGrip(s.part);s.phase=Phase.Approach;}
+                bool fetched=s.worker!=null?s.worker.PrototypeMoveTo(s.source,Worker.WorkerState.Fetching,s.part):
+                    s.robot.robotArm.endEffector!=null && Vector3.Distance(s.robot.robotArm.endEffector.position,s.source-s.gripOffset)<=StationConfig.Instance.assembleReachThreshold;
+                if(!fetched)break;
+                if(!s.stock.TryTakeReady(s.pickupOwner,s.worker!=null?(s.worker.handPos!=null?s.worker.handPos:s.worker.transform):s.robot.robotArm.endEffector,out var pickupPosition,out var pickupRotation)){Cancel(s);break;}
+                s.consumed=true;
+                if(!s.part.TryBeginPlayerAttachment(this,pickupPosition,pickupRotation)){Cancel(s);break;}
+                if(s.worker!=null)s.worker.PrototypeGrip(s.part);
+                s.phase=Phase.Approach;
                 break;
             case Phase.Approach:
                 bool arrived=s.worker==null||s.worker.PrototypeMoveTo(Stand(s),Worker.WorkerState.MovingToPart,s.part);
@@ -198,8 +232,15 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
                 break;
             case Phase.Attach:
                 if(s.worker!=null)s.worker.PrototypeMoveTo(Stand(s),Worker.WorkerState.Working,s.part);
-                // Transit may cross a joint singularity. After the initial pickup, keep the
-                // attachment moving; each spark still requires real tip contact at the car.
+                if(s.robot!=null)
+                {
+                    var carried=s.robot.robotArm.endEffector.position+s.gripOffset;
+                    if(!s.part.UpdateAttachmentCarryPose(this,carried,s.part.AttachmentWorldRotation)){Cancel(s);break;}
+                    if(Vector3.Distance(carried,s.part.AttachmentWorldPosition)>StationConfig.Instance.assembleReachThreshold)break;
+                    if(!s.part.CompletePlayerAttachment(this)){Cancel(s);break;}
+                    s.attached=true;s.phase=Phase.Hits;s.nextHit=Time.time+Settings.robotSparkInterval;
+                    break;
+                }
                 s.elapsed+=Time.deltaTime;
                 float duration=s.worker!=null?Settings.npcAttachSeconds:Settings.robotAttachSeconds;
                 if(!s.part.AdvancePlayerAttachment(this,s.elapsed/Mathf.Max(.01f,duration))){Cancel(s);break;}
@@ -235,7 +276,7 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
     }
     void Cancel(Slot s)
     {
-        if(s.part==null)return;
+        if(s.part==null){Clear(s);return;}
         if(!s.attached)
         {
             s.part.CancelPlayerAttachment(this);
@@ -248,8 +289,14 @@ public sealed class PrototypeProcessCrew : MonoBehaviour
     void Clear(Slot s)
     {
         if(s.worker!=null)s.worker.PrototypeRelease();
+        if(s.stock!=null && s.pickupOwner!=null)s.stock.ReleaseReadyReservation(s.pickupOwner);
         if(s.effects!=null)s.effects.WorkingPart=null;
-        s.part=null;s.stock=null;s.consumed=false;s.attached=false;
+        s.part=null;s.stock=null;s.pickupOwner=null;s.consumed=false;s.attached=false;
+        if(s.tracker!=null)
+        {
+            var home=s.robot.endPos!=null?s.robot.endPos:s.robot.stationPilePos;
+            if(home!=null)s.tracker.position=home.position;
+        }
     }
     void CancelAll(){foreach(var s in slots)Cancel(s);}
     void ReturnArms()

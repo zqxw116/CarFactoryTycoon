@@ -32,6 +32,7 @@ public class CarController : MonoBehaviour
 
     /// <summary>스플라인 실제 길이(m). 트래픽 매니저가 간격(m)↔진행도 환산에 사용.</summary>
     public float SplineLength => splineLength;
+    public int LifeVersion { get; private set; }
 
     /// <summary>지금 스스로 전진해야 하는 상태인지 (리프트 캡처 등으로 멈추면 false — 장애물로만 남는다).</summary>
     public bool IsDriving => isMoving && !_finished && targetSpline != null;
@@ -48,8 +49,14 @@ public class CarController : MonoBehaviour
         _dolly = GetComponentInChildren<CarDolly>(true);
     }
 
+    readonly Dictionary<AssemblyPart, Renderer[]> partRendererCache=new Dictionary<AssemblyPart, Renderer[]>();
+    public Renderer[] GetPartRenderers(AssemblyPart part)
+    {
+        return part!=null && partRendererCache.TryGetValue(part,out var renderers)?renderers:System.Array.Empty<Renderer>();
+    }
     private void InitializeCarParts()
     {
+        partRendererCache.Clear();
         foreach (PartGroup group in System.Enum.GetValues(typeof(PartGroup)))
         {
             dicListParts[group] = new List<AssemblyPart>();
@@ -59,6 +66,7 @@ public class CarController : MonoBehaviour
         foreach (AssemblyPart part in allParts)
         {
             dicListParts[part.myGroup].Add(part);
+            partRendererCache[part]=part.GetComponentsInChildren<Renderer>(true);
             part.Reset();
         }
 
@@ -69,6 +77,7 @@ public class CarController : MonoBehaviour
     // startProgress: 출발 지점(0~1). 스포너 위치에 가까운 지점에서 시작하고 싶을 때 사용.
     public void SetPath(SplineContainer spline, float speed, float startProgress = 0f)
     {
+        LifeVersion++;
         targetSpline = spline;
         moveSpeed = speed;
         pathProgress = Mathf.Clamp01(startProgress);
@@ -93,6 +102,7 @@ public class CarController : MonoBehaviour
     // 풀 반환(SetActive(false))·파괴 시 트래픽 목록에서 해제
     private void OnDisable()
     {
+        LifeVersion++;
         if (_managed)
         {
             var traffic = FindFirstObjectByType<LineTrafficManager>();

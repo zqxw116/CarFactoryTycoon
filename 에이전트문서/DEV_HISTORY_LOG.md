@@ -1740,3 +1740,34 @@ error CS 0건. (로그 앞부분의 `ILineGate` 못 찾음 에러는 git pull �
 - 남은 문제: 바퀴 미분리(평면 절단 비권장), 미러 뗀 자리 구멍과 지저분한 뒷면, 테일램프 쪽 빨간 조각, 그릴·램프 10cm 덩어리, 프레임 비다양체(MeshCollider 금지). 노하우·함정은 `임시/VEHICLE_PART_SPLIT_GUIDE_2026-10-29.md`.
 - Tripo 분할 결과 화면 재확인(11-01): 브러시·병합·무료 재시도×3·파트 보완(빠른 막기/AI 보완 Beta) 존재. 다음은 이 결과로 전체 부품 대응표(크레딧 0) → 승인 후 파트 보완·리토폴 → Unity에서 프레임 구멍을 Tripo 경계에 맞춤. 상세 순서는 HANDOFF "차량 부품 트랙".
 - 참고 이미지를 `AIGen/_Reference/StyleAnchor_v1_Car/Parts/`에 보관. AGENTS.md에 에셋·AI·차량 부품 작업 규칙 섹션 추가. 게임 씬·게임플레이 프리팹·게임 스크립트 변경 없음.
+
+
+### 2026-11-01 플레이 피드백 수정 (Codex, 미커밋)
+마우스 자유 이동/우클릭 시점, 3초 망치와 접촉 검사 확장, 뒤로 입력 시 비주얼 회전, 로봇 운반 진행 접촉 게이트와 트래커 복귀, 창고 데스크 통로 이동을 반영. Tripo 캐릭터 메시 결함을 아트 문서에 기록. 새 meta ignore 추가(기존 추적 유지). 런타임 검증 미완료. 로봇 캐릭터 복귀 및 부품 스택 배치는 잔여 작업.
+
+
+### 2026-11-01 MCP 재연결 및 런타임 재검증
+Unity MCP 8080 연결 확인 후 실제 테스트 진행. 망치 누락 원인 중 이동 후 몸 방향과 시선 불일치를 수정(타격 시작 시 몸 정렬). 회전 중 전진 모션 유지. FactoryCharacterChecks 접촉 포함/NPC 제외 PASS. 로봇 운반 목표가 부품 이동을 쫓던 정체를 팔끝 기반 운반 및 가까운 조립 표면 그립으로 수정. 0번 로봇 정지 차량 2대 연속 처리 완료(부품 2, 스파크 6, 이전 차량 추적 해제). 창고 접근 위치 물리 장애물 없음 및 고용 API 성공. 커서 None/visible=true, 런타임 오류 0. 이동 중 전 공정 자연 통과는 미검증. 테스트 플레이 종료.
+
+
+### 2026-11-03 플레이 피드백13개 구현/검증 (11-02 설계 승인, Codex, 미커밋)
+- 자유 시점/이동 기준/몸·운반·손 방향 분리. 1초 망치·연타 재시작·실제 접촉 한 번 및 UI 클릭 차단. 터널/레버 원거리 입력을 실제 망치 접촉으로 대체. full 터널 불규칙 흔들림.
+- CarBodyCollision 복합 외관 박스와 차량 지지 이동/회전·생명주기 해제. RuntimeQueries 계층 캐시 관리. 보유 Kyle 이동·일반 점프 클립과1초 망치로 애니메이터 재생성(외부 FBX 보존).
+- 공용 UI 배율/클릭 좌표, 관리자 접힘, 정산 절대 realtime10초 자동 다음 날/중복 방지. 보급 PARTS 상자·손잡이IK. 주유는 근접 노즐 집기/운반/연결/유지/반납.
+- 검증: FeedbackNov2Checks23개 PASS, CharacterChecks 실제 접촉 포함/NPC 제외 PASS(앞문 작업량0→5, 점프높이1.173m), ResponsiveChecks3해상도/실측10.006초 PASS, PrototypeServicesChecks 보급 실제 이동/하역·수동/작업자/자동 주유3회 및 임금/음향 회귀 PASS. 런타임오류0, 최종검토Critical/Important없음. 편집 모드 복귀.
+- 근거 있는 보완: 대시보드 fixture는 프레임 선접촉이 정상 차단하므로 노출 앞문 타격으로 검증. IMGUI HUD가 망치를 중복 시작하던 경로를 공용포인터차단+실제 MouseState 주입검사로 보완. 정산대기 coroutine overshoot 혼동과 pre-entry deltaTime 문제는 절대 deadline/실제시각기록으로 해결. 노즐의 지속상태는 OS포커스와 분리하고 실제E는 input Update에서 제한.
+- 전 공정 고속 장시간 자연 플레이 및 동작의 주관적 자연스러움은 사용자 피드백으로 이어간다. 이전 부품 스택 겹침 조정은 저우선순위 잔여. 커밋·푸시·Notion기록 하지 않음.
+
+### 2026-11-03 차량 외피·고정 집기 슬롯·공정 번호 깊이 (Codex)
+- 사용자 승인: 플레이어도 대기 슬롯에서 집기. 구현·검증·기록 후 현재 브랜치 커밋/푸시 및 Notion 개발진행 기록까지 수행. 앞선 이 채팅13개 게임플레이 수정도 같은 변경 묶음에 포함한다. 외부 작업자 아트 에셋·프리팹·설정과 복구 파일은 보존/커밋 제외.
+- 차량 단차/엔진룸 끼임: 열린 원본 메시 직접 사용 대신 폐쇄된 저해상도 외피32정점/60삼각형·공유 Convex MeshCollider1개. 범퍼부터 캐빈까지 최대40.4도 경사, 충돌 내부 채움, 초기1회 bake. 원본 아트/실제 망치 질의 메시를 바꾸지 않음. 이동차 지지 이동·회전·점프 및 생명주기 유지. NPC convex 실제 겹침은 수평 출구로 복구(높이 유지), 일반 이동은 capsule sweep. 외부 패키지 없음.
+- PartStack Count는 슬롯 포함 전체 남은 재고. 기존 표시 풀의 최상단1개를 고정 받침대로 옮기고 실제집기 때만 Count--. 예약 중엔 차감없음. 집은 순간 손/그리퍼 위치 기준0.5m 이동 또는 최대1초 후 다음 표시를 슬롯으로 이동. 리그 오프셋/차량부품의 비중심 피벗에 의한 즉시재충전·받침대 오배치를 실제검사로 발견해 접점 보정 및 cached mesh bounds 행렬 계산으로 해결했다. Physics sync 전/비활성 Collider.bounds에 의존하지 않는다.
+- 26슬롯 배치, 자체 뒤 재고는 actor 반대방향으로 분리(0.2m간격), 받침대는 실제 표시중심/하단 기준. 로봇의 기존 중복 더미 표시 숨김. 플레이어도 대기 프록시만 집으며 재고 더미를 건너뛰지 못한다. 재고0 빈슬롯, Add 보급으로복구.
+- PrototypeProcessCrew/WorkerStation/WheelStation에서 예약→Fetch 도착→소모→운반. 로봇 fixed pickup goal, 소실/비활성/취소 예약해제·기존환불 계약. CarController 부품 Renderer배열 초기캐시. 플레이어 PortableAssemblyPart는 capacity 고정풀 초기준비, 반환/회수/만료 때 재사용, 풀소진은 재고불변. 전송/재충전중 Instantiate/Destroy 없음. 기존 TryConsume/TryTakePortable/Add와 SetActive 표시방식 유지.
+- 사용처 전수확인: PrototypeProcessCrew, Worker/WorkerStation, WheelStation, SupplyManager/SupplyWorker, PlayerAssemblyInteractor, InputManager, FactoryAssemblyM2Checks/FactoryCharacterChecks. 보급 Count/IsFull/Add 흐름 보존, 원래 InputManager 비활성 프로토타입 경로 부모해석 유지.
+- 23개 공정 Index TextMesh에 전용 URP 깊이검사셰이더와 폰트별 캐시재질. 공유 폰트/HUD 수정없음. 실제 Worker_Base 렌더에서 텍스트4509→4129픽셀·남은숫자가시 PASS.
+- 슬롯검증 PASS: 기본예약/거리/최대1초/손실/0재고/Add/기존 API, Legacy hidden fetch/소모시점/취소·정확히1환불·보존, 실제플레이어집기·빈슬롯·투척회수·풀소진·20회동일인스턴스재사용. warmed100회 CoreGc 0bytes. 실제공정 자동사람12→11/로봇11→10 각각 빈슬롯→재충전→완료, 파괴대상 예약해제/0재고/Add. 26슬롯과 받침대 중심오류0, 자기뒤더미교차0.
+- 차량검증 PASS: closed manifold/outward winding/기하예산, 앞뒤범퍼접근·점프로지붕도달, 빈엔진룸착지, 지지평행이동/회전/점프,25도회전 NPC중앙/옆/앞겹침탈출. 원본 모든굴곡과일치하는 충돌체가 아니라 올라설수있는 저해상도 외피이며20대전체 부하측정은미실시.
+- 기존검사회귀 PASS: FactoryAssemblyM2Checks 실제26슬롯부착/77도메인타격/3타·2타·중복금지/검사/부분수리/마감/초기화. M2의 옛 입력모델검사는 명시API검사로 이관하고 물리타격과 구분했다. FactoryCharacterChecks(true,true) 실제머리접촉0→5/허공0/16방향/점프3상태1.176m/고정그립/NPC실제망치모션3타완료1, 누락0/깨진참조0/Humanoid29. Services 실제보급이동·하역/예약·양손상자, 수동·고용·자동주유,임금·부채·다음날·음향 PASS.
+- 최종 Feedback23항목/Responsive3해상도·10초자동정산을 분리실행. M2는 FullCar를 진단용으로 남겨두므로 이후 같은위치 차량지지검사는 fresh Play에서실행(겹친두차의 지지대상 비교오류 방지). 독립최종검토 중요결함없음. 빌드/전공정장시간자연플레이 및 발·운반동작의 주관적 자연스러움은 미검증. 대시보드Y90도/트렁크 등 재고끼리전체미술배치는 저우선순위잔여.
+- GAME_DESIGN 최신외피/슬롯/깊이규칙, HANDOFF 현재상태 및 계획의 플레이어확정을 갱신했다. 커밋/원격 검증과 Notion 기록은 해당 Git/Notion 날짜행에서 추적한다.

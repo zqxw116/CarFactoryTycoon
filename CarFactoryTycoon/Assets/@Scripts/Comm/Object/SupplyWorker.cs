@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 재고 보급 전담 작업자 (GAME_DESIGN_PROGRESS.md 9-15). 창고에서 부품을 싣고 공정의 재고 파일(PartStack)을
@@ -82,11 +82,11 @@ public class SupplyWorker : MonoBehaviour
     public float idleRetryInterval = 0.25f;
 
     [Header("운반 표시")]
-    [Tooltip("운반 중 손에 보이는 상자. 비어 있으면 handPos(없으면 몸 앞)에 기본 큐브를 1개 만들어 쓴다." +
+    [Tooltip("운반 중 몸 앞에 보이는 보급 상자. 비어 있으면 손잡이가 있는 PARTS 화물을 만든다." +
         " 작업자당 1개를 시작 시 미리 만들고 SetActive로만 켜고 끈다(왕복마다 생성하지 않음).")]
     public GameObject carryVisualPrefab;
 
-    [Tooltip("상자를 붙일 손 Transform. 비어 있으면 몸 앞(handForward/handHeight)에 붙인다.")]
+    [Tooltip("기존 손 연결 참조(호환용). 운반 상자는 몸 앞 SupplyCarryAnchor를 사용하고 두 손 IK가 손잡이를 따른다.")]
     public Transform handPos;
 
     [Tooltip("handPos 미설정 시 상자 위치 — 몸 중심에서 앞쪽 거리(m).")]
@@ -139,6 +139,8 @@ public class SupplyWorker : MonoBehaviour
 
     private UpgradeManager upgrade;              // Start에서 캐시 (OnDisable/OnDestroy에서 Instance 접근 금지)
     private GameObject carryVisual;
+    private WorkerHandIK carryIK;
+    private Transform carryAnchor;
     private NavMover mover;                      // 이동 담당 (없으면 Awake에서 붙인다)
 
     // 애니메이터 파라미터 캐시 (Worker와 동일)
@@ -202,6 +204,7 @@ public class SupplyWorker : MonoBehaviour
         carrying = 0;
         carryingType = PartType.None;
         if (carryVisual != null) carryVisual.SetActive(false);
+        if (carryIK != null) carryIK.Release();
         currentState = SupplyState.ToWarehouse; // 다시 켜지면 창고부터 시작
     }
 
@@ -386,42 +389,61 @@ public class SupplyWorker : MonoBehaviour
     /// </summary>
     private void BuildCarryVisual()
     {
-        Transform parent = handPos != null ? handPos : transform;
-
-        // 실행 중인 작업자를 복제해 고용하면(SupplyManager.Hire) 런타임에 만든 상자까지 함께 복제된다
-        // → 이미 있으면 그대로 재사용해 상자가 2개가 되지 않게 한다.
-        Transform existing = parent.Find(CarryVisualName);
-        if (existing != null)
+        // The former cube was parented to the animated right hand. Its rotation therefore
+        // swung into the body during walking. Keep cargo in body space and solve hands to it.
+        carryAnchor = transform.Find("SupplyCarryAnchor");
+        if(carryAnchor==null){carryAnchor=new GameObject("SupplyCarryAnchor").transform;carryAnchor.SetParent(transform,false);}
+        Vector3 parentScale=transform.lossyScale;
+        carryAnchor.localScale=new Vector3(1f/Mathf.Max(.0001f,Mathf.Abs(parentScale.x)),1f/Mathf.Max(.0001f,Mathf.Abs(parentScale.y)),1f/Mathf.Max(.0001f,Mathf.Abs(parentScale.z)));
+        float height=1.05f;
+        if(animator!=null && animator.isHuman)
         {
-            carryVisual = existing.gameObject;
-            carryVisual.SetActive(false);
-            return;
+            var shoulder=animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
+            if(shoulder!=null)height=Mathf.Max(.7f,shoulder.position.y-transform.position.y-.36f);
+            carryIK=animator.GetComponent<WorkerHandIK>();
+            if(carryIK==null)carryIK=animator.gameObject.AddComponent<WorkerHandIK>();
+            carryIK.lookAtWeight=0;
         }
-
-        if (carryVisualPrefab != null)
-        {
-            carryVisual = Instantiate(carryVisualPrefab, parent);
-        }
+        carryAnchor.SetPositionAndRotation(transform.position+Vector3.up*height+transform.forward*.53f,transform.rotation);
+        carryAnchor.position+=transform.TransformVector(carryOffset);
+        // Runtime hiring clones an existing worker including its generated crate.
+        Transform existing=carryAnchor.Find(CarryVisualName);
+        if(existing!=null){carryVisual=existing.gameObject;carryVisual.SetActive(false);return;}
+        if(carryVisualPrefab!=null)carryVisual=Instantiate(carryVisualPrefab,carryAnchor);
         else
         {
-            carryVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            carryVisual.transform.SetParent(parent, false);
-            Collider col = carryVisual.GetComponent<Collider>();
-            if (col != null) Destroy(col);
-
-            // 부모 스케일과 무관하게 월드 기준 한 변 carryBoxSize가 되도록 보정한다.
-            Vector3 ls = parent.lossyScale;
-            carryVisual.transform.localScale = new Vector3(
-                carryBoxSize / Mathf.Max(0.0001f, Mathf.Abs(ls.x)),
-                carryBoxSize / Mathf.Max(0.0001f, Mathf.Abs(ls.y)),
-                carryBoxSize / Mathf.Max(0.0001f, Mathf.Abs(ls.z)));
+            carryVisual=new GameObject(CarryVisualName);
+            carryVisual.transform.SetParent(carryAnchor,false);
+            float size=Mathf.Clamp(carryBoxSize,.36f,.55f);
+            var cargo=new Color(.22f,.38f,.42f);
+            var trim=new Color(.83f,.66f,.22f);
+            CratePiece("Supply bin",new Vector3(0,-.025f,0),new Vector3(size,size*.64f,size*.8f),cargo);
+            CratePiece("Lid",new Vector3(0,size*.31f,0),new Vector3(size*1.03f,.035f,size*.83f),cargo*.7f);
+            CratePiece("Left handle",new Vector3(-size*.58f,.08f,0),new Vector3(.065f,.065f,size*.4f),trim);
+            CratePiece("Right handle",new Vector3(size*.58f,.08f,0),new Vector3(.065f,.065f,size*.4f),trim);
+            var label=new GameObject("Supply label");label.transform.SetParent(carryVisual.transform,false);
+            label.transform.localPosition=new Vector3(0,.03f,size*.403f);
+            label.transform.localRotation=Quaternion.Euler(0,180,0);
+            var text=label.AddComponent<TextMesh>();text.font=Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");text.GetComponent<MeshRenderer>().sharedMaterial=text.font.material;text.text="PARTS";text.characterSize=.035f;text.fontSize=48;
+            text.anchor=TextAnchor.MiddleCenter;text.alignment=TextAlignment.Center;text.color=Color.white;
         }
-
-        carryVisual.name = CarryVisualName;
-        Vector3 basePos = handPos != null ? Vector3.zero : new Vector3(0f, handHeight, handForward);
-        carryVisual.transform.localPosition = basePos + carryOffset;
-        carryVisual.transform.localRotation = Quaternion.identity;
+        carryVisual.name=CarryVisualName;
+        carryVisual.transform.localPosition=Vector3.zero;carryVisual.transform.localRotation=Quaternion.identity;
+        // Prefab collision geometry must not block the NPC, vehicles, or player raycasts.
+        foreach(var col in carryVisual.GetComponentsInChildren<Collider>(true))col.enabled=false;
         carryVisual.SetActive(false);
+    }
+
+    private void CratePiece(string pieceName,Vector3 position,Vector3 size,Color color)
+    {
+        var piece=GameObject.CreatePrimitive(PrimitiveType.Cube);piece.name=pieceName;
+        piece.transform.SetParent(carryVisual.transform,false);piece.transform.localPosition=position;
+        // Root actors can be scaled by the migration tool. Geometry is specified in metres.
+        Vector3 scale=carryAnchor.lossyScale;
+        piece.transform.localScale=new Vector3(size.x/Mathf.Max(.0001f,Mathf.Abs(scale.x)),size.y/Mathf.Max(.0001f,Mathf.Abs(scale.y)),size.z/Mathf.Max(.0001f,Mathf.Abs(scale.z)));
+        var collider=piece.GetComponent<Collider>();collider.enabled=false;Destroy(collider);
+        var block=new MaterialPropertyBlock();block.SetColor("_BaseColor",color);block.SetColor("_Color",color);
+        piece.GetComponent<Renderer>().SetPropertyBlock(block);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -466,6 +488,16 @@ public class SupplyWorker : MonoBehaviour
     /// <summary>이번 프레임 실제 이동 속력(NavMover — 에이전트 속도 또는 NavMesh 이동량)으로 걷기 애니메이션을 구동한다.</summary>
     private void UpdateAnimator()
     {
+        if (carryIK != null)
+        {
+            if (carrying > 0 && carryVisual != null && carryVisual.activeInHierarchy)
+            {
+                // Stable body-space crate; animated hands follow its two handles.
+                float half = Mathf.Clamp(carryBoxSize,.36f,.55f)*.58f;
+                carryIK.Grip(carryAnchor,new Vector3(-half,.08f,0),new Vector3(half,.08f,0),Vector3.forward);
+            }
+            else carryIK.Release();
+        }
         if (animator == null) return;
 
         float speed = mover.CurrentSpeed;

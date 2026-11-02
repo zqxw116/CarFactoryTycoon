@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -26,14 +26,13 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
 
     public CarController ContactCar => closestCar;
 
-    public static Rect AdminPanelRect => new Rect(18f, Screen.height - 264f, 296f, 246f);
+    static bool panelExpanded;
+    public static Rect AdminPanelRect => new Rect(18f, 54f, 296f, panelExpanded ? 274f : 60f);
 
     public static bool PointerOverAdminPanel(Mouse mouse)
     {
         if (mouse == null) return false;
-        Vector2 pointer = mouse.position.ReadValue();
-        pointer.y = Screen.height - pointer.y;
-        return AdminPanelRect.Contains(pointer);
+        return AdminPanelRect.Contains(PrototypeGui.PointerPosition);
     }
 
     public void RefreshContactCar()
@@ -143,10 +142,14 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
         FactoryPlayerController player = GetComponent<FactoryPlayerController>();
         if (player != null && (player.MapMode || player.InteractionUIOpen)) return;
 
+        using var gui = PrototypeGui.Scope();
         Rect panel = AdminPanelRect;
         float x = panel.x + 10f;
-        float y = panel.y + 8f;
-        GUI.Box(panel, "관리자 모드 · 테스트 도구");
+        float y = panel.y + 36f;
+        GUI.Box(panel, GUIContent.none);
+        if (GUI.Button(new Rect(panel.x + 10f, panel.y + 8f, 276f, 26f),
+            panelExpanded ? "관리자 테스트 도구 ▲ 접기" : "관리자 테스트 도구 ▼ 펼치기")) panelExpanded = !panelExpanded;
+        if (!panelExpanded) return;
         bool modal = IsModalOpen();
         ProductionProgression progression = ProductionProgression.Current;
         bool prototype = progression != null && progression.prototypeMode;

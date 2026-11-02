@@ -40,3 +40,6 @@ ProjectVersion.txt
 Assets/Resources/BillingMode.json
 Assets/Resources/BillingMode.json.meta
 MemoryCaptures/
+
+# User preference: ignore newly generated Unity metadata
+*.meta

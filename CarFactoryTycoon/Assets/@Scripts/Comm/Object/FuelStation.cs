@@ -1,18 +1,22 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
 /// <summary>Final preparation before dispatch: human nozzle handling, or a purchased automatic arm.</summary>
 public class FuelStation : MonoBehaviour, ILineGate
 {
-    public enum FuelState { Idle, PickingUp, Approaching, Connecting, Fueling, Disconnecting, Returning, Parking, Resting, AwaitingPlayer }
+    public enum FuelState { Idle, PickingUp, Approaching, Connecting, Fueling, Disconnecting, Returning, Parking, Resting, AwaitingPlayer, PlayerCarrying }
     public bool prototypeMode;
     public PrototypeBalanceSettings prototypeSettings;
     public bool AttendantHired { get; private set; }
     public bool WorkersOnDuty { get; private set; } = true;
     public bool PlayerFueling => cyclePlayer;
+    public bool PlayerCarryingNozzle => cyclePlayer && currentState == FuelState.PlayerCarrying;
+    public float playerPickupRange = 1.65f;
+    public float playerConnectRange = .9f;
+    public float playerHoseRange = 6f;
     public int CompletedFuelCount { get; private set; }
-    public bool CanChangeStaff => currentState == FuelState.Idle || currentState == FuelState.AwaitingPlayer;
+    public bool CanChangeStaff => !cyclePlayer && (currentState == FuelState.Idle || currentState == FuelState.AwaitingPlayer);
     public bool PaidHumanActive => prototypeMode && AttendantHired && !automationPurchased;
     public SplineContainer mainLineSpline;
     [Range(0,1)] public float gateProgress;
@@ -57,7 +61,8 @@ public class FuelStation : MonoBehaviour, ILineGate
     {
         get
         {
-            if(prototypeMode && currentState==FuelState.AwaitingPlayer)return "차량 주유 대기 · 가까이서 E 유지";
+            if(PlayerCarryingNozzle)return currentCar!=null?"노즐 운반 중 · 주유구로 가져가세요":"주유 완료 · 노즐을 거치대에 반납하세요";
+            if(prototypeMode && currentState==FuelState.AwaitingPlayer)return "차량 주유 대기 · 거치대에서 노즐을 집으세요";
             if(cyclePlayer)return "직접 주유 "+Mathf.RoundToInt(FillProgress*100)+"% · E 유지";
             if(prototypeMode && !automationPurchased && (!AttendantHired || !WorkersOnDuty))return AttendantHired?"주유 작업자 퇴근 · 직접 주유 가능":"주유 작업자 미고용 · 직접 주유 가능";
             if(automationPurchased && !automationActive) return "현재 작업 후 자동 전환";
@@ -70,6 +75,7 @@ public class FuelStation : MonoBehaviour, ILineGate
 
     bool automationActive, cycleAutomated, visualsInitialized, cyclePlayer;
     FactoryPlayerController fuelingPlayer;
+    int capturedLifeVersion;
     float timer, duration, cycleSpeed, barWidth;
     Vector3 workPoint, moveFrom, barHome;
     Quaternion rotateFrom;
@@ -105,19 +111,77 @@ public class FuelStation : MonoBehaviour, ILineGate
             SetNozzleDock();Begin(FuelState.AwaitingPlayer,0);
         }
     }
-    bool PlayerInReach(FactoryPlayerController actor) => actor!=null && actor.ControlsActive && currentCar!=null &&
-        Vector3.Distance(actor.transform.position+Vector3.up,PortPosition())<=3.5f;
+    bool PlayerAvailable(FactoryPlayerController actor) => actor!=null && !actor.MapMode &&
+        !actor.InteractionUIOpen && (PrototypeDayCycle.Current==null || !PrototypeDayCycle.Current.IsSettlement) &&
+        (actor.interactor==null || actor.interactor.HeldPart==null && !actor.interactor.IsAttaching && actor.interactor.SwingProgress<=0f);
+    bool HasLiveCar => currentCar!=null && currentCar.gameObject.activeInHierarchy && currentCar.LifeVersion==capturedLifeVersion;
+    Vector3 PlayerCarryPosition(FactoryPlayerController actor) => actor.CarryAnchor!=null ? actor.CarryAnchor.position : actor.transform.position+Vector3.up*1.1f+actor.BodyForward*.55f;
+    Quaternion PlayerCarryRotation(FactoryPlayerController actor) => Quaternion.LookRotation(actor.BodyForward,Vector3.up);
+    bool CanContinuePlayer(FactoryPlayerController actor)
+    {
+        if(!PlayerAvailable(actor) || nozzleDock==null || Vector3.Distance(PlayerCarryPosition(actor),nozzleDock.position)>playerHoseRange)return false;
+        return currentState==FuelState.PlayerCarrying || HasLiveCar && PlayerCanReachPort(actor,playerPickupRange+.25f) &&
+            Vector3.Distance(PlayerCarryPosition(actor),PortPosition())<=playerConnectRange+.25f;
+    }
+    bool PlayerCanReachPort(FactoryPlayerController actor,float range)
+    {
+        var port=PortPosition();
+        if(!actor.CanReachInteraction(port,range))return false;
+        var origin=actor.transform.position+Vector3.up*1.1f;
+        // A visible port on the far side of the car is still obstructed by its body.
+        return !Physics.Linecast(origin,port,out var hit,1<<11,QueryTriggerInteraction.Ignore) ||
+            hit.distance>=Vector3.Distance(origin,port)-.25f;
+    }
+    public bool CanPickUpPlayerNozzle(FactoryPlayerController actor) => prototypeMode && !cyclePlayer &&
+        currentState==FuelState.AwaitingPlayer && HasLiveCar && nozzle!=null && nozzleDock!=null && PlayerAvailable(actor) &&
+        actor.CanReachInteraction(nozzleDock.position,playerPickupRange);
+    public bool CanConnectPlayerNozzle(FactoryPlayerController actor) => PlayerCarryingNozzle && actor==fuelingPlayer && HasLiveCar &&
+        PlayerAvailable(actor) && PlayerCanReachPort(actor,playerPickupRange) &&
+        Vector3.Distance(PlayerCarryPosition(actor),PortPosition())<=playerConnectRange;
+    public bool CanReturnPlayerNozzle(FactoryPlayerController actor) => PlayerCarryingNozzle && actor==fuelingPlayer &&
+        PlayerAvailable(actor) && nozzleDock!=null && actor.CanReachInteraction(nozzleDock.position,playerPickupRange);
+    public string PlayerInteractionHint(FactoryPlayerController actor)
+    {
+        if(!PlayerAvailable(actor))return null;
+        if(CanConnectPlayerNozzle(actor))return "E · 주유구에 노즐 연결";
+        if(CanReturnPlayerNozzle(actor))return "E · 노즐 반납";
+        if(CanPickUpPlayerNozzle(actor))return "E · 주유 노즐 집기";
+        if(cyclePlayer && actor==fuelingPlayer && !PlayerCarryingNozzle && CanContinuePlayer(actor))return StatusText;
+        return null;
+    }
     public bool TryBeginPlayerFueling(FactoryPlayerController actor)
     {
-        if(!prototypeMode || currentState!=FuelState.AwaitingPlayer || !PlayerInReach(actor) ||
-            (PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement))return false;
+        if(!CanPickUpPlayerNozzle(actor))return false;
         cyclePlayer=true;cycleAutomated=false;fuelingPlayer=actor;cycleSpeed=1;
-        Begin(FuelState.Connecting,.65f);return true;
+        Begin(FuelState.PlayerCarrying,0);CarryPlayerNozzle();SetPlayerGrip(true);return true;
+    }
+    public bool TryConnectPlayerNozzle(FactoryPlayerController actor)
+    {
+        if(!CanConnectPlayerNozzle(actor))return false;
+        Begin(FuelState.Connecting,.3f);return true;
+    }
+    public bool TryReturnPlayerNozzle(FactoryPlayerController actor)
+    {
+        if(!CanReturnPlayerNozzle(actor))return false;
+        CancelPlayerFueling();return true;
+    }
+    void SetPlayerGrip(bool active)
+    {
+        if(fuelingPlayer==null || fuelingPlayer.interactor==null)return;
+        var interactor=fuelingPlayer.interactor;
+        interactor.ExternalCarryTarget=active?nozzle:null;
+        interactor.ExternalLeftGrip=new Vector3(-.07f,-.07f,-.43f);
+        interactor.ExternalRightGrip=new Vector3(.07f,-.06f,-.3f);
+    }
+    void CarryPlayerNozzle()
+    {
+        if(nozzle!=null && fuelingPlayer!=null)nozzle.SetPositionAndRotation(PlayerCarryPosition(fuelingPlayer),PlayerCarryRotation(fuelingPlayer));
     }
     public void AdvancePlayerFueling(FactoryPlayerController actor,float seconds)
     {
-        if(!cyclePlayer || actor!=fuelingPlayer || seconds<=0 || !PlayerInReach(actor))return;
-        if(currentCar==null || !currentCar.gameObject.activeInHierarchy){CancelCycle();return;}
+        if(!cyclePlayer || actor!=fuelingPlayer || seconds<=0 || PlayerCarryingNozzle)return;
+        if(!HasLiveCar){CancelCycle();return;}
+        if(!CanContinuePlayer(actor)){CancelPlayerFueling();return;}
         timer-=seconds;
         switch(currentState)
         {
@@ -126,9 +190,9 @@ public class FuelStation : MonoBehaviour, ILineGate
                 if(timer<=0)Begin(FuelState.Fueling,prototypeSettings!=null?prototypeSettings.manualFuelSeconds:manualFuelSeconds);break;
             case FuelState.Fueling:
                 if(nozzle!=null)nozzle.SetPositionAndRotation(PortPosition(),PortRotation());
-                if(timer<=0)Begin(FuelState.Disconnecting,.5f);break;
+                if(timer<=0)Begin(FuelState.Disconnecting,.25f);break;
             case FuelState.Disconnecting:
-                BlendNozzle(nozzleDock.position,nozzleDock.rotation);
+                BlendNozzle(PlayerCarryPosition(actor),PlayerCarryRotation(actor));
                 if(timer<=0)ReleaseCar();break;
         }
         UpdateMeter();
@@ -136,8 +200,8 @@ public class FuelStation : MonoBehaviour, ILineGate
     public void CancelPlayerFueling()
     {
         if(!cyclePlayer)return;
-        cyclePlayer=false;fuelingPlayer=null;SetNozzleDock();
-        Begin(currentCar!=null?FuelState.AwaitingPlayer:FuelState.Idle,0);
+        SetPlayerGrip(false);cyclePlayer=false;fuelingPlayer=null;SetNozzleDock();
+        Begin(HasLiveCar?FuelState.AwaitingPlayer:FuelState.Idle,0);
     }
 
     void OnEnable()
@@ -196,8 +260,10 @@ public class FuelStation : MonoBehaviour, ILineGate
     {
         if(cyclePlayer)
         {
-            if(currentCar==null || !currentCar.gameObject.activeInHierarchy){CancelCycle();return;}
-            if(fuelingPlayer==null || Vector3.Distance(fuelingPlayer.transform.position+Vector3.up,PortPosition())>3.5f)CancelPlayerFueling();
+            if(currentCar!=null && !HasLiveCar){CancelCycle();return;}
+            if(!CanContinuePlayer(fuelingPlayer))CancelPlayerFueling();
+            else if(PlayerCarryingNozzle)CarryPlayerNozzle();
+            else if(currentState==FuelState.Fueling && nozzle!=null)nozzle.SetPositionAndRotation(PortPosition(),PortRotation());
             UpdateMeter();return;
         }
         bool handling=currentState>=FuelState.PickingUp && currentState<=FuelState.Disconnecting;
@@ -258,7 +324,7 @@ public class FuelStation : MonoBehaviour, ILineGate
         if(mainLineSpline==null || nozzle==null || nozzleDock==null || homePoint==null)return;
         if(!automationActive && !prototypeMode && (attendant==null || attendantMover==null))return;
         var car=LineTrafficManager.Instance.GetCarAtGate(gateProgress,.1f);if(car==null)return;
-        currentCar=car;car.isMoving=false;
+        currentCar=car;capturedLifeVersion=car.LifeVersion;car.isMoving=false;
         if(prototypeMode && !automationActive && (!AttendantHired || !WorkersOnDuty)){Begin(FuelState.AwaitingPlayer,0);return;}
         StartCapturedCycle();
     }
@@ -301,17 +367,18 @@ public class FuelStation : MonoBehaviour, ILineGate
     {
         CompletedFuelCount++;
         if(currentCar!=null){currentCar.SetProgress(gateProgress);currentCar.isMoving=true;currentCar=null;}
-        if(cycleAutomated || cyclePlayer){SetNozzleDock();cyclePlayer=false;fuelingPlayer=null;Begin(FuelState.Idle,0);}
+        if(cyclePlayer){CarryPlayerNozzle();Begin(FuelState.PlayerCarrying,0);}
+        else if(cycleAutomated){SetNozzleDock();Begin(FuelState.Idle,0);}
         else{if(!prototypeMode)condition=Mathf.Max(0,condition-conditionCostPerCar);Begin(FuelState.Returning,0);}
     }
 
     public void CancelCycle()
     {
-        if(currentCar!=null && currentCar.gameObject.activeInHierarchy && currentCar.targetSpline!=null)
+        if(HasLiveCar && currentCar.targetSpline!=null)
         {
             currentCar.SetProgress(gateProgress-.01f/Mathf.Max(.01f,currentCar.SplineLength));currentCar.isMoving=true;
         }
-        currentCar=null;cyclePlayer=false;fuelingPlayer=null;if(handIK!=null)handIK.Release();if(attendantMover!=null)attendantMover.Stop();
+        SetPlayerGrip(false);currentCar=null;cyclePlayer=false;fuelingPlayer=null;if(handIK!=null)handIK.Release();if(attendantMover!=null)attendantMover.Stop();
         SetNozzleDock();currentState=FuelState.Idle;timer=duration=0;
         if(attendant!=null && homePoint!=null)
         {
@@ -323,6 +390,7 @@ public class FuelStation : MonoBehaviour, ILineGate
 
     void LateUpdate()
     {
+        if(PlayerCarryingNozzle)CarryPlayerNozzle();
         if(hose!=null && hoseAnchor!=null && hoseEnd!=null)
         {
             Vector3 a=hoseAnchor.position,b=hoseEnd.position;

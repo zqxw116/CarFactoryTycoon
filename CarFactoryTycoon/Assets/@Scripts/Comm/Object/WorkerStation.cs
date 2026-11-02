@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
@@ -347,7 +347,13 @@ public class WorkerStation : MonoBehaviour, ILineGate
         for (int i = 0; i < assigned.Length; i++)
         {
             AssemblyPart part = assigned[i];
-            if (part == null || !part.IsAssembled) continue;
+            if (part == null) continue;
+            if (!part.IsAssembled)
+            {
+                if (workers == null || i >= workers.Length || workers[i] == null || !workers[i].IsBusy)
+                    assigned[i] = null;
+                continue;
+            }
 
             // 보상: 로봇팔 공정(StationController)과 동일하게 파츠 완료마다 지급
             Vector3 rewardPos = part.transform.position + Vector3.up * 0.5f;
@@ -397,38 +403,26 @@ public class WorkerStation : MonoBehaviour, ILineGate
                 Vector3 pickPos = PileWorldPos;
                 Quaternion pickRot = PileWorldRot;
 
-                // 재고가 없으면 이 부품은 지금 붙일 수 없다 → 라인이 멈춘 채 보충을 기다린다
                 PartStack stack = GetStack(entry.stackIndex);
-                if (!entry.stockTaken && stack != null)
+                if (stack != null)
                 {
-                    // ★ 순서 필수: TryConsume이 재고를 줄이면 top 슬롯이 한 칸 내려간다.
-                    //   소모 '전에' 읽어야 방금 사라진 바로 그 부품 자리에서 집는 그림이 된다.
-                    //   (재고 0이면 스택 원점으로 폴백되지만 곧바로 TryConsume이 false라 쓰이지 않는다.
-                    //    여러 작업자가 같은 프레임에 배정받아도 각자 소모 직전 값을 읽으므로 슬롯이 겹치지 않는다)
-                    pickPos = stack.GetTopSlotWorldPos();
-                    pickRot = stack.GetTopSlotWorldRot();
-
-                    if (!stack.TryConsume()) continue;
-                    entry.stockTaken = true;
-                    pending[p] = entry;
+                    if (!stack.IsReadySlotConfigured) stack.ConfigureReadySlot(PileWorldPos, PileWorldRot);
+                    if (!stack.HasReadyPart) continue;
                 }
 
                 bool dockValid = TryGetDockPose(out Vector3 dockPos, out Quaternion dockRot);
                 if (flowThrough) { dockPos = currentCar.transform.position; dockRot = currentCar.transform.rotation; dockValid = true; }
-                if (worker.AssignWork(entry.part, pickPos, pickRot, dockPos, dockRot, dockValid))
+                bool accepted = stack != null
+                    ? worker.AssignFromReady(entry.part, stack, dockPos, dockRot, dockValid, !flowThrough)
+                    : worker.AssignWork(entry.part, pickPos, pickRot, dockPos, dockRot, dockValid);
+                if (accepted)
                 {
                     if (flowThrough) entry.part.SetStationWorkWindow(mainLineSpline, gateProgress, workZoneMeters);
                     assigned[w] = entry.part;
                     break;
                 }
 
-                // 배정 실패 시 소모한 재고를 되돌린다
-                if (entry.stockTaken && stack != null)
-                {
-                    stack.Add(1);
-                    entry.stockTaken = false;
-                    pending[p] = entry;
-                }
+
             }
         }
     }
@@ -553,7 +547,11 @@ public class WorkerStation : MonoBehaviour, ILineGate
         {
             if (pending[i].stockTaken) continue;
             PartStack stack = GetStack(pending[i].stackIndex);
-            if (stack != null && stack.IsEmpty) return true;
+            if (stack != null)
+            {
+                if (!stack.IsReadySlotConfigured) stack.ConfigureReadySlot(PileWorldPos, PileWorldRot);
+                if (!stack.HasReadyPart) return true;
+            }
         }
         return false;
     }

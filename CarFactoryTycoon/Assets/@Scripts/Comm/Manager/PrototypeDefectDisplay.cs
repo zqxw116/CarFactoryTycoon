@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -215,10 +215,18 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
         }
         var mesh=new Mesh{name="MissingSlotBrackets",hideFlags=HideFlags.DontSave};mesh.vertices=vertices;mesh.SetIndices(indices,MeshTopology.Lines,0);mesh.RecalculateBounds();return mesh;
     }
+    static Vector3 LogicalScreenPoint(Camera camera, Vector3 point)
+    {
+        Vector3 screen = camera.WorldToScreenPoint(point);
+        screen.x /= PrototypeGui.Scale;
+        screen.y /= PrototypeGui.Scale;
+        return screen;
+    }
     void OnGUI()
     {
         VisibleWorkIconCount=VehicleBadgeCount=0;
         if(player==null||player.viewCamera==null||player.InteractionUIOpen||(PrototypeDayCycle.Current!=null&&PrototypeDayCycle.Current.IsSettlement))return;
+        using var gui = PrototypeGui.Scope();
         var camera=player.viewCamera;var focused=player.interactor!=null?player.interactor.FocusedPart:null;
         var color=GUI.color;
         if(!player.MapMode)
@@ -228,8 +236,8 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
                 if(pair.Value.state!=PartState.AttachedPending||pair.Key==focused)continue;
                 var center=pair.Value.root.TransformPoint(pair.Value.localBounds.center);
                 if(Vector3.Distance(player.transform.position,center)>workIconRange)continue;
-                var screen=camera.WorldToScreenPoint(center);if(screen.z<=0||screen.x<20||screen.x>Screen.width-20||screen.y<24||screen.y>Screen.height-24)continue;
-                var rect=new Rect(screen.x-9,Screen.height-screen.y-18,18,18);bool overlaps=false;
+                var screen=LogicalScreenPoint(camera, center);if(screen.z<=0||screen.x<20||screen.x>PrototypeGui.Width-20||screen.y<24||screen.y>PrototypeGui.Height-24)continue;
+                var rect=new Rect(screen.x-9,PrototypeGui.Height-screen.y-18,18,18);bool overlaps=false;
                 for(int n=0;n<VisibleWorkIconCount;n++)if(iconRects[n].Overlaps(rect)){overlaps=true;break;}
                 if(overlaps||VisibleWorkIconCount==iconRects.Length)continue;
                 iconRects[VisibleWorkIconCount++]=rect;
@@ -239,11 +247,11 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
         GUI.color=color;
         if(!player.MapMode&&focused!=null&&focused.IsPlayerAttached&&!focused.IsAssembled&&!focused.IsPlayerAttaching)
         {
-            var screen=camera.WorldToScreenPoint(player.interactor.InteractionPoint(focused));
+            var screen=LogicalScreenPoint(camera, player.interactor.InteractionPoint(focused));
             if(screen.z>0)
             {
-                float x=Mathf.Clamp(screen.x-110,8,Mathf.Max(8,Screen.width-228));
-                float y=Mathf.Clamp(Screen.height-screen.y+26,8,Mathf.Max(8,Screen.height-128));
+                float x=Mathf.Clamp(screen.x-110,8,Mathf.Max(8,PrototypeGui.Width-228));
+                float y=Mathf.Clamp(PrototypeGui.Height-screen.y+26,8,Mathf.Max(8,PrototypeGui.Height-128));
                 GUI.Box(new Rect(x,y,220,28),PlayerAssemblyInteractor.PartLabel(focused.myType)+" · 망치 "+focused.PlayerHitsRemaining(player.interactor.PlayerHammerHits)+"회");
             }
         }
@@ -251,10 +259,10 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
         {
             var reward=rewards[n];float remaining=reward.expires-Time.time;
             if(remaining<=0||reward.text==null||Vector3.Distance(player.transform.position,reward.point)>12f)continue;
-            var screen=camera.WorldToScreenPoint(reward.point+Vector3.up*(.18f+(1.1f-remaining)*.35f));
+            var screen=LogicalScreenPoint(camera, reward.point+Vector3.up*(.18f+(1.1f-remaining)*.35f));
             if(screen.z<=0)continue;
             GUI.color=new Color(1f,.85f,.45f,Mathf.Clamp01(remaining*2));
-            GUI.Label(new Rect(screen.x-30,Screen.height-screen.y-18,80,24),reward.text);
+            GUI.Label(new Rect(screen.x-30,PrototypeGui.Height-screen.y-18,80,24),reward.text);
         }
         GUI.color=color;
         foreach(var badge in badges)
@@ -262,13 +270,13 @@ public sealed class PrototypeDefectDisplay : MonoBehaviour
             if(badge.car==null)continue;
             float distance=Vector3.Distance(player.transform.position,badge.car.transform.position);
             if(distance>vehicleBadgeRange)continue;
-            var screen=camera.WorldToScreenPoint(badge.car.transform.position+Vector3.up*2.15f);
+            var screen=LogicalScreenPoint(camera, badge.car.transform.position+Vector3.up*2.15f);
             // The overhead anchor can leave the frustum while standing beside/inside a car.
             // Nearby defects keep a clamped top-edge badge even when its world anchor is behind the eye.
             if(screen.z<=0)
-            {if(distance>workIconRange||player.MapMode)continue;screen=new Vector3(Screen.width*.5f,Screen.height-48f,1f);}
-            float badgeX=Mathf.Clamp(screen.x-48,8,Mathf.Max(8,Screen.width-104));
-            float badgeY=Mathf.Clamp(Screen.height-screen.y-12,36,Mathf.Max(36,Screen.height-40));
+            {if(distance>workIconRange||player.MapMode)continue;screen=new Vector3(PrototypeGui.Width*.5f,PrototypeGui.Height-48f,1f);}
+            float badgeX=Mathf.Clamp(screen.x-48,8,Mathf.Max(8,PrototypeGui.Width-104));
+            float badgeY=Mathf.Clamp(PrototypeGui.Height-screen.y-12,36,Mathf.Max(36,PrototypeGui.Height-40));
             VehicleBadgeCount++;GUI.Box(new Rect(badgeX,badgeY,96,25),"미체결 "+badge.count);
         }
     }

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>A single physical stock item, independent of the vehicle's assembly placeholder.</summary>
 public sealed class PortableAssemblyPart : MonoBehaviour
@@ -9,6 +9,56 @@ public sealed class PortableAssemblyPart : MonoBehaviour
     public Rigidbody Body { get; private set; }
     public BoxCollider PhysicsCollider { get; private set; }
     public Bounds LocalBounds { get; private set; }
+
+    private Transform poolHome;
+    private bool pooled;
+    public bool IsPoolAvailable { get; private set; }
+
+    public void InitializePool(Transform home)
+    {
+        poolHome = home;
+        pooled = true;
+        ReleaseToPool();
+    }
+
+    public bool AcquireFromPool(Vector3 position, Quaternion rotation)
+    {
+        if (!pooled || !IsPoolAvailable) return false;
+        IsPoolAvailable = false;
+        HeldBy = null;
+        IsExpired = false;
+        lossRecorded = false;
+        droppedLifetimeActive = false;
+        DroppedLifetimeElapsed = 0f;
+        blinkVisible = true;
+        transform.SetParent(null, false);
+        transform.SetPositionAndRotation(position, rotation);
+        gameObject.SetActive(true);
+        Show(true);
+        return true;
+    }
+
+    public void ReleaseToPool()
+    {
+        if (!pooled) { Destroy(gameObject); return; }
+        SetBeltFriction(false);
+        contactBelt = null;
+        contactAt = float.NegativeInfinity;
+        HeldBy = null;
+        droppedLifetimeActive = false;
+        if (Body != null)
+        {
+            if (!Body.isKinematic) { Body.linearVelocity = Vector3.zero; Body.angularVelocity = Vector3.zero; }
+            Body.isKinematic = true;
+            Body.useGravity = false;
+            Body.detectCollisions = false;
+        }
+        if (PhysicsCollider != null) PhysicsCollider.enabled = false;
+        Show(false);
+        transform.SetParent(poolHome, false);
+        IsPoolAvailable = true;
+        gameObject.SetActive(false);
+    }
 
     private Renderer[] visuals;
     private bool[] originalRendererStates;
@@ -69,6 +119,8 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         portable.PhysicsCollider.center = bounds.center;
         portable.PhysicsCollider.size = Vector3.Max(bounds.size, Vector3.one * .04f);
         portable.PhysicsCollider.enabled = false;
+        portable.beltContactMaterial = new PhysicsMaterial("PortableConveyorContact")
+        { staticFriction = 0f, dynamicFriction = 0f, frictionCombine = PhysicsMaterialCombine.Minimum };
         return portable;
     }
 
@@ -123,9 +175,6 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         if (supported)
         {
             originalContactMaterial = PhysicsCollider.sharedMaterial;
-            if (beltContactMaterial == null)
-                beltContactMaterial = new PhysicsMaterial("PortableConveyorContact")
-                { staticFriction = 0f, dynamicFriction = 0f, frictionCombine = PhysicsMaterialCombine.Minimum };
             PhysicsCollider.sharedMaterial = beltContactMaterial;
         }
         else PhysicsCollider.sharedMaterial = originalContactMaterial;
@@ -159,7 +208,12 @@ public sealed class PortableAssemblyPart : MonoBehaviour
         Vector3 delta = Vector3.ClampMagnitude(target - current, 10f * Time.fixedDeltaTime);
         if (delta.sqrMagnitude > .000001f) Body.AddForce(delta, ForceMode.VelocityChange);
     }
-    void OnDestroy() { if (beltContactMaterial != null) Destroy(beltContactMaterial); }
+    void OnDestroy()
+    {
+        if (beltContactMaterial == null) return;
+        if (Application.isPlaying) Destroy(beltContactMaterial);
+        else DestroyImmediate(beltContactMaterial);
+    }
 
     private void Update() => AdvanceDroppedLifetime(Time.deltaTime);
 
@@ -183,7 +237,7 @@ public sealed class PortableAssemblyPart : MonoBehaviour
                 else
                     PrototypeDayCycle.Current?.RecordPartLoss(10);
             }
-            Destroy(gameObject);
+            ReleaseToPool();
             return;
         }
 

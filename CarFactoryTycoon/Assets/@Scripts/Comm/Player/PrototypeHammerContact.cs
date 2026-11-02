@@ -7,6 +7,7 @@ public sealed class PrototypeHammerContact : MonoBehaviour
     sealed class Surface
     {
         public AssemblyPart part;
+        public CarController car;
         public Renderer source;
         public MeshCollider mesh;
         public Mesh baked;
@@ -14,9 +15,41 @@ public sealed class PrototypeHammerContact : MonoBehaviour
     readonly List<Surface> surfaces = new List<Surface>();
     readonly HashSet<CarController> cachedCars = new HashSet<CarController>();
     LineTrafficManager traffic;
+    Transform queryRoot;
+    readonly Dictionary<CarController,Transform> groups=new Dictionary<CarController,Transform>();
+    public int CachedSurfaceCount => surfaces.Count;
+    public AssemblyPart LastContactPart {get;private set;}
+    Transform Group(CarController car)
+    {
+        if(queryRoot==null)
+        {
+            var shared=GameObject.Find("RuntimeQueries");
+            if(shared==null)shared=new GameObject("RuntimeQueries"){hideFlags=HideFlags.DontSave};
+            queryRoot=new GameObject("PlayerHammerQueries_"+GetInstanceID()){hideFlags=HideFlags.DontSave}.transform;
+            queryRoot.SetParent(shared.transform,false);
+        }
+        if(!groups.TryGetValue(car,out var group))
+        {
+            group=new GameObject(car.name+"_"+car.GetInstanceID()){hideFlags=HideFlags.DontSave}.transform;
+            group.SetParent(queryRoot,false);groups[car]=group;
+        }
+        return group;
+    }
+    void PruneDestroyed()
+    {
+        for(int i=surfaces.Count-1;i>=0;i--)
+        {
+            var s=surfaces[i];if(s.car!=null && s.source!=null)continue;
+            if(s.mesh!=null)Destroy(s.mesh.gameObject);if(s.baked!=null)Destroy(s.baked);
+            surfaces.RemoveAt(i);
+        }
+        var stale=new List<CarController>();foreach(var pair in groups)if(pair.Key==null)stale.Add(pair.Key);
+        foreach(var key in stale){if(groups[key]!=null)Destroy(groups[key].gameObject);groups.Remove(key);cachedCars.Remove(key);}
+    }
 
     void Prepare(Vector3 origin, float range)
     {
+        PruneDestroyed();
         if (traffic == null) traffic = FindFirstObjectByType<LineTrafficManager>();
         if (traffic == null) return;
         foreach (var car in traffic.ActiveCars)
@@ -32,13 +65,14 @@ public sealed class PrototypeHammerContact : MonoBehaviour
                 if (filter != null) mesh = filter.sharedMesh;
                 else if (renderer is SkinnedMeshRenderer skin) { baked = new Mesh(); skin.BakeMesh(baked); mesh = baked; }
                 if (mesh == null) continue;
-                var node = new GameObject("HammerQuerySurface") { hideFlags = HideFlags.DontSave };
+                var node = new GameObject("Surface_"+part.name+"_"+renderer.name) { hideFlags = HideFlags.DontSave };
                 // Keep the disabled query shape at identity. Rays are transformed into the current
                 // renderer mesh space, so moving cars never rely on a disabled collider's stale pose.
+                node.transform.SetParent(Group(car),false);
                 var collider = node.AddComponent<MeshCollider>();
                 collider.enabled = false;
                 collider.sharedMesh = mesh;
-                surfaces.Add(new Surface { part = part, source = renderer, mesh = collider, baked = baked });
+                surfaces.Add(new Surface { car=car, part = part, source = renderer, mesh = collider, baked = baked });
             }
         }
     }
@@ -62,7 +96,7 @@ public sealed class PrototypeHammerContact : MonoBehaviour
                 if (surface.part.IsPlayerAttaching || (!surface.part.IsPlayerAttached && surface.part.currentWork <= 0f)) continue;
                 if (Vector3.Distance(origin, position) > range || surface.source.bounds.SqrDistance(position) > .21f * .21f) continue;
                 if (!HeadIntersectsMesh(head, position, rotation, surface, out point)) continue;
-                part = surface.part;
+                part = surface.part;LastContactPart=part;
                 return true;
             }
         }
@@ -130,6 +164,7 @@ public sealed class PrototypeHammerContact : MonoBehaviour
             if (surface.mesh != null) Destroy(surface.mesh.gameObject);
             if (surface.baked != null) Destroy(surface.baked);
         }
-        surfaces.Clear(); cachedCars.Clear();
+        surfaces.Clear(); cachedCars.Clear();groups.Clear();
+        if(queryRoot!=null)Destroy(queryRoot.gameObject);
     }
 }

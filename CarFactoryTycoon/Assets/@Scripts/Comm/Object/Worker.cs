@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 공정에 고정 배치되는 사람 작업자. 부품을 파일에서 집어 차량 부착점까지 옮겨 체결한다.
@@ -187,6 +187,30 @@ public class Worker : MonoBehaviour
     private Vector3 homePos;
     private bool homeSet = false;
 
+    private PartStack readySource;
+    private bool readyStockTaken;
+    private bool refundReadyOnCancel;
+
+    /// <summary>Reserve the staged source now; consume only when Fetching reaches it.</summary>
+    public bool AssignFromReady(AssemblyPart part, PartStack source,
+        Vector3 dockPos, Quaternion dockRot, bool dockPoseValid, bool refundOnCancel = true)
+    {
+        if (part == null || source == null || !IsAvailable || !isActiveAndEnabled) return false;
+        if (!source.TryReserveReady(this)) return false;
+        readySource = source;
+        readyStockTaken = false;
+        refundReadyOnCancel = refundOnCancel;
+        if (AssignWork(part, source.ReadyPosition, source.ReadyRotation, dockPos, dockRot, dockPoseValid)) return true;
+        source.ReleaseReadyReservation(this);
+        readySource = null;
+        return false;
+    }
+
+    private void OnDisable()
+    {
+        if (!prototypeMode) CancelWork();
+    }
+
     private AssemblyPart targetPart;     // 담당 부품 (차량에 붙일 것)
     private Vector3 pileWorldPos;        // 부품을 집는 파일 위치
     private Quaternion pileWorldRot = Quaternion.identity; // 파일에 놓여 있던 부품의 월드 회전
@@ -331,7 +355,7 @@ public class Worker : MonoBehaviour
         // (StationController.StartAssembly와 동일한 순서).
         targetPart.BeginWorldAssembly(pilePos, Quaternion.Inverse(GetAttachWorldRot()) * pileWorldRot);
         targetPart.SetWork(0f);
-        targetPart.SetActive(true);
+        targetPart.SetActive(readySource == null);
 
         // 대기 지점은 여기서 1회만 계산한다 — 차량이 실제로 다가와도 다시 계산하지 않는다.
         ComputeStandWorldPos(dockPos, dockRot, dockPoseValid);
@@ -351,6 +375,19 @@ public class Worker : MonoBehaviour
     /// <summary>진행 중인 작업을 포기하고 자기 자리로 돌아간다(차량 소실·공정 취소 등).</summary>
     public void CancelWork()
     {
+        if (readySource != null)
+        {
+            readySource.ReleaseReadyReservation(this);
+            bool unfinished = targetPart == null || !targetPart.IsAssembled;
+            if (readyStockTaken && refundReadyOnCancel && unfinished) readySource.Add(1);
+            if (targetPart != null && unfinished && (!readyStockTaken || refundReadyOnCancel))
+            {
+                targetPart.StopWorldAssembly();
+                targetPart.SetWork(0f);
+            }
+        }
+        readySource = null;
+        readyStockTaken = false;
         targetPart = null;
         ClearStandCache();
         ReleaseGrip();
@@ -427,6 +464,18 @@ public class Worker : MonoBehaviour
                     Quaternion.Inverse(GetAttachWorldRot()) * pileWorldRot);
                 if (MoveToward(pileWorldPos))
                 {
+                    if (readySource != null)
+                    {
+                        // The carried root is a stable grip proxy and follows the hands from this frame onward.
+                        if (!readySource.TryTakeReady(this, handPos!=null?handPos:transform, out pileWorldPos, out pileWorldRot))
+                        { CancelWork(); break; }
+                        readyStockTaken = true;
+                        targetPart.BeginWorldAssembly(pileWorldPos,
+                            Quaternion.Inverse(GetAttachWorldRot()) * pileWorldRot);
+                        targetPart.SetWork(0f);
+                        targetPart.SetActive(true);
+                        UpdateCarryPose();
+                    }
                     currentState = WorkerState.MovingToPart;
                     BeginGrip(); // 두 손으로 집는다(IK 가중치가 blendTime 동안 올라간다)
                 }
@@ -530,6 +579,8 @@ public class Worker : MonoBehaviour
 
         // Completed human work is reliable. Fatigue affects rest/throughput only.
         targetPart.quality = 1f;
+        readySource = null;
+        readyStockTaken = false;
         targetPart = null;
         ClearStandCache();
 

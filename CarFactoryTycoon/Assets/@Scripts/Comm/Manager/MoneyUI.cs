@@ -26,6 +26,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     private long displayed;
     private Tween countTween;
     private bool built;
+    private Canvas moneyCanvas;
     private readonly System.Collections.Generic.Queue<Image> coinPool = new System.Collections.Generic.Queue<Image>();
 
     public override void Init()
@@ -51,12 +52,14 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     private void BuildUI()
     {
         var canvas = gameObject.AddComponent<Canvas>();
+        moneyCanvas = canvas;
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
 
         var scaler = gameObject.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
         gameObject.AddComponent<GraphicRaycaster>();
 
         coinSprite = Resources.Load<Sprite>(CoinSpritePath);
@@ -67,7 +70,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         var grt = (RectTransform)group.transform;
         grt.anchorMin = grt.anchorMax = new Vector2(0.5f, 1f);
         grt.pivot = new Vector2(0.5f, 1f);
-        grt.anchoredPosition = new Vector2(0f, -60f);
+        grt.anchoredPosition = new Vector2(0f, PrototypeLineController.Current != null ? -90f : -60f);
         grt.sizeDelta = new Vector2(600f, 100f);
         var layout = group.AddComponent<HorizontalLayoutGroup>();
         layout.childAlignment = TextAnchor.MiddleCenter;
@@ -93,6 +96,12 @@ public class MoneyUI : MonoSingleton<MoneyUI>
         moneyText.alignment = TextAlignmentOptions.Center;
         moneyText.color = Color.white;
         moneyText.raycastTarget = false;
+    }
+
+    private void LateUpdate()
+    {
+        // The settlement already contains the balance; keep its modal unobscured.
+        if (moneyCanvas != null) moneyCanvas.enabled = PrototypeDayCycle.Current == null || !PrototypeDayCycle.Current.IsSettlement;
     }
 
     private void HandleMoneyChanged(int newAmount, int delta, Vector3? sourceWorldPos)

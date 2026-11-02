@@ -32,9 +32,9 @@ public static class FactoryCharacterAnimationSetup
         var tree = new BlendTree { name = "Walk Run Forward Back Strafe", blendType = BlendTreeType.FreeformDirectional2D,
             blendParameter = "MoveX", blendParameterY = "MoveZ", useAutomaticThresholds = false };
         AssetDatabase.AddObjectToAsset(tree, controller); locomotion.motion = tree;
-        var idle = Clip("Worker_Idle", "Stand--Idle.anim.fbx");
-        var walk = Clip("Worker_Walk", "Locomotion--Walk_N.anim.fbx");
-        var run = Clip("Worker_Run", "Locomotion--Run_N.anim.fbx");
+        var idle = LegacyClip("Stand--Idle.anim.fbx");
+        var walk = LegacyClip("Locomotion--Walk_N.anim.fbx");
+        var run = LegacyClip("Locomotion--Run_N.anim.fbx");
         var settings = AssetDatabase.LoadAssetAtPath<PrototypeBalanceSettings>("Assets/@Scripts/Data/PrototypeBalanceSettings.asset");
         float walkSpeed = settings != null ? settings.playerWalkSpeed : 3.4f;
         float runSpeed = settings != null ? settings.playerSprintSpeed : 6f;
@@ -47,9 +47,9 @@ public static class FactoryCharacterAnimationSetup
         tree.AddChild(Clip("Worker_Run_Backward", "Locomotion--Run_S.anim.fbx"), new Vector2(0, -runSpeed));
         tree.AddChild(Clip("Worker_Run_Left", "Locomotion--Run_N.anim.fbx"), new Vector2(-runSpeed, 0));
         tree.AddChild(Clip("Worker_Run_Right", "Locomotion--Run_N.anim.fbx"), new Vector2(runSpeed, 0));
-        var jump = machine.AddState("Takeoff"); jump.motion = Clip("Worker_Jump_Takeoff", "Jump--Jump.anim.fbx");
-        var air = machine.AddState("Airborne"); air.motion = Clip("Worker_Jump_Air", "Jump--InAir.anim.fbx");
-        var land = machine.AddState("Grounded Landing"); land.motion = Clip("Worker_Jump_Land", "Locomotion--Run_N_Land.anim.fbx");
+        var jump = machine.AddState("Takeoff"); jump.motion = LegacyClip("Jump--Jump.anim.fbx");
+        var air = machine.AddState("Airborne"); air.motion = LegacyClip("Jump--InAir.anim.fbx");
+        var land = machine.AddState("Grounded Landing"); land.motion = LegacyClip("Locomotion--Run_N_Land.anim.fbx");
         var takeoff = locomotion.AddTransition(jump); Configure(takeoff); takeoff.AddCondition(AnimatorConditionMode.If, 0, "Jump");
         var falling = locomotion.AddTransition(air); Configure(falling); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Grounded"); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
         var flight = jump.AddTransition(air); Configure(flight); flight.hasExitTime = true; flight.exitTime = .85f;
@@ -81,9 +81,9 @@ public static class FactoryCharacterAnimationSetup
         var tree = new BlendTree { name = "Worker speed", blendType = BlendTreeType.Simple1D,
             blendParameter = "Speed", useAutomaticThresholds = false };
         AssetDatabase.AddObjectToAsset(tree, controller); state.motion = tree;
-        tree.AddChild(Clip("Worker_Idle", "Stand--Idle.anim.fbx"), 0f);
-        tree.AddChild(Clip("Worker_Walk", "Locomotion--Walk_N.anim.fbx"), 1.7f);
-        tree.AddChild(Clip("Worker_Run", "Locomotion--Run_N.anim.fbx"), 4f);
+        tree.AddChild(LegacyClip("Stand--Idle.anim.fbx"), 0f);
+        tree.AddChild(LegacyClip("Locomotion--Walk_N.anim.fbx"), 1.7f);
+        tree.AddChild(LegacyClip("Locomotion--Run_N.anim.fbx"), 4f);
         AddHammerLayer(controller); EditorUtility.SetDirty(controller); return controller;
     }
     static void AddHammerLayer(AnimatorController controller)
@@ -110,6 +110,7 @@ public static class FactoryCharacterAnimationSetup
         transition.hasExitTime = false; transition.hasFixedDuration = true; transition.duration = .08f;
         transition.canTransitionToSelf = false;
     }
+    static AnimationClip LegacyClip(string file) => AssetDatabase.LoadAllAssetsAtPath(Legacy+file).OfType<AnimationClip>().First(c=>!c.name.StartsWith("__preview"));
     static AnimationClip Clip(string name, string fallback)
     {
         var path = Mixamo + name + ".fbx";

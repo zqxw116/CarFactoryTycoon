@@ -18,11 +18,27 @@ public sealed class FactoryHiringUI : MonoBehaviour
 
     public bool PopupIsOpen => openProcess >= 0;
 
+    void Awake() => ApplyProcessNumberDepth();
+
+    /// <summary>Only the physical hiring placard numbers use world depth; HUD text stays unchanged.</summary>
+    public int ApplyProcessNumberDepth()
+    {
+        if (postsRoot == null) return 0;
+        int applied = 0;
+        for (int i = 0; i < postsRoot.childCount; i++)
+        {
+            var label = postsRoot.GetChild(i).Find("Index");
+            if (label != null && WorldTextDepth.Apply(label.GetComponent<TextMesh>())) applied++;
+        }
+        return applied;
+    }
+
     public void Configure(ProductionProgression owner, FactoryPlayerController actor, Transform placards)
     {
         progression = owner;
         player = actor;
         postsRoot = placards;
+        ApplyProcessNumberDepth();
     }
 
     void Update()
@@ -124,6 +140,7 @@ public sealed class FactoryHiringUI : MonoBehaviour
 
     void OnGUI()
     {
+        using var gui = PrototypeGui.Scope();
         if (PopupIsOpen)
         {
             DrawPopup();
@@ -133,7 +150,7 @@ public sealed class FactoryHiringUI : MonoBehaviour
         var process = progression.processes[focusedProcess];
         string state = progression.IsProcessAutomated(focusedProcess) ? "로봇 운영 중" :
             progression.IsProcessHired(focusedProcess) ? "작업자 근무 중" : "미고용";
-        GUI.Label(new Rect(Screen.width * .5f - 170f, Screen.height * .72f, 340f, 34f),
+        GUI.Label(new Rect(PrototypeGui.Width * .5f - 170f, PrototypeGui.Height * .72f, 340f, 34f),
             $"F  {process.displayName}  ·  {state}");
     }
 
@@ -142,7 +159,7 @@ public sealed class FactoryHiringUI : MonoBehaviour
         int index = openProcess;
         var process = progression.processes[index];
         float width = 370f, height = 302f;
-        var rect = new Rect((Screen.width - width) * .5f, (Screen.height - height) * .5f, width, height);
+        var rect = new Rect((PrototypeGui.Width - width) * .5f, (PrototypeGui.Height - height) * .5f, width, height);
         GUI.Box(rect, GUIContent.none);
         GUI.Label(new Rect(rect.x + 18f, rect.y + 12f, width - 36f, 28f), process.displayName);
         string status = activeCrew != null ? activeCrew.StatusText :

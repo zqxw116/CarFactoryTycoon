@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>Temporary prototype information only; final interface follows play feedback.</summary>
@@ -7,9 +7,11 @@ public sealed class PrototypeDayHUD : MonoBehaviour
     public PrototypeDayCycle cycle;
     public PrototypeDefectDisplay defects;
     public FactoryPlayerController player;
-    Rect Header => new Rect(Mathf.Max(8, Screen.width - 310), 10, 298, 130);
-    Rect Report => new Rect((Screen.width - 440) * .5f, (Screen.height - 340) * .5f, 440, 340);
-    public bool BlocksPointer(Vector2 point) => cycle != null && (cycle.IsSettlement || Header.Contains(point));
+    public static Rect HeaderRect => new Rect(PrototypeGui.Width - 310f, 50f, 298f, 130f);
+    Rect Header => HeaderRect;
+    public static Rect ReportRect => new Rect((PrototypeGui.Width - 440f) * .5f, (PrototypeGui.Height - 380f) * .5f, 440f, 380f);
+    Rect Report => ReportRect;
+    public bool BlocksPointer(Vector2 point) => cycle != null && (cycle.IsSettlement || ((player == null || !player.InteractionUIOpen) && PrototypeGui.ToScreenRect(Header).Contains(point)));
     void Update()
     {
         if (cycle == null || cycle.IsSettlement || (player != null && player.InteractionUIOpen)) return;
@@ -18,7 +20,9 @@ public sealed class PrototypeDayHUD : MonoBehaviour
     void OnGUI()
     {
         if (cycle == null) return;
+        using var gui = PrototypeGui.Scope();
         if (cycle.IsSettlement) { DrawSettlement(); return; }
+        if (player != null && player.InteractionUIOpen) return;
         GUI.Box(Header, GUIContent.none);
         GUILayout.BeginArea(new Rect(Header.x + 12, Header.y + 8, Header.width - 24, Header.height - 16));
         GUILayout.Label("DAY " + cycle.DayNumber + "  ·  " + cycle.ClockText + (cycle.GameHour >= 20f ? "  특근 시간" : "  정규 근무"));
@@ -45,9 +49,9 @@ public sealed class PrototypeDayHUD : MonoBehaviour
         GUILayout.Label("설비 구매   −" + cycle.PurchaseCosts);
         GUILayout.Space(8);
         GUILayout.Label("순수입 " + cycle.NetIncome + "     ·     잔액 " + EconomyManager.Instance.currentMoney);
-        if (EconomyManager.Instance.currentMoney < 0) GUILayout.Label("잔액 부족: 수입으로 갚을 때까지 고용·구매가 잠깁니다.");
+        if (EconomyManager.Instance.currentMoney < 0) GUILayout.Label("잔액 부족: 수입으로 갚을 때까지 고용·구매가 잠깁니다.", new GUIStyle(GUI.skin.label) { wordWrap = true });
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("다음 날 08:00 시작", GUILayout.Height(38))) cycle.ContinueNextDay();
+        if (GUILayout.Button("다음 날 08:00 시작 · " + Mathf.CeilToInt(cycle.SettlementSecondsRemaining) + "초 후 자동 시작", GUILayout.Height(38))) cycle.ContinueNextDay();
         GUILayout.EndArea();
     }
 }

@@ -85,7 +85,79 @@ public sealed class ProductionProgression : MonoBehaviour
             HiredPrefix=Mathf.Clamp(HiredPrefix,1,processes.Length);
             for(int i=0;i<processes.Length;i++) processes[i].hired=i<HiredPrefix;
         }
+        ConfigurePickupSlots();
         ApplyAll();
+    }
+    void ConfigurePickupSlots()
+    {
+        foreach(var entry in processes)
+        {
+            var stacks=entry.humanStation!=null?entry.humanStation.partStacks:entry.wheel!=null?entry.wheel.humanPartStacks:null;
+            if(stacks==null)continue;
+            for(int i=0;i<stacks.Length;i++)
+            {
+                var stack=stacks[i];if(stack==null)continue;
+                StationController robot=null;
+                if(entry.robots!=null)foreach(var candidate in entry.robots)if(candidate!=null && candidate.targetPartType==stack.partType){robot=candidate;break;}
+                Vector3 position;Quaternion rotation=stack.GetTopSlotWorldRot();
+                if(robot!=null && robot.stationPilePos!=null)
+                {
+                    position=robot.stationPilePos.position;
+                    if(robot.stationPileMesh!=null)robot.stationPileMesh.SetActive(false);
+                }
+                else
+                {
+                    var worker=entry.workers!=null && entry.workers.Length>0?entry.workers[Mathf.Min(i,entry.workers.Length-1)]:null;
+                    var home=worker!=null?worker.transform.position:stack.transform.position;
+                    var side=Vector3.ProjectOnPlane(stack.transform.position-home,Vector3.up).normalized;
+                    if(side.sqrMagnitude<.1f)side=Vector3.right;
+                    position=home+side*.8f+Vector3.up*.95f;
+                }
+                stack.ConfigureReadySlot(position,rotation);
+                // Vehicle-part pivots vary widely. Centre the visible part on the stand,
+                // rather than centring its original vehicle-space pivot.
+                var readyBounds=stack.ReadyBounds;
+                var stageCenter=position+Vector3.up*.45f;
+                float actorFloor=entry.workers!=null && entry.workers.Length>0 && entry.workers[0]!=null?entry.workers[0].transform.position.y:position.y-.9f;
+                stageCenter.y=Mathf.Max(stageCenter.y,actorFloor+readyBounds.extents.y+.18f);
+                position+=stageCenter-readyBounds.center;
+                stack.ConfigureReadySlot(position,rotation);
+                // The authored robot pile point originally shared the inventory's footprint.
+                // Keep pickup fixed beside the actor and move only the backing inventory behind it.
+                bool foundPile=false;Bounds pileBounds=default;
+                var display=stack.ReadyDisplay;
+                foreach(var renderer in stack.GetComponentsInChildren<Renderer>())
+                {
+                    if(display!=null && renderer.transform.IsChildOf(display.transform))continue;
+                    if(renderer.name=="ReadySlotStand" || renderer.GetComponentInParent<PortableAssemblyPart>()!=null)continue;
+                    if(!foundPile){pileBounds=renderer.bounds;foundPile=true;}else pileBounds.Encapsulate(renderer.bounds);
+                }
+                if(foundPile && display!=null)
+                {
+                    var origin=robot!=null?robot.transform.position:entry.workers!=null && entry.workers.Length>0 && entry.workers[0]!=null?entry.workers[0].transform.position:position-Vector3.right;
+                    var away=Vector3.ProjectOnPlane(position-origin,Vector3.up).normalized;
+                    if(away.sqrMagnitude<.1f)away=Vector3.right;
+                    var abs=new Vector3(Mathf.Abs(away.x),Mathf.Abs(away.y),Mathf.Abs(away.z));
+                    var slotBounds=stack.ReadyBounds;
+                    float slotFar=Vector3.Dot(slotBounds.center,away)+Vector3.Dot(slotBounds.extents,abs);
+                    float pileNear=Vector3.Dot(pileBounds.center,away)-Vector3.Dot(pileBounds.extents,abs);
+                    float shift=Mathf.Max(0f,slotFar+.2f-pileNear);
+                    if(shift>0f){stack.transform.position+=away*shift;stack.ConfigureReadySlot(position,rotation);}
+                }
+                // A fixed visible stand is created once; transfers only reuse the stack's pooled display.
+                var stand=stack.transform.Find("ReadySlotStand");
+                if(stand==null)
+                {
+                    var go=GameObject.CreatePrimitive(PrimitiveType.Cube);go.name="ReadySlotStand";
+                    stand=go.transform;stand.SetParent(stack.transform,true);go.GetComponent<Collider>().enabled=false;
+                    go.layer=2;
+                }
+                var lower=stack.ReadyBounds.center;
+                lower.y=stack.ReadyBounds.min.y;
+                stand.SetPositionAndRotation(lower-Vector3.up*.06f,Quaternion.identity);
+                stand.localScale=new Vector3(.6f,.12f,.6f);
+            }
+        }
     }
     void Start()
     {

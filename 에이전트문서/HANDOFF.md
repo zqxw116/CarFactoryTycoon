@@ -1,7 +1,34 @@
 # 인수인계서 (현재 상태 · 다음 할 일)
 
 > Claude와 Codex가 다음 세션에서 **가장 먼저 읽는 문서**. 항상 최신 상태 하나만 유지한다(과거 내용은 `DEV_HISTORY_LOG.md`로).
-> 최종 업데이트: 2026-11-01
+> 최종 업데이트: 2026-11-03
+
+### 플레이 피드백 + 차량 외피·대기 슬롯·공정 번호 (2026-11-03 구현·검증)
+- 저장소 `C:/Users/sky/Desktop/GitClone/CarFactoryTycoon`, 브랜치 `codex/play-feedback-2026-11-02`. 사용자 요청으로 이 채팅의 게임플레이 변경과 문서를 커밋·푸시하고 Notion 개발진행에 기록한다. 정확한 커밋/원격 상태는 Git과 해당 날짜 Notion 기록을 따른다. 외부 아트 FBX·프리팹·텍스처·참고이미지·설정·복구폴더는 변경을 보존하고 이번 코드 커밋에서 제외한다.
+- **최신 차량 물리**: 단계형 복합 박스를 폐쇄된 32정점/60삼각형 Convex MeshCollider 하나로 교체. 앞뒤 범퍼 경사 최대40.4도, 엔진룸·캐빈 충돌 내부 채움. 원본 아트/망치 표면은 그대로. 공유 메시를 초기화 때 한 번 bake하고 CarBody11/별도 kinematic body 유지. 원본 삼각 메시 직접 사용이나 외부 패키지 도입 없음. 차량 위 이동·회전 동반 및 점프/텔레포트/풀 생명주기 해제 유지.
+- **고정 집기 슬롯**: 26개 재고에 작은 받침대와 대기1개, 뒤에 나머지 재고. 사용자 확정대로 플레이어도 슬롯에서만 집는다. Count는 대기 포함 전체재고, 예약 때0/실제집기 때1차감. 손·그리퍼가 집기 접점에서0.5m 움직이거나 최대1초면 재충전. 체결 완료/콜라이더 이탈에 의존하지 않는다. 리그 손 오프셋은 집기 순간 위치로 보정한다. 재고0 유지/Add 보급 복구.
+- 기존 TryConsume/TryTakePortable/Add·표시 인스턴스 SetActive·순위 계약 유지. 운반 부품도 초기 capacity만큼 고정 풀을 준비하고 실제집기/투척/회수/만료 때 재사용. 풀 소진은 집기실패/재고불변. 예약취소/비활성·파괴 대상 해제, 소모후 기존환불/미완료보존 계약 유지. CarController의 부품별 렌더러 배열을 초기 캐시해 작업 배정 때 할당 제거.
+- 사용처 확인: PrototypeProcessCrew, Worker/WorkerStation, WheelStation, SupplyManager/SupplyWorker, PlayerAssemblyInteractor, InputManager, FactoryAssemblyM2Checks/FactoryCharacterChecks. 보급은 기존 Count/IsFull/Add 계약을 쓰며 InputManager의 프로토타입 비활성 경로는 부모 PartStack 해석을 유지한다.
+- **공정 번호**: 23개 Index TextMesh만 전용 깊이 검사 셰이더/폰트별 공유 재질을 적용. 캐릭터에 가려지며 공유 폰트/HUD 원본은 변경하지 않는다.
+- **이전13개 반영**: 우클릭 자유시점과 이동 시작 기준 고정, 몸/운반/손 정렬, 기존 Kyle 걷기·달리기·점프. 망치1초/연타 재시작/UI차단/실제접촉, 레버·터널 접촉 조작 및 full 불규칙 흔들림, RuntimeQueries 그룹·재사용. UI 공통배율/관리자접힘, 실제10초 자동정산. 보급 양손PARTS상자, 가까운 노즐 집기→운반→주유구연결→E유지→반납. 창고 데스크 통로 위치 보정. 새 meta ignore 유지(이미 추적한 meta는 별도).
+- **최종 검증**: FactoryPickupSlotChecks 기본/Legacy/PlayerPool PASS, RunCoreGc 100회 0bytes. 실제 첫 공정 사람12→11/로봇11→10 각각 빈슬롯→재충전·완료, 파괴대상 예약해제·재고0/Add PASS. 26슬롯/받침대 중심 오차0/자기 뒤 더미와 교차0.
+- FactoryVehicleCollisionChecks PASS: 폐쇄/방향/기하 예산, 앞뒤 경사로 지붕 도달, 엔진룸 착지, 지지 이동/회전/점프, 회전25도 NPC 중앙/옆/앞 겹침 탈출.
+- FactoryWorldTextDepthChecks PASS: 실제 Worker_Base 렌더로 텍스트4509→4129픽셀, 남은 텍스트 가시. FactoryAssemblyM2Checks PASS: 실제26슬롯 집기·부착, 도메인77타격/3타·2타·중복금지, 검사/수리/마감/초기화. 물리 타격은 별도 Character/Feedback 검사로 확인.
+- FactoryCharacterChecks(true,true) PASS: 누락스크립트0/깨진참조0/Humanoid29,16방향, 점프3상태·1.176m, 노출 앞문 실제타격0→5/허공0/고정그립, NPC실제망치모션·3타·완료1. FactoryPrototypeServicesChecks PASS: 실제보급 이동·하역·예약/양손상자, 수동·고용·자동주유3개경로, 임금/부채/다음날/음향.
+- FactoryFeedbackNov2Checks 23항목 PASS 및 FactoryResponsiveChecks 3해상도/실제10초 정산 PASS. 일부 fixture 배치/시간/도메인 API를 사용했다. 전 공정 고속 장시간 자연 플레이·새 빌드 부하 측정 및 주관적 동작 자연스러움은 미검증. 원본 모든 굴곡과 일치하는 콜라이더가 아니라 안전하게 올라설 수 있는 저해상도 외피다.
+- 독립 최종검토 Critical/Important 없음. 테스트 후 편집 모드 복귀. 남은 저우선순위: 재고 더미끼리의 대시보드Y90도/트렁크 등 전체 미술 배치, 사용자 손맛·동작 평가. 슬롯과 자체 뒤 재고 분리까지는 이번에 해결했다.
+- 설계·계획: `임시/PLAY_FEEDBACK_DESIGN_2026-11-02.md`, `임시/PLAY_FEEDBACK_PLAN_2026-11-02.md`, `임시/PICKUP_COLLISION_PLAN_2026-11-03.md`.
+
+### 아트 — 작업자 A포즈 재생성 (2026-11-03, Claude, 미커밋)
+- 이유: 11-02 메시 수술본도 뒷모습 겨드랑이·장갑-엉덩이 메움 면이 어색함(원인: 입력 이미지에서 팔이 몸에 붙음). 상세 ART_DIRECTION.md §9.
+- **헬멧 없는 기본 몸 1종만** 생성(커스텀 = 맨머리 몸 + 모자 소품). GPT A포즈 3면도(`AIGen/_Reference/StyleAnchor_v1_Worker/Worker_{Base,Helmet}_APose_Sheet.png`, 입력 `TripoInput/APoseBase_*`) → Tripo 멀티뷰 H3.1(PBR 끔, 50) → 쿼드 리토폴 1만(40) → 자동 리깅 Mixamo 프리셋(20) → FBX(Mixamo, 2k). 110크레딧, 잔액 2,785. Tripo: `studio.tripo3d.ai/ko/workspace/rigging/18cfad97-c86e-411b-b107-10a5f4396335`.
+- Blender 검증: 뼈 65개 `mixamorig:*` 이름·계층 동일, 팔 34°, 장갑-엉덩이 간격 6.5cm·연결 면 0, 손/다리 웨이트 혼합 0, 모든 자세에서 바지 끌림·거미줄 없음.
+- Unity: `@Resource/Models/Characters/Worker/Worker_Base_APose.fbx` **새 파일**로 임포트(Humanoid, Scale 1.7872, 애니메이션 임포트 끔). Avatar 유효, 키 1.746m, 미매핑은 Eye/Jaw뿐. 씬·프리팹·스크립트 변경 없음.
+- **교체 완료 (사용자 승인)**: `Worker_Base.fbx`·`Worker_Helmet.fbx` 내용을 새 모델로 교체(GUID·.meta 유지, Avatar는 새 모델 humanDescription으로 재생성, Scale 1.7872). `Worker_*_BaseColor.png`도 새 텍스처로 교체. 기존 머티리얼(URP Lit, Metallic/Smoothness 0, 노멀 없음) 재연결. 씬 파일은 수정하지 않음(프리팹으로 전파).
+- **안전모 소품**: 옛 헬멧 모델에서 잘라낸 `Models/Characters/Worker/Worker_HardHat.fbx`(328면, 크레딧 0) + `Worker_HardHat_BaseColor.png` + `Materials/.../Worker_HardHat.mat`. `Worker_Helmet.prefab`의 `mixamorig:Head` 자식으로 부착(localPos (0.00056,0.08729,0.00404), rot quat (-0.057543,-0.764650,-0.068948,0.638158)). 콜라이더 없음.
+- 검증: AuditScene 누락0·깨진 참조0·휴머노이드29, FactoryCharacterChecks(contacts=true,npc=true) PASS(실제 망치 접촉 0→5, NPC Mixamo 망치 재생·자동3타·완료1), 런타임 오류0. 플레이어 앞·뒤, NPC 3방향 캡처 확인.
+- 백업: 11-02 메시 수정본은 세션 임시 폴더(`backup_v2_meshfix`)뿐이다. 원래 Tripo 원본은 git HEAD에 있다.
+- 남은 것: `Worker_Base_APose.fbx`(임포트 확인용 중복본) 삭제는 사용자 확인 후. 안전모는 옛 Tripo 모양(윗면 돌기 2개 유지)이며 단면 쉘이다. 실제 플레이 손맛·발 자세는 사용자 확인.
 
 ---
 
@@ -49,7 +76,19 @@
 - **원본 FBX Read/Write 꺼짐**: 플레이 중에는 툴이 원본을 못 읽는다. 툴은 편집 모드에서 실행한다.
 
 #### 다음 할 일 (순서대로)
-1. **Tripo 분할 결과 → 부품 대응표 (크레딧 0, 다음 세션 첫 작업)**
+0. **[완료 2026-11-03] 부품 대응표** — `임시/VEHICLE_PART_SPLIT_GUIDE_2026-10-29.md` 끝 "Tripo 분할 대응표" 섹션. 결론:
+   - 바퀴 4개는 Tripo 조각을 그대로 쓸 수 있다(RR은 2조각 병합).
+   - 앞유리·뒷유리·헤드램프·그릴은 그대로 쓰거나 병합만 하면 된다.
+   - 문·후드·트렁크·범퍼·Taillight_R은 Tripo로도 이음선이 맞지 않는다 → **현재 평면 절단을 유지**한다.
+   - 미러 구멍은 Tripo로도 남는다 → 마개판이 필요하다.
+   - GLB에는 UV·텍스처가 없다(색을 다시 구워야 함).
+   - 권장 경로는 **0크레딧**이다:
+     - 바퀴 1개를 Blender에서 1~1.5k로 줄이고 BaseColor를 구운 뒤 4개로 복제한다.
+     - 조각 번호를 옮겨 프레임에서 바퀴 면을 제거한다.
+     - Taillight_L 평면을 조각 39 경계에 맞춘다.
+   - 따라서 아래 1·2번(Tripo 브러시·리토폴 약 800크레딧)은 **하지 않는다.**
+   - 정합: `p_unity = 3.880 × p_gltf + (-1.2, 13.1, -2.3)mm`. GLB 원본은 Downloads의 `Car_Sedan_TripoSegParts.glb`이다.
+1. ~~**Tripo 분할 결과 → 부품 대응표**~~ (위 0번으로 대체)
    - 주소: `https://studio.tripo3d.ai/ko/workspace/segmentation/ca07f7ab-6690-4961-8552-dbaad57ba22d` (사용자 계정, Pro 플랜)
    - 정밀 모드 결과: 62조각, 180,025면. **세단과 같은 생성 결과의 고해상도 원본이라 위치가 우리 차와 겹친다.**
    - 시험 때 확인된 분리 상태:

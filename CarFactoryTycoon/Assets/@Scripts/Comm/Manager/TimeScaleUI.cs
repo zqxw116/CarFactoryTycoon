@@ -1,4 +1,4 @@
-using TMPro;
+﻿using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.UI;
@@ -93,6 +93,7 @@ public class TimeScaleUI : MonoBehaviour
         var scaler = canvasGo.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
+        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
         canvasGo.AddComponent<GraphicRaycaster>();
 
         // 가로 배치 컨테이너: 좌측 상단 앵커.
@@ -103,6 +104,12 @@ public class TimeScaleUI : MonoBehaviour
         rowRt.pivot = new Vector2(0f, 1f);
         rowRt.anchoredPosition = new Vector2(30f, -30f);
         rowRt.sizeDelta = new Vector2(260f, 60f);
+        if (PrototypeLineController.Current != null)
+        {
+            rowRt.anchorMin = rowRt.anchorMax = Vector2.one;
+            rowRt.pivot = Vector2.one;
+            rowRt.anchoredPosition = new Vector2(-24f, -20f);
+        }
 
         var layout = rowGo.AddComponent<HorizontalLayoutGroup>();
         layout.spacing = 10f;

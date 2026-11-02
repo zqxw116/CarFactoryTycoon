@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Splines;
 using Unity.Mathematics;
 
@@ -502,6 +502,12 @@ public class WheelStation : MonoBehaviour, ILineGate
                 humanAssignments[w] = -1;
                 humanParticipated[w] = true;
             }
+            if (assigned >= 0 && (worker == null || !worker.IsBusy) &&
+                (wheelParts[assigned] == null || !wheelParts[assigned].IsAssembled))
+            {
+                humanAssignments[w] = -1;
+                consumedStacks[assigned] = null;
+            }
             if (worker == null) continue;
             worker.carDocked = true;
             worker.stockBlocked = false;
@@ -525,20 +531,21 @@ public class WheelStation : MonoBehaviour, ILineGate
                     if ((localHome.x < 0f) != (localWheel.x < 0f)) continue;
                 }
                 PartStack stack = humanPartStacks[index];
-                Vector3 pickPos = stack.GetTopSlotWorldPos();
-                Quaternion pickRot = stack.GetTopSlotWorldRot();
-                if (!stack.TryConsume()) { worker.stockBlocked = true; continue; }
+                if (!stack.IsReadySlotConfigured)
+                    stack.ConfigureReadySlot(stack.transform.position, stack.GetTopSlotWorldRot());
+                if (!stack.HasReadyPart) { worker.stockBlocked = true; continue; }
                 // Worker chooses the approach side from home. A single worker must approach
                 // each wheel from its own outer side, including wheels across the car.
                 Vector3 wheelHome = part.transform.parent.TransformPoint(part.assembledPos);
                 wheelHome += currentCar.transform.right * (part.assembledPos.x < 0f ? -2f : 2f);
                 wheelHome.y = humanHomes[w].y;
                 worker.SetHome(wheelHome);
-                if (!worker.AssignWork(part, pickPos, pickRot, currentCar.transform.position, currentCar.transform.rotation, true))
-                { stack.Add(1); continue; }
+                if (!worker.AssignFromReady(part, stack, currentCar.transform.position, currentCar.transform.rotation, true))
+                    continue;
                 humanAssignments[w] = index;
                 if (flowThrough) part.SetStationWorkWindow(mainLineSpline, liftProgress, workZoneMeters);
-                consumedStacks[index] = stack;
+                // Worker owns pickup-time accounting and refunds on cancellation.
+                consumedStacks[index] = null;
                 worker.stockBlocked = false;
                 busy = true;
                 break;

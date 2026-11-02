@@ -19,7 +19,7 @@ public sealed class PrototypeLineController : MonoBehaviour
     public float CurrentSpeed => settings == null ? 0f : lever == LeverPosition.Stop ? 0f :
         lever == LeverPosition.Low ? settings.lowSpeed : settings.initialHighSpeed * Mathf.Pow(settings.highSpeedUpgradeFactor, highSpeedLevel);
     public int HighSpeedLevel => highSpeedLevel;
-    Rect panel => new Rect(16, Screen.height - 126, 510, 110);
+    Rect panel => new Rect(16, PrototypeGui.Height - 120, 510, 96);
 
     void Awake()
     {
@@ -60,46 +60,35 @@ public sealed class PrototypeLineController : MonoBehaviour
             foreach (var car in LineTrafficManager.Instance.ActiveCars) if (car != null) car.moveSpeed = CurrentSpeed;
         if (leverHandle != null) leverHandle.localRotation = Quaternion.Euler(-35f + (int)lever * 35f, 0, 0);
     }
-    void Update()
+    readonly Collider[] contactHits=new Collider[48];
+    public bool TryHammerContact(Vector3 from,Vector3 to,float radius)
     {
-        if (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement) return;
-        var mouse = Mouse.current;
-        bool localPlayer = player != null && !player.MapMode;
-        if (Camera.main == null) return;
-        if (localPlayer)
+        if(player==null || player.MapMode || player.InteractionUIOpen ||
+            PrototypeDayCycle.Current!=null && PrototypeDayCycle.Current.IsSettlement)return false;
+        var chest=player.transform.position+Vector3.up*1.1f;
+        if(Vector3.Distance(chest,to)>player.interactor.interactionRange)return false;
+        Physics.SyncTransforms();
+        int count=Physics.OverlapCapsuleNonAlloc(from,to,Mathf.Clamp(radius,.04f,.22f),contactHits,~(1<<10),QueryTriggerInteraction.Collide);
+        for(int i=0;i<count;i++)
         {
-            bool pressed=Keyboard.current != null && Keyboard.current.eKey.wasPressedThisFrame || mouse != null && mouse.leftButton.wasPressedThisFrame;
-            if (!player.ControlsActive || !pressed) return;
+            var hit=contactHits[i].transform;
+            bool tunnel=supplyTunnel!=null && (hit==supplyTunnel || hit.IsChildOf(supplyTunnel));
+            bool leverHit=leverRoot!=null && (hit==leverRoot || hit.IsChildOf(leverRoot));
+            if(!tunnel && !leverHit)continue;
+            var point=contactHits[i].ClosestPoint(to);
+            if(!player.CanReachInteraction(point,player.interactor.interactionRange))continue;
+            if(tunnel)spawner.RequestVehicle();
+            else SetLever((LeverPosition)(((int)lever+1)%3));
+            return true;
         }
-        else if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
-        var pos = localPlayer ? new Vector2(Screen.width * .5f, Screen.height * .5f) : mouse.position.ReadValue();
-        var hud = GetComponent<PrototypeDayHUD>();
-        if ((hud != null && hud.BlocksPointer(new Vector2(pos.x, Screen.height - pos.y))) || panel.Contains(new Vector2(pos.x, Screen.height - pos.y)) ||
-            (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())) return;
-        if (Keyboard.current != null && (Keyboard.current.leftAltKey.isPressed || Keyboard.current.rightAltKey.isPressed)) return;
-        var reach = localPlayer ? player.transform.position + Vector3.up * 1.1f : Vector3.zero;
-        float rayLength = localPlayer ? 4.5f + Vector3.Distance(Camera.main.transform.position, reach) : 500f;
-        if (!Physics.Raycast(Camera.main.ScreenPointToRay(pos), out var hit, rayLength, ~(1<<10), QueryTriggerInteraction.Collide)) return;
-        if (localPlayer && Vector3.Distance(reach, hit.point) > 3.5f) return;
-        if (supplyTunnel != null && (hit.transform == supplyTunnel || hit.transform.IsChildOf(supplyTunnel))) spawner.RequestVehicle();
-        else if (leverRoot != null && (hit.transform == leverRoot || hit.transform.IsChildOf(leverRoot)))
-            SetLever((LeverPosition)(((int)lever + 1) % 3));
+        return false;
     }
     void OnGUI()
     {
-        if (settings == null || spawner == null || (player != null && !player.MapMode) || (PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement)) return;
-        GUILayout.BeginArea(panel, GUI.skin.box);
-        GUILayout.Label("M1 라인 · 대기 " + spawner.PendingCount + "/" + spawner.queueCapacity + " · " + CurrentSpeed.ToString("0.00") + " m/s");
-        GUILayout.BeginHorizontal();
-        GUI.enabled = spawner.PendingCount < spawner.queueCapacity;
-        if (GUILayout.Button("터널 투입 +1", GUILayout.Height(30))) spawner.RequestVehicle();
-        GUI.enabled = true;
-        if (GUILayout.Button(lever == LeverPosition.Stop ? "● 정지" : "정지", GUILayout.Height(30))) SetLever(LeverPosition.Stop);
-        if (GUILayout.Button(lever == LeverPosition.Low ? "● 저속" : "저속", GUILayout.Height(30))) SetLever(LeverPosition.Low);
-        if (GUILayout.Button(lever == LeverPosition.High ? "● 고속" : "고속", GUILayout.Height(30))) SetLever(LeverPosition.High);
-        GUILayout.EndHorizontal();
-        GUILayout.Label("터널 클릭: 대기 추가 / 레버 클릭: 속도 전환 · 카메라 2: 전체 보기");
-        GUILayout.EndArea();
+        if(settings==null || spawner==null || player!=null && !player.MapMode)return;
+        using var gui=PrototypeGui.Scope();
+        GUI.Box(panel,"라인 · 대기 "+spawner.PendingCount+"/"+spawner.queueCapacity+" · "+CurrentSpeed.ToString("0.00")+" m/s");
+        GUI.Label(new Rect(panel.x+12,panel.y+35,panel.width-24,50),"가까이에서 망치로 터널을 두드려 투입 / 레버를 두드려 속도 전환");
     }
     void OnDestroy() { if (Current == this) Current = null; }
 }

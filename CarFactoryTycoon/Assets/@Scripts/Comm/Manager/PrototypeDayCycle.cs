@@ -45,6 +45,14 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     EconomyManager economy;
     PrototypeProcessCrew[] crews;
     bool missionAwarded, ownMoneyChange, paused, previousHiringEnabled;
+    public const float SettlementDuration = 10f;
+    public float SettlementSecondsRemaining => IsSettlement ? Mathf.Max(0f, (float)(settlementDeadline - Time.realtimeSinceStartupAsDouble)) : 0f;
+    public double SettlementStartedAt { get; private set; }
+    public double LastSettlementElapsedSeconds { get; private set; }
+    public bool LastSettlementWasAccelerated { get; private set; }
+    double settlementDeadline;
+    bool settlementAccelerated;
+    bool continuingDay;
     float previousTimeScale;
     CursorLockMode previousCursor;
     bool previousCursorVisible;
@@ -70,7 +78,20 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     }
     void Update()
     {
-        if (!IsSettlement) AdvanceClock(Time.deltaTime);
+        if (IsSettlement) UpdateSettlementDeadline();
+        else AdvanceClock(Time.deltaTime);
+    }
+    // Explicit acceleration for technical checks; normal Update uses an absolute real-time deadline.
+    public void AdvanceSettlement(float unscaledSeconds)
+    {
+        if (!IsSettlement || unscaledSeconds <= 0f || float.IsNaN(unscaledSeconds) || float.IsInfinity(unscaledSeconds)) return;
+        settlementAccelerated = true;
+        settlementDeadline -= unscaledSeconds;
+        UpdateSettlementDeadline();
+    }
+    void UpdateSettlementDeadline()
+    {
+        if (IsSettlement && Time.realtimeSinceStartupAsDouble >= settlementDeadline) ContinueNextDay();
     }
     public void SetOvertime(bool value)
     {
@@ -149,6 +170,9 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         economy.Charge(RegularWages + OvertimeWages);
         ownMoneyChange = false;
         IsSettlement = true;
+        SettlementStartedAt = Time.realtimeSinceStartupAsDouble;
+        settlementDeadline = SettlementStartedAt + SettlementDuration;
+        settlementAccelerated = false;
         ApplyDuty();
         previousTimeScale = Time.timeScale;
         if (hiring != null) { previousHiringEnabled = hiring.enabled; hiring.enabled = false; }
@@ -160,15 +184,21 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     }
     public void ContinueNextDay()
     {
-        if (!IsSettlement) return;
+        if (!IsSettlement || continuingDay) return;
+        continuingDay = true;
+        // Consume settlement before restoring state so manual and timer paths cannot both proceed.
+        IsSettlement = false;
+        LastSettlementElapsedSeconds = Time.realtimeSinceStartupAsDouble - SettlementStartedAt;
+        LastSettlementWasAccelerated = settlementAccelerated;
         RestorePause();
         DayNumber++; GameHour = 8f; OvertimeEnabled = false;
         SoldCars = SalesIncome = MissionIncome = AssemblyIncome = PartLosses = PurchaseCosts = RegularWages = OvertimeWages = 0;
         RegularWagesAccrued = OvertimeWagesAccrued = 0f;
-        missionAwarded = false; IsSettlement = false;
+        missionAwarded = false;
         if (hiring != null) hiring.enabled = previousHiringEnabled;
         if (player != null) { player.InteractionUIOpen = false; if (player.interactor != null) player.interactor.inputEnabled = player.ControlsActive; }
         ApplyDuty();
+        continuingDay = false;
     }
     void RestorePause()
     {

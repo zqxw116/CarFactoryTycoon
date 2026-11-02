@@ -128,7 +128,7 @@ public static class FactoryCharacterChecks
             for(int frame=0;frame<9;frame++){player.SimulateMovement(direction,sprint,false,Time.deltaTime);yield return null;}
             Vector3 delta=player.transform.position-before;delta.y=0;
             float speed=sprint?player.settings.playerSprintSpeed:player.settings.playerWalkSpeed;
-            Vector2 expected=direction.normalized*speed;
+            Vector2 expected=player.FirstPerson ? direction.normalized*speed : Vector2.up*speed;
             Check(Mathf.Abs(player.bodyAnimator.GetFloat("MoveX")-expected.x)<.02f && Mathf.Abs(player.bodyAnimator.GetFloat("MoveZ")-expected.y)<.02f,
                 $"direction {direction} sprint={sprint} MoveX/Z={player.bodyAnimator.GetFloat("MoveX"):F2}/{player.bodyAnimator.GetFloat("MoveZ"):F2}, displacement={delta}");
         }
@@ -153,7 +153,7 @@ public static class FactoryCharacterChecks
         Check(hands.TrySwingHammer(),"swing accepted");
         var grip=hands.hammerAnchor.Find("PlayerHammer");
         if(grip==null){Check(false,"PlayerHammer child missing");yield break;}
-        var position=grip.localPosition;var rotation=grip.localRotation;float deadline=Time.time+1.2f;float drift=0,angle=0;
+        var position=grip.localPosition;var rotation=grip.localRotation;float deadline=Time.time+WorkerHammerAnimation.Duration+.7f;float drift=0,angle=0;
         do
         {
             yield return null;
@@ -167,7 +167,8 @@ public static class FactoryCharacterChecks
     {
         var progression=ProductionProgression.Current;var spline=line.spawner.mainLineSpline;
         testCar=CarPool.Instance.Get();testCar.SetPath(spline,0,Mathf.Clamp01(progression.processes[0].gateProgress+.05f/spline.CalculateLength()));progression.Stamp(testCar);
-        var part=testCar.GetComponentsInChildren<AssemblyPart>(true).First(p=>p.myType==progression.processes[0].parts[0]);
+        // A cabin dashboard can be occluded by the frame. Use an exposed exterior panel for the contact fixture.
+        var part=testCar.GetComponentsInChildren<AssemblyPart>(true).First(p=>p.myType==PartType.FrontDoor_Right_35);
         Check(part.TryBeginPlayerAttachment(player,part.AttachmentWorldPosition,part.AttachmentWorldRotation),"contact fixture begins attachment");
         part.AdvancePlayerAttachment(player,1f);Check(part.CompletePlayerAttachment(player),"contact fixture completes attachment");
         var target=hands.AttachmentAimPoint(part);

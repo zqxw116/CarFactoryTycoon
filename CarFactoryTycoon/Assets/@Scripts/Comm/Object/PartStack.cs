@@ -69,6 +69,121 @@ public class PartStack : MonoBehaviour
     private PartType builtType = PartType.None;
     private int builtCapacity = 0;
 
+    // Count includes the ready part. Staging only relocates one pooled display.
+    private bool readySlotConfigured;
+    private Vector3 readyPosition;
+    private Quaternion readyRotation;
+    private int stagedDisplayIndex = -1;
+    private UnityEngine.Object readyReservation;
+    private bool readyRefillPending;
+    private Transform departingGrip;
+    private Vector3 readyClearanceOrigin;
+    private float readyPickupTime;
+    private const float readyClearanceSquared = 0.5f * 0.5f;
+    private const float readyRefillSeconds = 1f;
+
+    private PortableAssemblyPart[] portablePool;
+    private BoxCollider readyClickCollider;
+    private Bounds displayLocalBounds = new Bounds(Vector3.zero, Vector3.one * 0.15f);
+    public Collider ReadyClickCollider => readyClickCollider;
+    public Bounds ReadyBounds
+    {
+        get
+        {
+            if(readyClickCollider==null)return new Bounds(readyPosition,Vector3.one*.15f);
+            // Collider.bounds is stale before a physics sync and empty while disabled.
+            // Pickup/refill/initial placement need the fixed visual volume in either state.
+            var matrix=readyClickCollider.transform.localToWorldMatrix;
+            var e=displayLocalBounds.extents;
+            var extent=new Vector3(Mathf.Abs(matrix.m00)*e.x+Mathf.Abs(matrix.m01)*e.y+Mathf.Abs(matrix.m02)*e.z,
+                Mathf.Abs(matrix.m10)*e.x+Mathf.Abs(matrix.m11)*e.y+Mathf.Abs(matrix.m12)*e.z,
+                Mathf.Abs(matrix.m20)*e.x+Mathf.Abs(matrix.m21)*e.y+Mathf.Abs(matrix.m22)*e.z);
+            return new Bounds(matrix.MultiplyPoint3x4(displayLocalBounds.center),extent*2f);
+        }
+    }
+
+    public bool IsReadySlotConfigured => readySlotConfigured;
+    public GameObject ReadyDisplay => stagedDisplayIndex >= 0 && items != null &&
+        stagedDisplayIndex < items.Length ? items[stagedDisplayIndex] : null;
+
+    public bool HasReadyPart
+    {
+        get { TickReadySlot(Time.time); return readySlotConfigured && !readyRefillPending && count > 0; }
+    }
+    /// <summary>Fixed world pose of the pooled display root, also used by the actor's pickup pose.</summary>
+    public Vector3 ReadyPosition => readyPosition;
+    public Quaternion ReadyRotation => readyRotation;
+
+    public void ConfigureReadySlot(Vector3 worldPosition, Quaternion rotation)
+    {
+        EnsureBuilt();
+        readyPosition = worldPosition;
+        readyRotation = rotation;
+        readySlotConfigured = true;
+        EnsureReadyClickCollider();
+        if (Application.isPlaying) PreparePortablePool();
+        Refresh();
+    }
+
+    public bool TryReserveReady(UnityEngine.Object owner)
+    {
+        if (!IsReadyOwnerActive(owner) || !HasReadyPart) return false;
+        if (readyReservation != null && readyReservation != owner) return false;
+        readyReservation = owner;
+        return true;
+    }
+
+    public void ReleaseReadyReservation(UnityEngine.Object owner)
+    {
+        if (readyReservation == owner) readyReservation = null;
+    }
+
+    /// <summary>Consume at physical pickup, then refill independently of actor completion/trigger exit.</summary>
+    public bool TryTakeReady(UnityEngine.Object owner, Transform grip, out Vector3 position, out Quaternion rotation)
+    {
+        position = readyPosition;
+        rotation = readyRotation;
+        if (!IsReadyOwnerActive(owner) || !HasReadyPart) return false;
+        if (readyReservation != null && readyReservation != owner) return false;
+        readyReservation = null;
+        readyRefillPending = true;
+        departingGrip = grip;
+        // Calibrate the contact to this rig at pickup; imported hand offsets must not refill immediately.
+        readyClearanceOrigin = grip!=null?grip.position:ReadyBounds.center;
+        readyPickupTime = Time.time;
+        return TryConsume();
+    }
+
+    private static bool IsReadyOwnerActive(UnityEngine.Object owner)
+    {
+        if (owner == null) return false;
+        Behaviour behaviour = owner as Behaviour;
+        if (behaviour != null) return behaviour.isActiveAndEnabled;
+        Component component = owner as Component;
+        if (component != null) return component.gameObject.activeInHierarchy;
+        GameObject go = owner as GameObject;
+        return go == null || go.activeInHierarchy;
+    }
+
+    private void Update()
+    {
+        if (Application.isPlaying) TickReadySlot(Time.time);
+    }
+
+    private void OnDisable() => readyReservation = null;
+
+    private void TickReadySlot(float now)
+    {
+        if (!IsReadyOwnerActive(readyReservation)) readyReservation = null;
+        if (!readyRefillPending) return;
+        bool cleared = departingGrip != null &&
+                       (departingGrip.position - readyClearanceOrigin).sqrMagnitude >= readyClearanceSquared;
+        if (!cleared && now - readyPickupTime < readyRefillSeconds) return;
+        readyRefillPending = false;
+        departingGrip = null;
+        Refresh();
+    }
+
     public int Count => count;
     public int Capacity => capacity;
     public bool IsEmpty => count <= 0;
@@ -76,7 +191,56 @@ public class PartStack : MonoBehaviour
     /// <summary>재고 비율 0~1 (UI 게이지용).</summary>
     public float Fill => capacity > 0 ? (float)count / capacity : 0f;
 
-    private void Start() => EnsureBuilt();
+    private void Start()
+    {
+        EnsureBuilt();
+        if (Application.isPlaying) PreparePortablePool();
+    }
+
+    /// <summary>Initialization only: bounded capacity, never expands when parts are held or thrown.</summary>
+    public void PreparePortablePool()
+    {
+        if (portablePool != null) return;
+        GameObject prefab = LoadPrefab();
+        if (prefab == null || partType == PartType.None || partType == PartType.Frame_1) return;
+        portablePool = new PortableAssemblyPart[Mathf.Max(0, capacity)];
+        for (int i = 0; i < portablePool.Length; i++)
+        {
+            portablePool[i] = PortableAssemblyPart.Create(partType, prefab, transform.position, transform.rotation);
+            if (portablePool[i] != null) portablePool[i].InitializePool(transform);
+        }
+    }
+
+    private void EnsureReadyClickCollider()
+    {
+        if (readyClickCollider != null) return;
+        GameObject proxy = new GameObject("ReadyPartPickup");
+        proxy.layer = 9;
+        proxy.transform.SetParent(transform, false);
+        readyClickCollider = proxy.AddComponent<BoxCollider>();
+        readyClickCollider.isTrigger = true;
+        readyClickCollider.enabled = false;
+    }
+
+    private void CacheDisplayBounds()
+    {
+        if (items == null || items.Length == 0 || items[0] == null) return;
+        Transform root = items[0].transform;
+        bool found = false;
+        MeshFilter[] filters = items[0].GetComponentsInChildren<MeshFilter>(true);
+        for (int i = 0; i < filters.Length; i++)
+        {
+            if (filters[i].sharedMesh == null) continue;
+            Bounds mesh = filters[i].sharedMesh.bounds;
+            for (int c = 0; c < kCorners.Length; c++)
+            {
+                Vector3 point = root.InverseTransformPoint(filters[i].transform.TransformPoint(mesh.center + Vector3.Scale(mesh.extents, kCorners[c])));
+                if (!found) { displayLocalBounds = new Bounds(point, Vector3.zero); found = true; }
+                else displayLocalBounds.Encapsulate(point);
+            }
+        }
+    }
+
 
 #if UNITY_EDITOR
     // 에디터(비플레이)에서 컴파일·씬 로드 후 표시용 인스턴스를 복구한다.
@@ -92,6 +256,17 @@ public class PartStack : MonoBehaviour
     private void EnsureBuilt()
     {
         if (items != null && builtType == partType && builtCapacity == capacity) return;
+
+        stagedDisplayIndex = -1;
+        readyReservation = null;
+        readyRefillPending = false;
+        departingGrip = null;
+        if (portablePool != null)
+        {
+            for (int i = 0; i < portablePool.Length; i++)
+                if (portablePool[i] != null) DestroyItem(portablePool[i].gameObject);
+            portablePool = null;
+        }
 
         // 기존 인스턴스 정리 (타입 변경 시에만 발생 — 런타임 상시 경로 아님)
         if (items != null)
@@ -117,13 +292,15 @@ public class PartStack : MonoBehaviour
                 items[i] = CreateItem(prefab, i);
         }
 
+        CacheDisplayBounds();
         RecalculateStackSpacing();
         ApplyItemLayout();
 
         count = startCount < 0 ? capacity : Mathf.Clamp(startCount, 0, capacity);
         BuildFillOrder();
-        Refresh();
         FitCollider(true);   // 재생성 직후 1회만 — 재고 증감(Refresh)에서는 돌지 않는다
+        if (Application.isPlaying) PreparePortablePool();
+        Refresh();
     }
 
     private GameObject LoadPrefab()
@@ -233,6 +410,7 @@ public class PartStack : MonoBehaviour
     private void ApplyLayout()
     {
         if (items == null) return;
+        RestoreStagedDisplay();
         GameObject prefab = LoadPrefab();
         if (prefab != null)
             for (int i = 0; i < items.Length; i++)
@@ -241,10 +419,10 @@ public class PartStack : MonoBehaviour
         ApplyItemLayout();
         // 배치가 바뀌면 높이 순서도 달라지므로 소모 순서를 다시 계산하고 표시를 맞춘다.
         BuildFillOrder();
-        Refresh();
 
         // OnValidate에서도 불리는 경로라 여기서는 컴포넌트를 추가하지 않는다(크기만 갱신).
         FitCollider(false);
+        Refresh();
     }
 
     /// <summary>
@@ -402,15 +580,42 @@ public class PartStack : MonoBehaviour
     /// 활성 개수는 항상 count와 정확히 일치하고, 소모/보충을 몇 번 반복해도 같은 규칙으로 다시 계산되므로
     /// 상태가 어긋나거나 중간에 구멍이 뚫리지 않는다(누적 상태 없이 count 하나로만 결정된다).
     /// </summary>
+    private void RestoreStagedDisplay()
+    {
+        if (items != null && stagedDisplayIndex >= 0 && stagedDisplayIndex < items.Length && items[stagedDisplayIndex] != null)
+        {
+            Transform item = items[stagedDisplayIndex].transform;
+            item.localPosition = GetSlotLocalPos(stagedDisplayIndex);
+            item.localRotation = Quaternion.Euler(itemRotation);
+        }
+        stagedDisplayIndex = -1;
+    }
+
     private void Refresh()
     {
         if (items == null) return;
+        RestoreStagedDisplay();
+        if (count <= 0) readyReservation = null;
         bool useRank = rankOfSlot != null && rankOfSlot.Length == items.Length;
         for (int i = 0; i < items.Length; i++)
         {
             if (items[i] == null) continue;
             bool visible = useRank ? rankOfSlot[i] < count : i < count;
             if (items[i].activeSelf != visible) items[i].SetActive(visible);
+        }
+        if (readySlotConfigured && !readyRefillPending && count > 0)
+        {
+            stagedDisplayIndex = TopSlotIndex;
+            if (stagedDisplayIndex >= 0 && stagedDisplayIndex < items.Length && items[stagedDisplayIndex] != null)
+                items[stagedDisplayIndex].transform.SetPositionAndRotation(readyPosition, readyRotation);
+        }
+        if (readyClickCollider != null)
+        {
+            readyClickCollider.transform.SetPositionAndRotation(readyPosition, readyRotation);
+            readyClickCollider.transform.localScale = items.Length > 0 && items[0] != null ? items[0].transform.localScale : Vector3.one;
+            readyClickCollider.center = displayLocalBounds.center;
+            readyClickCollider.size = Vector3.Max(displayLocalBounds.size, Vector3.one * .04f);
+            readyClickCollider.enabled = readySlotConfigured && !readyRefillPending && count > 0;
         }
     }
 
@@ -446,18 +651,38 @@ public class PartStack : MonoBehaviour
         return true;
     }
 
-    /// <summary>Materialize one real portable part. Failed creation never consumes stock.</summary>
+    /// <summary>Compatibility API; configured stacks still use their single staged source.</summary>
     public bool TryTakePortable(out PortableAssemblyPart portable)
     {
-        portable = null;
         EnsureBuilt();
-        if (count <= 0) return false;
-        GameObject prefab = LoadPrefab();
-        if (prefab == null) return false;
-        portable = PortableAssemblyPart.Create(partType, prefab, GetTopSlotWorldPos(), GetTopSlotWorldRot());
-        if (portable == null) return false;
-        if (!TryConsume()) { Destroy(portable.gameObject); portable = null; return false; }
+        if (readySlotConfigured) return TryTakeReadyPortable(this, null, out portable);
+        portable = FindAvailablePortable();
+        if (portable == null || count <= 0) { portable = null; return false; }
+        if (!portable.AcquireFromPool(GetTopSlotWorldPos(), GetTopSlotWorldRot())) { portable = null; return false; }
+        if (TryConsume()) return true;
+        portable.ReleaseToPool();
+        portable = null;
+        return false;
+    }
+
+    public bool TryTakeReadyPortable(UnityEngine.Object owner, Transform grip, out PortableAssemblyPart portable)
+    {
+        portable = null;
+        if (!HasReadyPart) return false;
+        PortableAssemblyPart available = FindAvailablePortable();
+        if (available == null) return false;
+        if (!TryTakeReady(owner, grip, out Vector3 position, out Quaternion rotation)) return false;
+        if (!available.AcquireFromPool(position, rotation)) { Add(1); return false; }
+        portable = available;
         return true;
+    }
+
+    private PortableAssemblyPart FindAvailablePortable()
+    {
+        if (portablePool == null) return null;
+        for (int i = 0; i < portablePool.Length; i++)
+            if (portablePool[i] != null && portablePool[i].IsPoolAvailable) return portablePool[i];
+        return null;
     }
 
     /// <summary>재고를 추가한다. 용량을 넘는 분은 버리고, 실제로 추가된 개수를 반환한다.</summary>

@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,7 +6,8 @@ using System.Text;
 using UnityEngine;
 
 /// <summary>
-/// Play-mode technical checks. Teleport deliberately isolates interaction APIs from natural traversal.
+/// Play-mode domain/API checks. Teleport and explicit hold steps isolate stock and assembly rules.
+/// Physical hammer contact/restarts are covered by FactoryCharacterChecks and FactoryFeedbackNov2Checks.
 /// Start from an idle player's empty hands. The assembled FullCar stays on the stopped line for inspection tests.
 /// </summary>
 public static class FactoryAssemblyM2Checks
@@ -17,7 +18,11 @@ public static class FactoryAssemblyM2Checks
     private static FactoryPlayerController player;
     private static PlayerAssemblyInteractor interactor;
     private static CarController lockCar;
-    private static bool wasEnabled, wasInputEnabled;
+    private static bool wasEnabled, wasInteractorEnabled, wasInputEnabled;
+    private static Quaternion originalRotation, originalViewRotation;
+    private static Vector3 originalViewPosition;
+    private static Transform testView;
+    private static readonly Dictionary<AssemblyPart, int> completions = new Dictionary<AssemblyPart, int>();
     private static Vector3 originalPosition;
     private static readonly StringBuilder log = new StringBuilder();
 
@@ -29,12 +34,19 @@ public static class FactoryAssemblyM2Checks
         interactor = player != null ? player.interactor : null;
         if (player == null || interactor == null || PrototypeLineController.Current == null || CarPool.Instance == null)
         { State = "failed"; Results = "Player/interactor/line/car pool missing."; return; }
-        if (interactor.HeldPart != null || interactor.IsAttaching)
-        { State = "failed"; Results = "Start with empty hands and no attachment in progress."; return; }
-        State = "running"; Results = "Technical API checks running (movement uses Teleport).";
+        if (interactor.HeldPart != null || interactor.IsAttaching || interactor.IsSwinging || interactor.ExternalCarryTarget != null)
+        { State = "failed"; Results = "Start with empty hands and no attachment, swing or external carry in progress."; return; }
+        State = "running"; Results = "Domain/API checks running (teleported movement, explicit hold and domain hammer steps).";
         log.Clear(); FullCar = null; lockCar = null;
-        wasEnabled = player.enabled; wasInputEnabled = interactor.inputEnabled; originalPosition = player.transform.position;
-        player.enabled = false; interactor.inputEnabled = false;
+        wasEnabled = player.enabled; wasInteractorEnabled = interactor.enabled; wasInputEnabled = interactor.inputEnabled;
+        originalPosition = player.transform.position; originalRotation = player.transform.rotation;
+        testView = interactor.cameraTransform != null ? interactor.cameraTransform :
+            (interactor.viewCamera != null ? interactor.viewCamera.transform : player.transform);
+        originalViewPosition = testView.position; originalViewRotation = testView.rotation;
+        completions.Clear(); AssemblyPart.OnAssemblyCompletedByWork += RecordCompletion;
+        player.enabled = false;
+        // Disable live keyboard Update so it cannot cancel an explicitly stepped E hold.
+        interactor.enabled = false; interactor.inputEnabled = true;
         player.StartCoroutine(GuardedRun());
     }
 
@@ -64,8 +76,20 @@ public static class FactoryAssemblyM2Checks
         }
         (routine as IDisposable)?.Dispose();
         if (lockCar != null) { CarPool.Instance.Return(lockCar); lockCar = null; }
-        if (interactor != null) { interactor.SetPlayerHammerHits(3); interactor.inputEnabled = wasInputEnabled; }
-        if (player != null) { player.Teleport(originalPosition); player.enabled = wasEnabled; }
+        AssemblyPart.OnAssemblyCompletedByWork -= RecordCompletion;
+        if (interactor != null)
+        {
+            interactor.AdvanceHeldAttachment(false, 0f);
+            if (interactor.HeldPart != null) interactor.TryThrow();
+            interactor.inputEnabled = wasInputEnabled; interactor.enabled = wasInteractorEnabled;
+        }
+        if (player != null)
+        {
+            player.Teleport(originalPosition); player.transform.rotation = originalRotation;
+            if (testView != null) testView.SetPositionAndRotation(originalViewPosition, originalViewRotation);
+            player.enabled = wasEnabled;
+        }
+        log.AppendLine("Domain hammer steps bypass physical swing/contact. Run FactoryCharacterChecks and FactoryFeedbackNov2Checks separately.");
         log.AppendLine("Traversal was teleported; walking/jumping/camera feel not evaluated here.");
         Results = log.ToString();
         State = success ? "passed" : "failed";
@@ -76,7 +100,7 @@ public static class FactoryAssemblyM2Checks
     {
         var line = PrototypeLineController.Current;
         Require(line.spawner != null && line.spawner.mainLineSpline != null, "Main spline missing");
-        Require(Time.timeScale > 0f, "Time scale must be positive for attachment Update");
+        Require(Time.timeScale > 0f, "Time scale must be positive");
         line.SetLever(PrototypeLineController.LeverPosition.Stop);
         var spline = line.spawner.mainLineSpline;
         float start = StationWorkZone.ProgressAt(spline, line.spawner.transform.position);
@@ -96,7 +120,11 @@ public static class FactoryAssemblyM2Checks
             foreach (var candidate in stacks)
                 if (candidate.partType == part.myType && candidate.Count > 0) { stack = candidate; break; }
             Require(stack != null, "No stocked source for " + part.myType);
-            player.Teleport(stack.transform.position - Vector3.up * .4f);
+            var pickup=stack.IsReadySlotConfigured?stack.ReadyBounds.center:stack.transform.position;
+            var approach=stack.IsReadySlotConfigured?Mathf.Max(.8f,stack.ReadyBounds.extents.z+.35f):.8f;
+            player.Teleport(new Vector3(pickup.x, -.36f, pickup.z-approach));
+            var face=pickup-player.transform.position;face.y=0;
+            if(face.sqrMagnitude>.001f)player.transform.rotation=Quaternion.LookRotation(face);
             Physics.SyncTransforms();
             int before = stack.Count;
             Require(interactor.TryTake(stack), "Take failed: " + part.myType);
@@ -122,22 +150,30 @@ public static class FactoryAssemblyM2Checks
             }
             NearPart(part);
             int hitCount = index == 1 ? 2 : 3;
-            interactor.SetPlayerHammerHits(hitCount);
             Require(interactor.TryAttach(FullCar), "Attachment start failed: " + part.myType);
             Require(interactor.IsAttaching && !part.IsAssembled, "Attachment skipped phase");
-            yield return new WaitForSeconds(.65f);
+            float attachSeconds = Mathf.Max(.01f, interactor.settings != null ? interactor.settings.playerAttachSeconds : 2f);
+            interactor.AdvanceHeldAttachment(true, attachSeconds * .5f);
+            Require(interactor.IsAttaching && interactor.HeldPart == portable && !part.IsPlayerAttached && part.currentWork == 0f,
+                "Half hold skipped attachment phase: " + part.myType);
+            interactor.AdvanceHeldAttachment(true, attachSeconds * .5f + .001f);
             Require(!interactor.IsAttaching && interactor.HeldPart == null && part.IsPlayerAttached && !part.IsAssembled,
                 "Attachment did not finish at unfastened state: " + part.myType);
-            // Wait in game time; editor/API stalls need not match wall-clock time.
+            Require(part.currentWork == 0f && part.PlayerHitsRemaining(hitCount) == hitCount,
+                "Unfastened part started with work or wrong remaining hits: " + part.myType);
             for (int hit = 0; hit < hitCount; hit++)
             {
-                yield return new WaitForSeconds(.31f);
-                Require(interactor.TryHammer(part), "Hammer failed: " + part.myType + " hit " + (hit + 1));
+                // Explicit domain rule verification; this is not a simulated physical click.
+                Require(part.TryPlayerHammer(hitCount), "Domain hammer rejected: " + part.myType + " hit " + (hit + 1));
                 totalHits++;
-                Require(!interactor.TryHammer(part), "Repeated same-frame hammer accepted");
+                float expectedFill = Mathf.Min(1f, (hit + 1) * AssemblyPart.HammerUnits(hitCount) / (float)AssemblyPart.FasteningUnits);
+                Require(Mathf.Abs(part.Fill - expectedFill) < .0001f, "Wrong fastening stage: " + part.myType);
                 Require(part.IsAssembled == (hit + 1 == hitCount), "Wrong completion count: " + part.myType);
             }
-            interactor.SetPlayerHammerHits(3);
+            float completedWork = part.currentWork;
+            Require(!part.TryPlayerHammer(hitCount) && part.currentWork == completedWork && CompletionCount(part) == 1,
+                "Completed part accepted work or duplicate completion: " + part.myType);
+            yield return null;
             Results = "Running: " + (index + 1) + "/26 assembled; " + part.myType;
         }
         var fullParts = FullCar.GetComponentsInChildren<AssemblyPart>(true);
@@ -146,7 +182,7 @@ public static class FactoryAssemblyM2Checks
         var filtered = new List<AssemblyPart>(fullParts);
         filtered.Remove(required[0]);
         Require(VehicleInspectionRules.CountAllMissing(filtered.ToArray()) == 1, "Missing component was not rejected");
-        log.AppendLine("26 actual stock parts attached/hammered; " + totalHits + " timed hits; 3-hit and 2-hit upgrade, repeated-click rejection: passed.");
+        log.AppendLine("26 actual ready-slot stock parts attached; " + totalHits + " domain hammer steps; exact 3-hit/2-hit stages and no duplicate completion: passed.");
         log.AppendLine("All-part inspection=0 missing; filtered missing component=1: passed. FullCar retained.");
 
         // A separate pooled vehicle verifies salvage/deadline/reset without undoing FullCar.
@@ -158,27 +194,37 @@ public static class FactoryAssemblyM2Checks
             if (part.myType == required[0].myType) { repair = part; break; }
         Require(repair != null, "Lock-test part missing");
         repair.SetWork(repair.requiredWork * .8f);
-        NearPart(repair);
-        yield return new WaitForSeconds(.31f);
-        Require(interactor.TryHammer(repair) && repair.IsAssembled, "NPC 80% partial work not salvageable in one hit");
+        // Salvage/deadline are domain rules; the retained full car deliberately shares this diagnostic location.
+        Require(repair.TryPlayerHammer(3) && repair.IsAssembled, "NPC 80% partial work not salvageable in one hit");
         lockCar.ResetParts();
         repair.SetWork(repair.requiredWork * .8f);
         lockCar.CloseRepairWindow();
-        yield return new WaitForSeconds(.31f);
-        Require(!interactor.TryHammer(repair) && !repair.IsAssembled, "Deadline allowed hammer completion");
+        Require(!repair.TryPlayerHammer(3) && !repair.IsAssembled, "Deadline allowed hammer completion");
         lockCar.ResetParts();
         Require(!lockCar.RepairDeadlineReached && !repair.IsPlayerAttached, "Pool reset retained lock or player state");
         repair.SetWork(repair.requiredWork * .8f);
-        yield return new WaitForSeconds(.31f);
-        Require(interactor.TryHammer(repair) && repair.IsAssembled, "Reset vehicle remained unrepairable");
+        Require(repair.TryPlayerHammer(3) && repair.IsAssembled, "Reset vehicle remained unrepairable");
         log.AppendLine("NPC partial salvage / deadline rejection / reset unlock and player-state reset: passed.");
     }
 
     private static void NearPart(AssemblyPart part)
     {
-        player.Teleport(part.AttachmentWorldPosition - Vector3.up * 1.1f + Vector3.right * .4f);
+        Vector3 aim = interactor.AttachmentAimPoint(part);
+        Vector3 viewPosition = aim + Vector3.back * Mathf.Max(.8f, interactor.AttachmentBounds(part).extents.z + .25f);
+        player.Teleport(viewPosition - Vector3.up * 1.1f);
+        player.transform.rotation = Quaternion.LookRotation(Vector3.forward);
+        testView.SetPositionAndRotation(viewPosition, Quaternion.LookRotation(aim - viewPosition));
         Physics.SyncTransforms();
+        interactor.SendMessage("UpdateFocus", SendMessageOptions.RequireReceiver);
+        Require(interactor.IsAimingAt(part), "Fixture failed to aim/reach " + part.myType);
     }
+
+    private static void RecordCompletion(AssemblyPart part)
+    {
+        completions[part] = CompletionCount(part) + 1;
+    }
+
+    private static int CompletionCount(AssemblyPart part) => completions.TryGetValue(part, out int count) ? count : 0;
 
     private static void Require(bool condition, string message)
     {

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>Prototype warehouse/fuel desks use the same local interaction rules as assembly posts.</summary>
@@ -30,8 +30,9 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
     public void OpenService(bool isFuel)
     {
         Transform post=isFuel?fuelPost:warehousePost;
-        if(Settlement || player==null || player.MapMode || !player.ControlsActive || post==null ||
-            Vector3.Distance(player.transform.position,post.position)>interactionRange)return;
+        if(Settlement || player==null || player.MapMode || post==null ||
+            !player.CanReachInteraction(DeskPoint(post),interactionRange))return;
+        if(fuel!=null)fuel.CancelPlayerFueling();
         fuelMenu=isFuel;PopupIsOpen=true;oldCursor=Cursor.lockState;oldVisible=Cursor.visible;
         player.InteractionUIOpen=true;Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
         if(player.interactor!=null)player.interactor.inputEnabled=false;
@@ -60,9 +61,24 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         if(Settlement || !player.ControlsActive){focused=-1;return;}
         focused=FindDesk();
         if(focused>=0 && keys!=null && keys.fKey.wasPressedThisFrame){OpenService(focused==1);return;}
-        if(fuel==null || keys==null || !keys.eKey.isPressed || player.interactor!=null && (player.interactor.HeldPart!=null || player.interactor.IsAttaching))return;
-        if(!fuel.PlayerFueling)fuel.TryBeginPlayerFueling(player);
-        if(fuel.PlayerFueling)fuel.AdvancePlayerFueling(player,Time.deltaTime);
+        if(fuel==null || keys==null)return;
+        if(keys.eKey.wasPressedThisFrame)
+        {
+            if(fuel.PlayerCarryingNozzle)
+            {
+                if(!fuel.TryConnectPlayerNozzle(player))fuel.TryReturnPlayerNozzle(player);
+            }
+            else if(!fuel.PlayerFueling)fuel.TryBeginPlayerFueling(player);
+        }
+        if(keys.eKey.isPressed && fuel.PlayerFueling)fuel.AdvancePlayerFueling(player,Time.deltaTime);
+    }
+    Vector3 DeskPoint(Transform post)
+    {
+        var origin=player.transform.position+Vector3.up*1.1f;
+        var collider=post.GetComponentInChildren<Collider>();
+        if(collider==null)return post.position+Vector3.up;
+        var point=collider.ClosestPoint(origin);
+        return point+(origin-point).normalized*.03f;
     }
     int FindDesk()
     {
@@ -73,23 +89,24 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         for(int i=0;i<count;i++)if(hits[i].distance<distance){best=i;distance=hits[i].distance;}
         if(best<0)return -1;
         var target=hits[best].transform;
-        if(warehousePost!=null&&(target==warehousePost||target.IsChildOf(warehousePost))&&Vector3.Distance(player.transform.position,warehousePost.position)<=interactionRange)return 0;
-        if(fuelPost!=null&&(target==fuelPost||target.IsChildOf(fuelPost))&&Vector3.Distance(player.transform.position,fuelPost.position)<=interactionRange)return 1;
+        if(warehousePost!=null&&(target==warehousePost||target.IsChildOf(warehousePost))&&player.CanReachInteraction(DeskPoint(warehousePost),interactionRange))return 0;
+        if(fuelPost!=null&&(target==fuelPost||target.IsChildOf(fuelPost))&&player.CanReachInteraction(DeskPoint(fuelPost),interactionRange))return 1;
         return -1;
     }
     void OnGUI()
     {
         if(Settlement || player==null)return;
+        using var gui=PrototypeGui.Scope();
         if(PopupIsOpen){DrawMenu();return;}
         if(!player.ControlsActive)return;
         string text=focused>=0?(focused==0?"F 창고 · 보급자 고용":"F 주유 · 고용/자동화"):null;
-        if(fuel!=null&&fuel.CurrentCar!=null&&Vector3.Distance(player.transform.position+Vector3.up,fuel.CurrentCar.transform.TransformPoint(fuel.carPortLocal))<=interactionRange)
-            text=fuel.StatusText+(fuel.PlayerFueling?"":" · 빈손으로 E를 누르고 있어 직접 주유");
-        if(text!=null)GUI.Label(new Rect(Screen.width*.5f-240,Screen.height*.76f,480,30),text);
+        string fuelHint=fuel!=null?fuel.PlayerInteractionHint(player):null;
+        if(fuelHint!=null)text=fuelHint;
+        if(text!=null)GUI.Label(new Rect(PrototypeGui.Width*.5f-240,PrototypeGui.Height*.76f,480,30),text);
     }
     void DrawMenu()
     {
-        var rect=new Rect((Screen.width-380)*.5f,(Screen.height-230)*.5f,380,230);
+        var rect=new Rect((PrototypeGui.Width-380)*.5f,(PrototypeGui.Height-230)*.5f,380,230);
         GUI.Box(rect,GUIContent.none);
         GUILayout.BeginArea(new Rect(rect.x+18,rect.y+14,344,202));
         GUILayout.Label(fuelMenu?"주유 공정":"창고 · 부품 보급");
@@ -113,5 +130,5 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         if(GUILayout.Button("닫기",GUILayout.Height(26)))ClosePopup();
         GUILayout.EndArea();
     }
-    void OnDisable(){ClosePopup();}
+    void OnDisable(){ClosePopup();if(fuel!=null)fuel.CancelPlayerFueling();}
 }

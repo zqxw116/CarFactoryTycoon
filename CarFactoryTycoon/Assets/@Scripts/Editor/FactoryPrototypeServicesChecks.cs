@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -45,7 +45,7 @@ public static class FactoryPrototypeServicesChecks
         Require(supply.TargetCount==stocks.Length,"all physical stocks must be targets");
         player.SetMapMode(true);services.OpenService(false);Require(!services.PopupIsOpen,"map cannot hire remotely");
         player.SetMapMode(false);Cursor.lockState=CursorLockMode.Locked;Cursor.visible=false;
-        player.Teleport(services.warehousePost.position+Vector3.right);services.OpenService(false);
+        player.Teleport(services.warehousePost.position+Vector3.right);Face(services.warehousePost.position);services.OpenService(false);
         Require(services.PopupIsOpen&&player.InteractionUIOpen,"local warehouse popup");services.ClosePopup();
         foreach(var s in stocks)s.Fill_Full();
         var target=stocks.Where(s=>s.partType!=PartType.None&&s.partType!=PartType.Frame_1).OrderBy(s=>(s.transform.position-supply.LoadPoint).sqrMagnitude).First();
@@ -54,6 +54,10 @@ public static class FactoryPrototypeServicesChecks
         Require(services.TryHireSupply()&&supply.WorkerCount==1&&day.HumanCount==1,"free supply hire/payroll count");
         var worker=supply.supplyWorkers.First(w=>w!=null&&w.gameObject.activeInHierarchy);
         yield return Until(()=>worker.Carrying>0,30,"real warehouse pickup");
+        var cargoAnchor=worker.transform.Find("SupplyCarryAnchor");
+        Require(cargoAnchor!=null && cargoAnchor.Find("SupplyCarryBox")!=null,"cargo uses stable body anchor");
+        Require(!cargoAnchor.GetComponentsInChildren<Collider>().Any(c=>c.enabled),"supply cargo cannot block movement/raycasts");
+        Require(worker.GetComponentInChildren<WorkerHandIK>()!=null,"supply hands solve to crate handles");
         int cargo=worker.Carrying;Vector3 pausedAt=worker.transform.position;
         int expectedRegular=Mathf.CeilToInt((20-day.GameHour)*day.settings.dailyWage/12f-.0001f);
         day.AdvanceClock((20-day.GameHour)*day.settings.dayRealSeconds/14f);
@@ -74,11 +78,22 @@ public static class FactoryPrototypeServicesChecks
 
         var car=CreateFuelCar();yield return Until(()=>fuel.CurrentState==FuelStation.FuelState.AwaitingPlayer,3,"unstaffed fuel capture");
         player.Teleport(car.transform.position+Vector3.up*20);Require(!fuel.TryBeginPlayerFueling(player),"fuel range check");
-        player.Teleport(car.transform.TransformPoint(new Vector3(2.3f,0,fuel.carPortLocal.z)));Cursor.lockState=CursorLockMode.Locked;
-        Require(fuel.TryBeginPlayerFueling(player),"player can fuel without staff");
-        Require(!fuel.TryHireAttendant(),"busy fuel hire blocked");
-        fuel.AdvancePlayerFueling(player,.7f);fuel.AdvancePlayerFueling(player,5f);fuel.AdvancePlayerFueling(player,.6f);
-        Require(fuel.CompletedFuelCount==1&&fuel.CurrentCar==null&&car.isMoving&&eco.currentMoney==0,"manual fuel releases car without bonus");
+        Vector3 port=car.transform.TransformPoint(fuel.carPortLocal);
+        Near(port,fuel.homePoint.position.y);
+        Require(!fuel.TryBeginPlayerFueling(player)&&fuel.PlayerInteractionHint(player)==null,"port proximity alone cannot teleport docked nozzle");
+        Near(fuel.nozzleDock.position,fuel.homePoint.position.y);
+        Require(fuel.CanPickUpPlayerNozzle(player)&&fuel.PlayerInteractionHint(player)!=null,"near dock has same pickup hint/action gate");
+        Require(fuel.TryBeginPlayerFueling(player)&&fuel.PlayerCarryingNozzle,"first E picks nozzle into hands only");
+        Require(Vector3.Distance(fuel.nozzle.position,player.CarryAnchor.position)<.01f,"carried nozzle follows body carry anchor");
+        Require(!fuel.CanChangeStaff&&!fuel.TryHireAttendant(),"carried nozzle blocks staff conversion");
+        fuel.AdvancePlayerFueling(player,20f);
+        Require(fuel.PlayerCarryingNozzle&&fuel.CompletedFuelCount==0,"holding E while carrying cannot remotely fuel");
+        Near(port,fuel.homePoint.position.y);
+        Require(fuel.TryConnectPlayerNozzle(player),"second close E connects nozzle at actual port");
+        fuel.AdvancePlayerFueling(player,.4f);fuel.AdvancePlayerFueling(player,5f);fuel.AdvancePlayerFueling(player,.3f);
+        Require(fuel.CompletedFuelCount==1&&fuel.CurrentCar==null&&car.isMoving&&eco.currentMoney==0&&fuel.PlayerCarryingNozzle,"manual fuel releases car and returns nozzle to hands");
+        Near(fuel.nozzleDock.position,fuel.homePoint.position.y);
+        Require(fuel.TryReturnPlayerNozzle(player)&&!fuel.PlayerFueling&&player.interactor.ExternalCarryTarget==null,"near dock return releases hands");
         car.LeaveLine();CarPool.Instance.Return(car);
         day.SetOvertime(false);Require(fuel.TryHireAttendant()&&day.HumanCount==3,"fuel worker included in payroll");
         car=CreateFuelCar();yield return Until(()=>fuel.CurrentState==FuelStation.FuelState.AwaitingPlayer,3,"off-duty attendant cannot auto-fuel");
@@ -107,6 +122,15 @@ public static class FactoryPrototypeServicesChecks
         Require(audio!=null&&audio.PlayedImpactCount>=2&&audio.PlayedCompletionCount>=1,"real strikes emit impact/completion sound");
         Require(audio.GetComponentsInChildren<AudioSource>().Length==6,"bounded audio emitter pool");
         car.LeaveLine();CarPool.Instance.Return(car);day.enabled=true;
+    }
+    static void Face(Vector3 target)
+    {
+        Vector3 direction=target-player.transform.position;direction.y=0;
+        if(direction.sqrMagnitude>.001f)player.transform.rotation=Quaternion.LookRotation(direction);
+    }
+    static void Near(Vector3 target,float floorY)
+    {
+        var point=target-Vector3.forward*.85f;point.y=floorY;player.Teleport(point);Face(target);Physics.SyncTransforms();
     }
     static CarController CreateFuelCar()
     {

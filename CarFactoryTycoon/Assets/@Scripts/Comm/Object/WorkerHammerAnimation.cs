@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>Real clip timing and bounded aim for hand-held hammers.</summary>
 public static class WorkerHammerAnimation
 {
-    public const float Duration = .5f;
+    public const float Duration = 1f;
     public const float HeadDistance = .26f;
     /// <summary>Place the shaft across the palm, toward the index side, rather than along the fingers.</summary>
     public static float CalibrateGrip(Animator actor, Transform tool)
