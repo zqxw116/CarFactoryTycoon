@@ -97,3 +97,17 @@
   - **프레임에서 떼어낸 것은 반드시 별도 부품으로 존재해야 한다**(아니면 완성 차에 구멍이 남는다). 프레임 속은 비어 있어야 하며 속 채움 판(cavity)은 쓰지 않는다.
   - 분할 결과 메쉬를 손으로 고치지 않는다. `@Scripts/Editor/Data/SedanSplitDefinition.json`을 고치고 메뉴 `Tools ▸ CarFactory ▸ Vehicles ▸ Split Sedan Parts`로 다시 생성한다. 좌우 부품은 반전 복사하지 않고 각각 자른다.
   - 기존 `PartType` 27종은 무료 에셋 분류를 따른 것일 뿐 고정이 아니다. 새 차량의 부품 종류·개수는 늘거나 줄 수 있다.
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+
+Rules:
+- When graphify-out/graph.json exists, run `graphify query "<question>"` before your first grep, search or source-file read for a codebase question, and put this rule in every subagent prompt that explores code. Read raw files only for lines the graph or an earlier read already located. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- A committed graphify-out/graph.json is rewritten whole on every build, so a large diff to it in a pull request is expected. Do not flag it as churn or suggest skipping the graph rebuild or its hooks.
