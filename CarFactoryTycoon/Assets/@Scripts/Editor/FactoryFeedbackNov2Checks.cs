@@ -52,12 +52,12 @@ public static class FactoryFeedbackNov2Checks
         player.ResolveMoveDirection(Vector2.zero);
         var heading=player.ResolveMoveDirection(Vector2.up);var body=player.transform.rotation;
         player.RotateView(new Vector2(180,0));
-        Need(Vector3.Distance(heading,player.ResolveMoveDirection(Vector2.up))<.001f,"W held direction survives 180 degree camera orbit");
-        Need(Quaternion.Angle(body,player.transform.rotation)<.001f,"camera orbit does not rotate body");
+        Need(Vector3.Dot(heading,player.ResolveMoveDirection(Vector2.up))<-.99f,"held W follows current camera yaw (Nov4)");
+        Need(Quaternion.Angle(body,player.transform.rotation)<.001f,"view input is applied to body in movement simulation");
         var right=player.ResolveMoveDirection(Vector2.right);
-        Need(Mathf.Abs(Vector3.Dot(right,heading))<.001f,"adding sideways input retains captured movement basis");
+        Need(Mathf.Abs(Vector3.Dot(right,heading))<.001f,"sideways input uses current camera basis");
         player.ResolveMoveDirection(Vector2.zero);
-        Need(Vector3.Dot(heading,player.ResolveMoveDirection(Vector2.up))<-.99f,"new movement captures new view heading");
+        Need(Vector3.Dot(heading,player.ResolveMoveDirection(Vector2.up))<-.99f,"restarted movement uses same current camera basis");
         for(int i=0;i<35;i++){player.SimulateMovement(Vector2.down,false,false,Time.deltaTime);yield return null;}
         Need(player.CarryAnchor!=null && Vector3.Dot(player.CarryAnchor.forward,player.BodyForward)>.99f,"backward movement rotates body and carry anchor together");
         Need(Vector3.Dot(player.bodyAnimator.transform.forward,player.BodyForward)>.98f,"visual and body agree while carrying");

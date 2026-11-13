@@ -26,8 +26,11 @@ public sealed class PrototypeDayHUD : MonoBehaviour
         GUI.Box(Header, GUIContent.none);
         GUILayout.BeginArea(new Rect(Header.x + 12, Header.y + 8, Header.width - 24, Header.height - 16));
         GUILayout.Label("DAY " + cycle.DayNumber + "  ·  " + cycle.ClockText + (cycle.GameHour >= 20f ? "  특근 시간" : "  정규 근무"));
-        GUILayout.Label("보유 " + EconomyManager.Instance.currentMoney + "   ·   미체결 " + (defects != null ? defects.MissingPartCount : 0));
-        GUILayout.Label("출고 " + cycle.SoldCars + " / " + cycle.settings.dailyMissionCars + (cycle.MissionComplete ? "  미션 달성" : "  보너스 +" + cycle.settings.dailyMissionBonus));
+        if (FirstProductionLoop.Current != null)
+            GUILayout.Label("근무 인원 " + cycle.HumanCount + "명 · 납품 미완료 " + cycle.RejectedDeliveries + "대");
+        else
+            GUILayout.Label("보유 " + EconomyManager.Instance.currentMoney + "   ·   미체결 " + (defects != null ? defects.MissingPartCount : 0));
+        GUILayout.Label("납품 " + cycle.SoldCars + " / " + cycle.settings.dailyMissionCars + (cycle.MissionComplete ? "  미션 달성" : "  보너스 +" + cycle.settings.dailyMissionBonus));
         bool clickable = player == null || player.MapMode || Cursor.lockState != CursorLockMode.Locked;
         GUI.enabled = clickable;
         if (GUILayout.Button("[O] 특근 " + (cycle.OvertimeEnabled ? "ON · 20~22시" : "OFF · 20시 퇴근"))) cycle.SetOvertime(!cycle.OvertimeEnabled);
@@ -40,13 +43,16 @@ public sealed class PrototypeDayHUD : MonoBehaviour
         GUILayout.BeginArea(new Rect(Report.x + 24, Report.y + 18, Report.width - 48, Report.height - 36));
         GUILayout.Label("DAY " + cycle.DayNumber + "  ·  22:00 작업 정산");
         GUILayout.Space(10);
-        GUILayout.Label("정상 출고   " + cycle.SoldCars + "대     +" + cycle.SalesIncome);
-        GUILayout.Label("부품 체결   +" + cycle.AssemblyIncome);
+        GUILayout.Label("정상 납품   " + cycle.SoldCars + "대     +" + cycle.SalesIncome);
+        if (FirstProductionLoop.Current != null)
+            GUILayout.Label("미완료 인수   " + cycle.RejectedDeliveries + "대     0원");
+        else
+            GUILayout.Label("부품 체결   +" + cycle.AssemblyIncome);
         GUILayout.Label("하루 미션   " + (cycle.MissionComplete ? "달성  +" + cycle.MissionIncome : "미달성  0"));
         GUILayout.Label("정규 일당   −" + cycle.RegularWages);
         GUILayout.Label("특근비       −" + cycle.OvertimeWages);
         GUILayout.Label("부품 손실   −" + cycle.PartLosses);
-        GUILayout.Label("설비 구매   −" + cycle.PurchaseCosts);
+        GUILayout.Label("고용·설비 구매   −" + cycle.PurchaseCosts);
         GUILayout.Space(8);
         GUILayout.Label("순수입 " + cycle.NetIncome + "     ·     잔액 " + EconomyManager.Instance.currentMoney);
         if (EconomyManager.Instance.currentMoney < 0) GUILayout.Label("잔액 부족: 수입으로 갚을 때까지 고용·구매가 잠깁니다.", new GUIStyle(GUI.skin.label) { wordWrap = true });

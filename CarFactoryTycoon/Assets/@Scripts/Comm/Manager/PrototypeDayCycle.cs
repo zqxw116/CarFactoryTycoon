@@ -6,6 +6,7 @@ using UnityEngine;
 public sealed class PrototypeDayCycle : MonoBehaviour
 {
     public static PrototypeDayCycle Current { get; private set; }
+    public static bool SettlementOpen => Current != null && Current.IsSettlement;
     public event Action<Vector3, int> OnAssemblyRewardPaid;
     public ProductionProgression progression;
     public PrototypeBalanceSettings settings;
@@ -18,6 +19,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     public bool OvertimeEnabled { get; private set; }
     public bool IsSettlement { get; private set; }
     public int SoldCars { get; private set; }
+    public int RejectedDeliveries { get; private set; }
     public int SalesIncome { get; private set; }
     public int MissionIncome { get; private set; }
     public int AssemblyIncome { get; private set; }
@@ -43,7 +45,9 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         }
     }
     EconomyManager economy;
-    PrototypeProcessCrew[] crews;
+    readonly System.Collections.Generic.List<PrototypeProcessCrew> crews = new System.Collections.Generic.List<PrototypeProcessCrew>();
+    bool? previousDuty;
+    bool previousOvertime;
     bool missionAwarded, ownMoneyChange, paused, previousHiringEnabled;
     public const float SettlementDuration = 10f;
     public float SettlementSecondsRemaining => IsSettlement ? Mathf.Max(0f, (float)(settlementDeadline - Time.realtimeSinceStartupAsDouble)) : 0f;
@@ -68,7 +72,6 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     }
     void Start()
     {
-        crews = progression.GetComponents<PrototypeProcessCrew>();
         economy = EconomyManager.Instance;
         economy.OnVehicleSold += RecordVehicleSale;
         economy.OnMoneyChanged += OnMoneyChanged;
@@ -122,10 +125,18 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     {
         bool overtime = GameHour >= 20f && GameHour < 22f && OvertimeEnabled;
         bool duty = !IsSettlement && (GameHour < 20f || overtime);
-        if (crews == null) crews = progression.GetComponents<PrototypeProcessCrew>();
+        if (previousDuty == duty && previousOvertime == overtime) return;
+        previousDuty = duty;
+        previousOvertime = overtime;
+        // Crews hired mid-shift initialize their own duty and join the next shift change.
+        progression.GetComponents(crews);
         foreach (var crew in crews) if (crew != null) crew.SetDutyStatus(duty, overtime);
         if(supply!=null)foreach(var worker in supply.supplyWorkers)if(worker!=null&&worker.prototypeMode)worker.SetDutyStatus(duty);
         if(fuel!=null)fuel.SetDutyStatus(duty);
+    }
+    public void RecordRejectedDelivery()
+    {
+        if (!IsSettlement) RejectedDeliveries++;
     }
     void RecordVehicleSale(int amount)
     {
@@ -141,6 +152,7 @@ public sealed class PrototypeDayCycle : MonoBehaviour
     }
     void RecordAssemblyReward(AssemblyPart part, int units)
     {
+        if(!enabled||FirstProductionLoop.Current!=null)return;
         if (Current != this || progression == null || !progression.prototypeMode || IsSettlement || part == null || settings == null || economy == null) return;
         int amount = Mathf.Max(0, settings.assemblyReward) * Mathf.Max(0, units);
         if (amount <= 0) return;
@@ -176,6 +188,8 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         ApplyDuty();
         previousTimeScale = Time.timeScale;
         if (hiring != null) { previousHiringEnabled = hiring.enabled; hiring.enabled = false; }
+        if (FirstProductionLoop.Current != null && FirstProductionLoop.Current.InvestmentOpen)
+            FirstProductionLoop.Current.CloseInvestment();
         if(services!=null)services.ClosePopup();
         previousCursor = Cursor.lockState; previousCursorVisible = Cursor.visible;
         if (player != null) { player.InteractionUIOpen = true; if (player.interactor != null) player.interactor.inputEnabled = false; }
@@ -192,14 +206,54 @@ public sealed class PrototypeDayCycle : MonoBehaviour
         LastSettlementWasAccelerated = settlementAccelerated;
         RestorePause();
         DayNumber++; GameHour = 8f; OvertimeEnabled = false;
-        SoldCars = SalesIncome = MissionIncome = AssemblyIncome = PartLosses = PurchaseCosts = RegularWages = OvertimeWages = 0;
+        SoldCars = RejectedDeliveries = SalesIncome = MissionIncome = AssemblyIncome = PartLosses = PurchaseCosts = RegularWages = OvertimeWages = 0;
         RegularWagesAccrued = OvertimeWagesAccrued = 0f;
         missionAwarded = false;
         if (hiring != null) hiring.enabled = previousHiringEnabled;
-        if (player != null) { player.InteractionUIOpen = false; if (player.interactor != null) player.interactor.inputEnabled = player.ControlsActive; }
+        if (player != null) { player.InteractionUIOpen = false; if (player.interactor != null) player.interactor.inputEnabled = player.ControlsActive && (FirstProductionLoop.Current == null || !FirstProductionLoop.Current.WashToolActive); }
         ApplyDuty();
         continuingDay = false;
     }
+    [Serializable]
+    public sealed class DayRecord
+    {
+        public int day, sales, rejects, salesIncome, bonus, assembly, losses, purchases;
+        public float hour, wages, overtimeWages;
+        public bool overtime, awarded;
+    }
+
+    public DayRecord CaptureDay()
+    {
+        // Wages have already been charged at settlement. Resume at the next shift.
+        if (IsSettlement) return new DayRecord { day = DayNumber + 1, hour = 8f };
+        return new DayRecord {
+            day = DayNumber, hour = GameHour, overtime = OvertimeEnabled, awarded = missionAwarded,
+            sales = SoldCars, rejects = RejectedDeliveries, salesIncome = SalesIncome,
+            bonus = MissionIncome, assembly = AssemblyIncome, losses = PartLosses, purchases = PurchaseCosts,
+            wages = RegularWagesAccrued, overtimeWages = OvertimeWagesAccrued
+        };
+    }
+
+    public void RestoreDay(DayRecord record)
+    {
+        if (record == null || record.day < 1 || !(record.hour >= 8f && record.hour < 22f)) return;
+        DayNumber = record.day;
+        GameHour = record.hour;
+        OvertimeEnabled = record.overtime;
+        missionAwarded = record.awarded;
+        SoldCars = record.sales;
+        RejectedDeliveries = record.rejects;
+        SalesIncome = record.salesIncome;
+        MissionIncome = record.bonus;
+        AssemblyIncome = record.assembly;
+        PartLosses = record.losses;
+        PurchaseCosts = record.purchases;
+        RegularWagesAccrued = record.wages;
+        OvertimeWagesAccrued = record.overtimeWages;
+        previousDuty = null;
+        ApplyDuty();
+    }
+
     void RestorePause()
     {
         if (!paused) return;

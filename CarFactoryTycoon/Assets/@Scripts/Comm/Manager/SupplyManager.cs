@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -28,7 +28,7 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
         public PartStack stack;
         public bool prototypeTarget;
 
-        public bool IsValid => stack != null && (prototypeTarget || station != null || wheelStation != null);
+        public bool IsValid => stack != null && stack.participatesInSupply && (prototypeTarget || station != null || wheelStation != null);
     }
 
     [Header("창고")]
@@ -112,7 +112,7 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
             for (int i = 0; i < allStacks.Length; i++)
             {
                 PartStack stack = allStacks[i];
-                if (stack == null || !seen.Add(stack)) continue;
+                if (stack == null || !stack.participatesInSupply || !seen.Add(stack)) continue;
 
                 WorkerStation ownerStation = null;
                 for (int s = 0; s < stations.Length && ownerStation == null; s++)
@@ -151,7 +151,7 @@ public class SupplyManager : GameObjectSingleton<SupplyManager>
                 for (int i = 0; i < station.partStacks.Length; i++)
                 {
                     PartStack stack = station.partStacks[i];
-                    if (stack == null || !seen.Add(stack)) continue;
+                    if (stack == null || !stack.participatesInSupply || !seen.Add(stack)) continue;
                     targets.Add(new SupplyTarget { station = station, stack = stack });
                 }
             }

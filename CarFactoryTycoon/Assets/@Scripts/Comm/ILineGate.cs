@@ -10,3 +10,9 @@ public interface ILineGate
     /// <summary>게이트가 현재 활성 상태인지. false면 차량이 그냥 통과한다.</summary>
     bool GateEnabled { get; }
 }
+
+/// <summary>Optional vehicle-specific gate; legacy gates continue to block all approaching cars.</summary>
+public interface ITargetedLineGate
+{
+    bool Blocks(CarController car);
+}

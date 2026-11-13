@@ -1,0 +1,3320 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 87050ece3a1ea294289284ac92341ba4, type: 3}
+  m_Name: ProcessAuthoringProfile
+  m_EditorClassIdentifier: Assembly-CSharp::ProcessAuthoringProfile
+  fuel:
+    configured: 1
+    station:
+      position: {x: 8.3218765e-11, y: 0, z: 0.00023269652}
+      euler: {x: 0, y: 270, z: 0}
+    home:
+      position: {x: 3.1999993, y: -0.305, z: -0.4997684}
+      euler: {x: 0, y: 270, z: 0}
+    nozzleDock:
+      position: {x: 2.8999991, y: 1.05, z: -1.0997667}
+      euler: {x: 0, y: 270, z: 0}
+    hoseAnchor:
+      position: {x: 3.3499997, y: 0.75, z: -1.3197681}
+      euler: {x: 0, y: 270, z: 0}
+    workStand:
+      position: {x: 1.95, y: -0.305, z: -1.1}
+      euler: {x: 0, y: 0, z: 0}
+    carPort: {x: 1.13, y: 0.95, z: -1.1}
+    stopOffsetMeters: 0
+    useWorkStand: 0
+  defaultVehicleId: Origin
+  version: 1
+  actorDistance: 2.7
+  hiringPostDistance: 3.6
+  railWidth: 2
+  previewLength: 24
+  processes:
+  - id: 65352d4c2d7140e183839a379f0257bc
+    displayName: "\uC870\uC791\uBD80"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: -0.5112848, y: -0.405, z: 0.00010730164}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: 065a52e27b59484aa488b0d25ea43da1
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: -0.061284065, y: -0.405, z: 0.00010714071}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: -0.061284065, y: -0.405, z: 0.00010714071}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: cc397e2735994c4785b88481695624f9
+      kind: 1
+      part: 2
+      side: -1
+      root:
+        position: {x: -0.061284065, y: 0, z: 0.00010714071}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: -0.061284065, y: 0, z: 0.00010714071}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -1.0291629, y: 1.1334229, z: -1.5915945}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: -0.02409482, y: 0.5, z: -1.9659346}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.699998, y: 0.8050835, z: -1.4999982}
+      detectionSize: {x: 3, y: 0.5, z: 2.08}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 330fd10db29c46a79cb855df7f32601d
+      part: 2
+      side: -1
+      inventory:
+        position: {x: -0.5017431, y: 0.1, z: -3.9455338}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.5356612, y: 0.56796473, z: -1.9659346}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: af6a84b5879a4ea7bb725ed0596659ee
+    displayName: "\uC5D4\uC9C4"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: -2.3112807, y: -0.405, z: 0.00017150777}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: f800b43492da42ad9392b989cb521599
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: -0.061282158, y: -0.405, z: 0.00017134684}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: -0.061282158, y: -0.405, z: 0.00017134684}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 2a2909cba3df42b18308d6435b46cbdd
+      kind: 1
+      part: 3
+      side: 1
+      root:
+        position: {x: -0.061282158, y: 0, z: 0.00017134684}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: -0.061282158, y: 0, z: 0.00017134684}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -1.0966023, y: 2.1287687, z: 1.1189232}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.10998082, y: 0.5034237, z: -2.2419934}
+        euler: {x: 0, y: 270, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 3, y: 0.5, z: 1.85}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 3efc3aed2db44712839494faf3ac4663
+      part: 3
+      side: 1
+      inventory:
+        position: {x: -0.14210057, y: 0.1, z: -3.2690322}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.13140416, y: 0.66456044, z: -2.2419934}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 148b1283c4f64eb09ddb9f02604fcd12
+    displayName: "\uC5D4\uC9C4\uCEE4\uBC84"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: -0.5112848, y: -0.405, z: 0.00004245178}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: 411491223fa741648af5e9909bdb4f5a
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: -0.061284065, y: -0.405, z: 0.000042290845}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: -0.061284065, y: -0.405, z: 0.000042290845}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 8046bbd937634461ac525751e89463ee
+      kind: 1
+      part: 4
+      side: -1
+      root:
+        position: {x: -0.061284065, y: 0, z: 0.000042290845}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: -0.061284065, y: 0, z: 0.000042290845}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 1.2645446, y: 2.1327047, z: 0.19253941}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.5156772, y: 0.554, z: -2.1939583}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -2.13}
+      detectionSize: {x: 3, y: 0.5, z: 1.64}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 1978f619b17949bea8cf852c181ab89f
+      part: 4
+      side: -1
+      inventory:
+        position: {x: 0.6371827, y: 0.1, z: -4.371327}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: 0.061148405, y: 0.9849941, z: -2.1939583}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 55c125bce47f42718c70b8e157f69e4c
+    displayName: "\uC624\uB978\uCABD \uC88C\uC11D"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: -2.3112807, y: -0.405, z: 0.00003074802}
+      euler: {x: 0, y: 89.99999, z: 0}
+    actors:
+    - id: 82ba3c8d04104613890cbc5b283640d0
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: -0.061282635, y: -0.405, z: 0.000030989417}
+        euler: {x: 0, y: 89.99999, z: 0}
+      home:
+        position: {x: -0.061282635, y: -0.405, z: 0.000030989417}
+        euler: {x: 0, y: 89.99999, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 89.99999, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 26f744c5783d449eafa9900c71bcfc55
+      kind: 1
+      part: 5
+      side: 1
+      root:
+        position: {x: -0.061282635, y: 0, z: 0.000030989417}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: -0.061282635, y: 0, z: 0.000030989417}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -1.3875537, y: 1.3237748, z: 0.76174563}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.58370113, y: 0.5, z: -2.1246066}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 0.74}
+      detectionSize: {x: 3, y: 0.5, z: 1.8}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: cf5f0e4688124971826cb155bb2504df
+      part: 5
+      side: 1
+      inventory:
+        position: {x: -0.68935657, y: 0.1, z: -2.9843974}
+        euler: {x: 0, y: 89.99999, z: 0}
+      pickup:
+        position: {x: -0.32236385, y: 0.49212736, z: -2.1245494}
+        euler: {x: 0, y: 89.99999, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 74c067869d3d42ab9fc365a869bb486c
+    displayName: "\uC67C\uCABD \uC88C\uC11D"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: -0.49897957, y: -0.405, z: 0.14430256}
+      euler: {x: 0, y: 95.187004, z: 0}
+    actors:
+    - id: 51d9b59f3f0a4bd882cb36d8de0701b6
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: -0.054507494, y: -0.405, z: 0.02225338}
+        euler: {x: 0, y: 95.187004, z: 0}
+      home:
+        position: {x: -0.054507494, y: -0.405, z: 0.02225338}
+        euler: {x: 0, y: 95.187004, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 95.187004, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 061db9b82ef749ef98c23fdb9d7b074f
+      kind: 1
+      part: 6
+      side: -1
+      root:
+        position: {x: -0.054507494, y: 0, z: 0.02225338}
+        euler: {x: 0, y: 5.187005, z: 0}
+      home:
+        position: {x: -0.054507494, y: 0, z: 0.02225338}
+        euler: {x: 0, y: 5.187005, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.99745834, y: 1.013369, z: 0.6556066}
+        euler: {x: 0, y: 5.187005, z: 0}
+      robotPickup:
+        position: {x: 0.28805566, y: 0.5145526, z: -1.7617806}
+        euler: {x: 0, y: 5.187005, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -0.85}
+      detectionSize: {x: 3, y: 0.5, z: 2.42}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: dcd657450ef24f71ac39cc6b470b0e7a
+      part: 6
+      side: -1
+      inventory:
+        position: {x: 0.6549041, y: 0.1, z: -2.8617868}
+        euler: {x: 0, y: 95.187004, z: 0}
+      pickup:
+        position: {x: 0.5483277, y: 0.50667995, z: -1.785354}
+        euler: {x: 0, y: 95.187004, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: ed75e9277e1b455993b38fb3328d3f26
+    displayName: "\uC67C\uCABD \uB4A4\uC720\uB9AC"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2958083, y: -0.405, z: 0.00030502034}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: f4230af360f34a459630f94577ce243c
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.04580784, y: -0.405, z: 0.00030485942}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.04580784, y: -0.405, z: 0.00030485942}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 74883d576c99482d96fa0ac03414260d
+      kind: 1
+      part: 7
+      side: -1
+      root:
+        position: {x: 0.04580784, y: 0, z: 0.00030485942}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.04580784, y: 0, z: 0.00030485942}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 1.3648958, y: 1.4270136, z: 0.91320413}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.85607076, y: 0.7099296, z: -2.00211}
+        euler: {x: 0, y: 90, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -0.34000003}
+      detectionSize: {x: 3, y: 0.5, z: 1.46}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: c2bfe0a6ef77466f9697e8c5b9a94646
+      part: 7
+      side: -1
+      inventory:
+        position: {x: 1.3299842, y: 0.1, z: -3.4088674}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.7367852, y: 1.017479, z: -2.0507855}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 01b1d27a75b8487a8cb333060bb65188
+    displayName: "\uC624\uB978\uCABD \uB4A4\uC720\uB9AC"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: 0.49581242, y: -0.405, z: 0.000092041}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: f6c33d8df8674237a9e074d16dc4bb9e
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.045811653, y: -0.405, z: 0.00009188007}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.045811653, y: -0.405, z: 0.00009188007}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: d4c0dcfae19e40c28b4177ae42116ad0
+      kind: 1
+      part: 8
+      side: 1
+      root:
+        position: {x: 0.045811653, y: 0, z: 0.00009188007}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.045811653, y: 0, z: 0.00009188007}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -1.4196026, y: 1.5728524, z: 1.2542843}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.44764018, y: 0.85669243, z: -1.7787094}
+        euler: {x: 0, y: 270, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -0.6600001}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 5ed6feff3a054434ad4e532d512fa962
+      part: 8
+      side: 1
+      inventory:
+        position: {x: -0.9433733, y: 0.1, z: -3.2572253}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.56692576, y: 1.1642418, z: -1.827385}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: c1dfef3456e547e3b6a7ea2a9cece235
+    displayName: "\uC55E\uC720\uB9AC"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2958083, y: -0.405, z: 0.0000456209}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 5b4dbbdb40564f74b024c8f1a3e035bc
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.04580784, y: -0.405, z: 0.00004545997}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.04580784, y: -0.405, z: 0.00004545997}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 00174745ccd342e38416d4e824edaac1
+      kind: 1
+      part: 9
+      side: -1
+      root:
+        position: {x: 0.04580784, y: 0, z: 0.00004545997}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.04580784, y: 0, z: 0.00004545997}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 1.212016, y: 1.4044306, z: 1.4387894}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 1.0739626, y: 1.8406065, z: -2.2826467}
+        euler: {x: 50.000027, y: 0, z: 90}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -0.9}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: c9dadb4a98934c57a158e9041ce59962
+      part: 9
+      side: -1
+      inventory:
+        position: {x: 1.9914014, y: 0.1, z: -4.6283154}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.9386152, y: 1.7665799, z: -2.2826467}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 14d5ad2252434197bf49d8b14b1b2513
+    displayName: "\uC624\uB978\uCABD \uBB38"
+    stopOffsetMeters: 0.1
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: -2.2975569, y: -0.405, z: 1.8088744}
+      euler: {x: -0, y: 90, z: 0}
+    actors:
+    - id: 51604646d40647a4b53d6483bc623d6f
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.045809746, y: -0.405, z: 0.00013765645}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.045809746, y: -0.405, z: 0.00013765645}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 0}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 1
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 7.0632367, y: -0.405, z: -2.7786546}
+        euler: {x: -0, y: 353.91647, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 1
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 1
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 1
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 1
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 64eb14329c9f49c29e067b44312dec63
+      kind: 1
+      part: 11
+      side: 1
+      root:
+        position: {x: 0.045809746, y: 0, z: 0.00013765645}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.045809746, y: 0, z: 0.00013765645}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.8630897, y: 1.1509943, z: 1.1984257}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.40454745, y: 0.5, z: -2.233097}
+        euler: {x: 0, y: 270, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: dd703e36260b4c91bdd84c06a77182d1
+      part: 11
+      side: 1
+      inventory:
+        position: {x: 0.9416735, y: 0.1, z: -2.4513428}
+        euler: {x: -0, y: 90, z: 0}
+      pickup:
+        position: {x: 1.0000007, y: 0.3157491, z: -1.835655}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 1
+        anatomicalWrist: 1
+        left: {x: -0.06896351, y: 0.6342509, z: -0.40035456}
+        right: {x: -0.06896351, y: 0.6342509, z: 0.19964546}
+        finger: {x: 1, y: 0, z: 0}
+        robot: {x: -0.06896351, y: 0.6342509, z: -0.10035455}
+        workerCarryEuler: {x: -0, y: 90, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.12, y: -0.25, z: 0.08}
+        rightElbow: {x: 0.12, y: -0.25, z: 0.08}
+        reachFraction: 0.98
+  - id: 9ceb8379c2a14339bc44781360b0b041
+    displayName: "\uC67C\uCABD \uBB38"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2958083, y: -0.405, z: 0.00006087969}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: a8a2c5dd285441659ac6288541bb10c4
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.04580784, y: -0.405, z: 0.000060718758}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.04580784, y: -0.405, z: 0.000060718758}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: a584f398367b48fc9a6b2cbd3a4bcc5d
+      kind: 1
+      part: 10
+      side: -1
+      root:
+        position: {x: 0.04580784, y: 0, z: 0.000060718758}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.04580784, y: 0, z: 0.000060718758}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.77580726, y: 1.1818329, z: 1.4200591}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.64580846, y: 0.69588685, z: -2.0099416}
+        euler: {x: 0, y: 90, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.35}
+      detectionSize: {x: 3, y: 0.5, z: 2}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 706682aa26864797af887991c823728a
+      part: 10
+      side: -1
+      inventory:
+        position: {x: 1.042335, y: 0.1, z: -3.6719291}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.5454533, y: 0.511636, z: -2.094132}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 190335ea738c45208e219746cd7ac184
+    displayName: "\uC55E\uBC94\uD37C"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: 0.4958105, y: -0.405, z: 0.00016452026}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 3b7373c9511e4c2cbf9c084ee0d822e1
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.045809746, y: -0.405, z: 0.00016435933}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.045809746, y: -0.405, z: 0.00016435933}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: af7e957beed444dfba823521981c77aa
+      kind: 1
+      part: 16
+      side: 1
+      root:
+        position: {x: 0.045809746, y: 0, z: 0.00016435933}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.045809746, y: 0, z: 0.00016435933}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.67464566, y: 1.6908195, z: 1.398827}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -1.1341904, y: 0.5, z: -1.5513039}
+        euler: {x: 0, y: 90, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 2.32}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 47756738c9d2489d8573027029f71bd1
+      part: 16
+      side: 1
+      inventory:
+        position: {x: -2.3651607, y: 0.1, z: -3.5815206}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.89488494, y: 0.5348516, z: -1.5513039}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 19cabaeb645f44359d425688131bc645
+    displayName: "\uD2B8\uB801\uD06C"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2958083, y: -0.405, z: 0.00012954425}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 03f5e567ae32458982c0881a987bfed8
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.04580784, y: -0.405, z: 0.00012938332}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.04580784, y: -0.405, z: 0.00012938332}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: cef59ce304a04bc1994f9c90a419d3a9
+      kind: 1
+      part: 17
+      side: -1
+      root:
+        position: {x: 0.04580784, y: 0, z: 0.00012938332}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.04580784, y: 0, z: 0.00012938332}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 1.2129906, y: 1.6040835, z: 1.7020569}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.7978089, y: 0.82168674, z: -1.9334416}
+        euler: {x: 90, y: 90, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 0.81999993}
+      detectionSize: {x: 3, y: 0.5, z: 2}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 742c420768764892a5e83c535627c651
+      part: 17
+      side: -1
+      inventory:
+        position: {x: 1.3177983, y: 0.1, z: -4.3408666}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.46344686, y: 1.7438835, z: -1.9334416}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 8b9735293c314f6099fb2210701750b9
+    displayName: "\uBCF4\uB2DB"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: -0.44504452, y: -0.405, z: 0.00024843757}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: aa62396e6325483e8a74ff436a3cc3e2
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.0049562454, y: -0.405, z: 0.00024827663}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: 0.0049562454, y: -0.405, z: 0.00024827663}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 94781705f0d84adf804db34a05404e3b
+      kind: 1
+      part: 18
+      side: -1
+      root:
+        position: {x: 0.0049562454, y: 0, z: 0.00024827663}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.0049562454, y: 0, z: 0.00024827663}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.8968022, y: 1.2032539, z: 1.8884282}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.25157332, y: 1.0044763, z: -2.1144981}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -2.62}
+      detectionSize: {x: 3, y: 0.5, z: 3.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: abe50c4a77f24c23933f6ef4b3471ad1
+      part: 18
+      side: -1
+      inventory:
+        position: {x: -0.13475299, y: 0.1, z: -4.3918915}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.35378027, y: 1.4622585, z: -2.1144981}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 99f2b4270fb44d1b9f9528665b0a61b3
+    displayName: "\uBC14\uD034 \uC791\uC5C5\uD300"
+    stopOffsetMeters: 2
+    hasHardware: 1
+    hardware:
+      position: {x: 1.6900027, y: -0.44, z: 0.00015620115}
+      euler: {x: 0, y: 90, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: -2.1499972, y: -0.405, z: 0.00016004445}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: 33f2b56c377947b2832cca255f79dc3e
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.10000324, y: -0.405, z: 0.00015988352}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: 0.10000324, y: -0.405, z: 0.00015988352}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 80169ef47bd449c09345b1b9676539a2
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: -0.09999561, y: -0.405, z: 0.00016055109}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: -0.09999561, y: -0.405, z: 0.00016055109}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: cd1a10c5b45847abb75c2f5f7c8caf6a
+      kind: 1
+      part: 12
+      side: 1
+      root:
+        position: {x: 0.0049602985, y: 0, z: 1.5001563}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.0049602985, y: 0, z: 1.5001563}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.106211185, y: 1.3210349, z: 3.6055796}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.81456435, y: 0.5, z: 3.048611}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 0, y: 0, z: 0}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 92e71874326749ea8d66b86953d11f75
+      kind: 1
+      part: 13
+      side: 1
+      root:
+        position: {x: 0.00496006, y: 0, z: -1.4998441}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.00496006, y: 0, z: -1.4998441}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.11214018, y: 1.5025792, z: -3.612233}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.8258585, y: 0.5, z: -2.9083714}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 0, y: 0, z: 0}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 591e9ac57e1a4a8cb2b1fceb23e8cbf3
+      kind: 1
+      part: 14
+      side: -1
+      root:
+        position: {x: 0.004958153, y: 0, z: 1.5001569}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.004958153, y: 0, z: 1.5001569}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.15188146, y: 1.3567874, z: 3.150132}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.68489194, y: 0.5, z: 3.002381}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 0, y: 0, z: 0}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: a2ba1056cf904a7583799e8484eb001b
+      kind: 1
+      part: 15
+      side: -1
+      root:
+        position: {x: 0.0049579144, y: 0, z: -1.4998435}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.0049579144, y: 0, z: -1.4998435}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.46874, y: 1.7937005, z: -3.5796204}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.4651456, y: 0.5, z: -3.198143}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 0, y: 0, z: 0}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 40a29f01eb03464b9e4d35e50ffaa307
+      part: 12
+      side: 1
+      inventory:
+        position: {x: -1.5239034, y: 0.1, z: 4.3884816}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.81456435, y: 0.95, z: 3.048157}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+    - id: 4751019b29bd47f69d30308ebedb6b0a
+      part: 13
+      side: 1
+      inventory:
+        position: {x: -1.2507949, y: 0.1, z: -3.6290214}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.8258585, y: 0.95, z: -2.9088254}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+    - id: 5223da03f2a34ba1927ddf5beec8e90e
+      part: 14
+      side: -1
+      inventory:
+        position: {x: 1.3034502, y: 0.1, z: 4.368588}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: 0.68489194, y: 0.95, z: 3.0019271}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+    - id: b2338004a89740dba95acce219a3dd69
+      part: 15
+      side: -1
+      inventory:
+        position: {x: 0.6384902, y: 0.1, z: -3.8380358}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: 0.4651456, y: 0.95, z: -3.198597}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 396ff5d34af6441a8743ba23629c0ecb
+    displayName: "\uC624\uB978\uCABD \uBBF8\uB7EC"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: -2.2450423, y: -0.405, z: 0.00017531458}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: 70c568d394cc4f7a9c6ed02a1743e12a
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.004958153, y: -0.405, z: 0.00017515363}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: 0.004958153, y: -0.405, z: 0.00017515363}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 06a2d1004471426ea7fcc35f50bce7c5
+      kind: 1
+      part: 20
+      side: 1
+      root:
+        position: {x: 0.004958153, y: 0, z: 0.00017515363}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.004958153, y: 0, z: 0.00017515363}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.6388545, y: 0.5, z: 2.1614835}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.21504092, y: 0.5, z: 1.8501776}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: ed644c672692424db8f8fc3ecdcc836c
+      part: 20
+      side: 1
+      inventory:
+        position: {x: -0.3170743, y: 0.1, z: 3.0213661}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: -0.14403033, y: 0.8594917, z: 1.7103308}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: a633e2ccdddc48f4ac0cfabac097bda1
+    displayName: "\uC67C\uCABD \uBBF8\uB7EC"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: -0.44504452, y: -0.405, z: 0.00020647589}
+      euler: {x: 0, y: 90, z: 0}
+    actors:
+    - id: 7b05eebf185b42d8a07de73afd6c3715
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.0049562454, y: -0.405, z: 0.00020631494}
+        euler: {x: 0, y: 90, z: 0}
+      home:
+        position: {x: 0.0049562454, y: -0.405, z: 0.00020631494}
+        euler: {x: 0, y: 90, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 90, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 007ae8bd0f244198a9abf97058efbba3
+      kind: 1
+      part: 19
+      side: -1
+      root:
+        position: {x: 0.0049562454, y: 0, z: 0.00020631494}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.0049562454, y: 0, z: 0.00020631494}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.18995595, y: 1.44, z: 1.5142064}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.22495627, y: 0.5145526, z: -1.8497962}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 5901e759313e48fbb0ce12bafe514a7a
+      part: 19
+      side: -1
+      inventory:
+        position: {x: 0.3243215, y: 0.1, z: -2.5292358}
+        euler: {x: 0, y: 90, z: 0}
+      pickup:
+        position: {x: 0.2959659, y: 0.8740443, z: -1.9896431}
+        euler: {x: 0, y: 90, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 1ab47606a8ed42aabbdc15fbc581159e
+    displayName: "\uC67C\uCABD \uC804\uC870\uB4F1"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2668395, y: -0.405, z: 0.0002516111}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 8f65a946acd44cae9bcff48f48cb14af
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.016839027, y: -0.405, z: 0.0002514502}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839027, y: -0.405, z: 0.0002514502}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 348e09c308e9430ea027588e263144f3
+      kind: 1
+      part: 21
+      side: -1
+      root:
+        position: {x: 0.016839027, y: 0, z: 0.0002514502}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.016839027, y: 0, z: 0.0002514502}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.9514617, y: 1.4285581, z: 1.559452}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.72046876, y: 0.97255194, z: -2.2231297}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -2.47}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 8d48eecb86fa4ccb930ddf1f4ace5b4a
+      part: 21
+      side: -1
+      inventory:
+        position: {x: 1.2827849, y: 0.1, z: -3.787854}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.8158572, y: 1.312927, z: -2.2231297}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: ce0d6ede19fe4f6f8a005e98343b1db8
+    displayName: "\uC624\uB978\uCABD \uC804\uC870\uB4F1"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: 0.46684027, y: -0.405, z: 0.00003863178}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 1e7b128d090d4fc989de2c8c23661220
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.016839981, y: -0.405, z: 0.00003847085}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839981, y: -0.405, z: 0.00003847085}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: a147d731da33444884e3627d7b0954d1
+      kind: 1
+      part: 22
+      side: 1
+      root:
+        position: {x: 0.016839981, y: 0, z: 0.00003847085}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.016839981, y: 0, z: 0.00003847085}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.9196794, y: 1.3528132, z: 1.9241643}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.9279716, y: 1.017626, z: -2.0187263}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 2.6399999}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 6a63c421b70f417ab1c186c6b8790979
+      part: 22
+      side: 1
+      inventory:
+        position: {x: -1.5508939, y: 0.1, z: -3.499184}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.8325832, y: 1.3580012, z: -2.0187263}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 8ac26b23e91149d09fb4bca5af12620a
+    displayName: "\uC67C\uCABD \uB4A4\uC870\uBA85"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2668395, y: -0.405, z: 0.00019820535}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 452544ae1a344c559bf92a1782235442
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.016839027, y: -0.405, z: 0.00019804442}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839027, y: -0.405, z: 0.00019804442}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 2ecfb36aaca648308b37b7b644ec9ab1
+      kind: 1
+      part: 24
+      side: -1
+      root:
+        position: {x: 0.016839027, y: 0, z: 0.00019804442}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.016839027, y: 0, z: 0.00019804442}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.52024174, y: 0.5, z: -2.1449401}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.23683953, y: 0.5, z: -1.8498006}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 647e7435d5d74dbfaf05da218bec2a73
+      part: 24
+      side: -1
+      inventory:
+        position: {x: 0.32252908, y: 0.1, z: -3.1579368}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.13802457, y: 0.8879398, z: -1.8498006}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: a1f09195633e4a60a3324ab9175e42cb
+    displayName: "\uC624\uB978\uCABD \uB4A4\uC870\uBA85"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: 0.4668393, y: -0.405, z: 0.00015949007}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 7b126c178b794799962368e7b9d6a46b
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.016839504, y: -0.405, z: 0.00015973147}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839504, y: -0.405, z: 0.00015973147}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 7baae0bead6042778df4d711b5bc09e5
+      kind: 1
+      part: 23
+      side: 1
+      root:
+        position: {x: 0.016839504, y: 0, z: 0.00015973147}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.016839504, y: 0, z: 0.00015973147}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.70898867, y: 1.1716516, z: 2.0499568}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.64148355, y: 1.094483, z: -2.0242922}
+        euler: {x: 0, y: 270, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.8299999}
+      detectionSize: {x: 3, y: 0.5, z: 3}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 5f9f1a0042904ea09f52cb8945bf5ae7
+      part: 23
+      side: 1
+      inventory:
+        position: {x: -1.1296477, y: 0.1, z: -3.3295593}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.74029803, y: 1.4824227, z: -2.0242922}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 2ae72aab0c494778a779531310a7607e
+    displayName: "\uC67C\uCABD \uBCF4\uC870\uC870\uBA85"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2668395, y: -0.405, z: 0.00017150247}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 57a734c83f7f4a9ba295ad89c11c1c42
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.016839027, y: -0.405, z: 0.00017134154}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839027, y: -0.405, z: 0.00017134154}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 9da31f2b090249ffb167c04a767f1d19
+      kind: 1
+      part: 25
+      side: -1
+      root:
+        position: {x: 0.016839027, y: 0, z: 0.00017134154}
+        euler: {x: 0, y: 0, z: 0}
+      home:
+        position: {x: 0.016839027, y: 0, z: 0.00017134154}
+        euler: {x: 0, y: 0, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -0.6477561, y: 0.5, z: 1.6725767}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0.2947452, y: 0.5, z: 1.8937453}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 4227b3cb30e744f78cc2fa5f0ece0e59
+      part: 25
+      side: -1
+      inventory:
+        position: {x: 0.34371638, y: 0.1, z: 2.4115295}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: 0.1959312, y: 0.8879398, z: 1.8937453}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 340119bc354c4423ae25eeccee3abd15
+    displayName: "\uC624\uB978\uCABD \uBCF4\uC870\uC870\uBA85"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: 1
+    hiringPost:
+      position: {x: 0.46684027, y: -0.405, z: 0.00023699606}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: b4e6613adb4542698e2f8e4b45796ab3
+      kind: 0
+      part: 0
+      side: 1
+      root:
+        position: {x: 0.016839981, y: -0.405, z: 0.00023683513}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839981, y: -0.405, z: 0.00023683513}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: -0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 387ca05fcb914f6aaf246673856872b4
+      kind: 1
+      part: 26
+      side: 1
+      root:
+        position: {x: 0.016839981, y: 0, z: 0.00023683513}
+        euler: {x: 0, y: 180, z: 0}
+      home:
+        position: {x: 0.016839981, y: 0, z: 0.00023683513}
+        euler: {x: 0, y: 180, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0.8224144, y: 0.5, z: 1.7093779}
+        euler: {x: 0, y: 180, z: 0}
+      robotPickup:
+        position: {x: -0.20316052, y: 0.5, z: 1.8502355}
+        euler: {x: 0, y: 180, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: 1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 21ffaa709b8d4f5e8149931475b2907d
+      part: 26
+      side: 1
+      inventory:
+        position: {x: -0.30031085, y: 0.1, z: 2.4139714}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.3019755, y: 0.8879398, z: 1.8502355}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  - id: 58a0080c9aa547fca601f5ad194d9261
+    displayName: "\uB4A4\uBC94\uD37C"
+    stopOffsetMeters: 2
+    hasHardware: 0
+    hardware:
+      position: {x: 0, y: 0, z: 0}
+      euler: {x: 0, y: 0, z: 0}
+    hasHiringPost: 1
+    hiringPostSide: -1
+    hiringPost:
+      position: {x: 2.2668395, y: -0.405, z: 0.000034809047}
+      euler: {x: 0, y: 270, z: 0}
+    actors:
+    - id: 69ce6570641f46ca8edf743a6ef84166
+      kind: 0
+      part: 0
+      side: -1
+      root:
+        position: {x: 0.016839504, y: -0.405, z: 0.000035291847}
+        euler: {x: 0, y: 270, z: 0}
+      home:
+        position: {x: 0.016839504, y: -0.405, z: 0.000035291847}
+        euler: {x: 0, y: 270, z: 0}
+      assemblyWait:
+        position: {x: 0.9000001, y: -0.405, z: 2}
+        euler: {x: 0, y: 270, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotPickup:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 0, y: 0, z: 0}
+      detectionSize: {x: 1, y: 1, z: 1}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    - id: 8d2c1e8380ae45a5abdf8880aaa9fbc9
+      kind: 1
+      part: 27
+      side: -1
+      root:
+        position: {x: 0.016839504, y: 0, z: 0.000035291847}
+        euler: {x: 0, y: 0.000019318693, z: 0}
+      home:
+        position: {x: 0.016839504, y: 0, z: 0.000035291847}
+        euler: {x: 0, y: 0.000019318693, z: 0}
+      assemblyWait:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      workPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      robotRest:
+        position: {x: -1.0969532, y: 0.5, z: 1.7182363}
+        euler: {x: 0, y: 0.000019318693, z: 0}
+      robotPickup:
+        position: {x: -0.17417502, y: 0.5, z: 2.0095758}
+        euler: {x: 0, y: 0.000019318693, z: 0}
+      hasWorkPose: 0
+      useAnimationRigging: 0
+      bodySupport: 0
+      hasRigPreviewPose: 0
+      rigPreviewPose:
+        position: {x: 0, y: 0, z: 0}
+        euler: {x: 0, y: 0, z: 0}
+      detectionCenter: {x: 2.7, y: 0.5, z: -1.5}
+      detectionSize: {x: 3, y: 0.5, z: 0.5}
+      fetchPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      approachPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      walkPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+      carryPath:
+        enabled: 0
+        control1: {x: 0, y: 0, z: 0}
+        control2: {x: 0, y: 0, z: 0}
+    stocks:
+    - id: 5fca501701914b8d9b8195d62a5c9f6f
+      part: 27
+      side: -1
+      inventory:
+        position: {x: -0.3190663, y: 0.1, z: 3.177823}
+        euler: {x: 0, y: 270, z: 0}
+      pickup:
+        position: {x: -0.23239303, y: 0.8844549, z: 2.0095758}
+        euler: {x: 0, y: 270, z: 0}
+      itemEuler: {x: 0, y: 0, z: 0}
+      grip:
+        configured: 0
+        anatomicalWrist: 0
+        left: {x: -0.25, y: 0, z: 0}
+        right: {x: 0.25, y: 0, z: 0}
+        finger: {x: 0, y: 0, z: 1}
+        robot: {x: 0, y: 0, z: 0}
+        workerCarryEuler: {x: 0, y: 0, z: 0}
+        leftWristEuler: {x: 0, y: 0, z: 0}
+        rightWristEuler: {x: 0, y: 0, z: 0}
+        leftElbow: {x: -0.3, y: -0.3, z: -0.05}
+        rightElbow: {x: 0.3, y: -0.3, z: -0.05}
+        reachFraction: 0.9
+  vehicles:
+  - id: Origin
+    displayName: "\uAE30\uC874 \uCC28\uB7C9"
+    prefab: {fileID: 8573685660847839776, guid: 78d9ac6ca7af82d468e0eda60d9cff4b, type: 3}
+    assemblyData: {fileID: 0}
+    overrideFuelPort: 0
+    fuelPort: {x: 0, y: 0, z: 0}
+    parts: []
+    overrides: []

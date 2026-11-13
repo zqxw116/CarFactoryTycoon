@@ -11,6 +11,20 @@ public sealed class ProductionContract : MonoBehaviour
     public bool isCompleteVehicle;
     public int processCount;
     public bool settled;
+    public string inspectionFailure;
+    public bool requireWholeWash;
+    public event Action<ProductionContract,bool> SettlementCompleted;
+    public void NotifySettlement(bool accepted)=>SettlementCompleted?.Invoke(this,accepted);
+    public string FailureReason
+    {
+        get
+        {
+            var wash=GetComponent<VehicleWashSurface>();
+            if(requireWholeWash&&(wash==null||!wash.IsClean))return "차량 전체 세척 미완료";
+            if(!Validate(out var part))return part!=null&&part.myType==PartType.Controll_21?"대시보드 체결 미완료":part!=null?part.myType+" 체결 미완료":"필수 부품 미완료";
+            return "";
+        }
+    }
     public ProductionDispatch dispatch;
 
     struct Pose
@@ -43,6 +57,8 @@ public sealed class ProductionContract : MonoBehaviour
         processCount = count;
         dispatch = outlet;
         settled = false;
+        inspectionFailure = null;
+        requireWholeWash=false;
         hasContract = true;
         returned = false;
     }
@@ -51,6 +67,7 @@ public sealed class ProductionContract : MonoBehaviour
     public bool Validate(out AssemblyPart missing)
     {
         missing = null;
+        if(requireWholeWash){var wash=GetComponent<VehicleWashSurface>();if(wash==null||!wash.IsClean)return false;}
         var parts = GetComponentsInChildren<AssemblyPart>(true);
         if (requiredParts == null) return false;
         foreach (var type in requiredParts)

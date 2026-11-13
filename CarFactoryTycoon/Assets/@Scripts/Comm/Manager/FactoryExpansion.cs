@@ -17,6 +17,8 @@ public sealed class FactoryExpansion : MonoBehaviour
     public float minX=22,maxX=92,maxZ=45,finalMinZ=-20;
     [SerializeField] int visiblePrefix=1;
     Mesh temporaryFloor;
+    FactoryProductionFence productionFence;
+    float warehouseMinZ;
     public int VisiblePrefix => visiblePrefix;
     public Bounds ActiveBounds => GetBoundsForPrefix(visiblePrefix);
     public event Action<Bounds> BoundsChanged;
@@ -27,13 +29,34 @@ public sealed class FactoryExpansion : MonoBehaviour
         int count=progression.processes.Length;
         int i=Mathf.Clamp(prefix-1,0,count-1);
         float bottom=prefix>=count?finalMinZ:25f-9f*progression.processes[i].row;
+        if (productionFence != null)
+            bottom = Mathf.Max(finalMinZ, Mathf.Min(bottom, warehouseMinZ, productionFence.RowEdge(i)));
         return new Bounds(new Vector3((minX+maxX)*.5f,2.8f,(bottom+maxZ)*.5f),new Vector3(maxX-minX,6.4f,maxZ-bottom));
     }
+    public void ApplyProductionArea(int prefix, Vector3 deliveryPoint, PrototypeServicesInteraction services)
+    {
+        if (productionFence == null)
+        {
+            productionFence = gameObject.AddComponent<FactoryProductionFence>();
+            productionFence.Initialize(this);
+            foreach (Transform wall in walls)
+                if (wall != null && wall.GetComponent<Collider>() == null)
+                    wall.gameObject.AddComponent<BoxCollider>();
+        }
+
+        Vector3 desk = services.warehousePost.position;
+        Vector3 loading = services.supply.LoadPoint;
+        const float aisleClearance = 3f;
+        warehouseMinZ = Mathf.Min(desk.z, loading.z) - aisleClearance;
+        ApplyPrefix(prefix);
+        productionFence.SetOpenArea(visiblePrefix, deliveryPoint, Mathf.Min(desk.x, loading.x) - aisleClearance);
+    }
+
     /// <summary>Presentation only. Does not hire workers, modify contracts or write the production save.</summary>
     public void ApplyPrefix(int prefix)
     {
         if(progression==null||floor==null)return;
-        visiblePrefix=progression.prototypeMode?progression.processes.Length:Mathf.Clamp(prefix,1,progression.processes.Length);
+        visiblePrefix=progression.prototypeMode && productionFence == null?progression.processes.Length:Mathf.Clamp(prefix,1,progression.processes.Length);
         var b=ActiveBounds;float bottom=b.min.z;
         bool complete=visiblePrefix==progression.processes.Length;
         if(complete) floor.sharedMesh=finishedFloor;
@@ -66,5 +89,45 @@ public sealed class FactoryExpansion : MonoBehaviour
         }
         BoundsChanged?.Invoke(b);
     }
+    Transform outboundDoor;
+
+    public Transform OpenOutboundDoor()
+    {
+        if (outboundDoor != null) return outboundDoor;
+        var b = ActiveBounds;
+        float y = floor != null ? floor.transform.position.y : -.405f;
+        outboundDoor = new GameObject("하단 중앙 출고문").transform;
+        outboundDoor.SetParent(transform, false);
+        outboundDoor.position = new Vector3(b.center.x, y, b.min.z);
+        const float opening = 5.5f;
+        float sideWidth = (b.size.x - opening) * .5f;
+        if (walls != null && walls.Length > 1 && walls[1] != null)
+        {
+            var wall = walls[1];
+            var cap = wallCaps != null && wallCaps.Length > 1 ? wallCaps[1] : null;
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                var segment = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                segment.name = "출고문 측벽";
+                segment.transform.SetParent(outboundDoor, false);
+                segment.transform.localPosition = new Vector3(sign * (opening + sideWidth) * .5f, .6f, 0);
+                segment.transform.localScale = new Vector3(sideWidth, 1.2f, .22f);
+                if (wall.TryGetComponent<Renderer>(out var original))
+                    segment.GetComponent<Renderer>().sharedMaterial = original.sharedMaterial;
+            }
+            wall.gameObject.SetActive(false);
+            if (cap != null) cap.gameObject.SetActive(false);
+        }
+        // Keep the yard road level with the interior floor where the perimeter opens.
+        var apron = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        apron.name = "출고 진입로";
+        apron.transform.SetParent(outboundDoor, false);
+        apron.transform.localPosition = new Vector3(0, -.09f, -4f);
+        apron.transform.localScale = new Vector3(opening + 1f, .18f, 8f);
+        if (floor != null && floor.TryGetComponent<Renderer>(out var floorRenderer))
+            apron.GetComponent<Renderer>().sharedMaterial = floorRenderer.sharedMaterial;
+        return outboundDoor;
+    }
+
     void OnDestroy(){if(temporaryFloor!=null){if(Application.isPlaying)Destroy(temporaryFloor);else DestroyImmediate(temporaryFloor);}}
 }

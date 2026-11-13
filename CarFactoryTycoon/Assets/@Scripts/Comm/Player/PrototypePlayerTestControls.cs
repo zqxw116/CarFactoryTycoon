@@ -19,7 +19,7 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
             RefreshContactCar();
 
         Keyboard keyboard = Keyboard.current;
-        if (keyboard == null || IsModalOpen()) return;
+        if (keyboard == null || IsModalOpen() || FirstProductionLoop.Current != null) return;
         if (keyboard.digit1Key.wasPressedThisFrame) TrySetNearbyVehicle(false);
         if (keyboard.digit2Key.wasPressedThisFrame) TrySetNearbyVehicle(true);
     }
@@ -27,7 +27,11 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
     public CarController ContactCar => closestCar;
 
     static bool panelExpanded;
-    public static Rect AdminPanelRect => new Rect(18f, 54f, 296f, panelExpanded ? 274f : 60f);
+    static ProductionProgression Progression => FirstProductionLoop.Current != null ?
+        FirstProductionLoop.Current.progression : ProductionProgression.Current;
+    public static Rect AdminPanelRect => FirstProductionLoop.Current != null
+        ? new Rect(12f, 164f, 296f, panelExpanded ? 346f : 42f)
+        : new Rect(18f, 54f, 296f, panelExpanded ? 274f : 60f);
 
     public static bool PointerOverAdminPanel(Mouse mouse)
     {
@@ -63,7 +67,7 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
     {
         RefreshContactCar();
         if (IsModalOpen()) { status = "창을 닫은 뒤 사용할 수 있습니다"; return false; }
-        ProductionProgression progression = ProductionProgression.Current;
+        ProductionProgression progression = Progression;
         if (progression == null || !progression.prototypeMode)
         { status = "프로토타입에서만 사용할 수 있습니다"; return false; }
         PrototypeDayCycle cycle = PrototypeDayCycle.Current;
@@ -72,6 +76,7 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
         if (closestCar == null) { status = "접촉 차량 없음 — 사용 불가"; return false; }
         if (!closestCar.CanRepair) { status = "수리 가능 시간이 지난 차량입니다"; return false; }
 
+        FirstProductionLoop.Current?.BeginAdminSession();
         return completeAll ? CompleteAll() : LeaveLastTwoUnassembled();
     }
 
@@ -87,7 +92,7 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
         if (car == null) return;
         AssemblyPart[] hierarchyOrder = car.GetComponentsInChildren<AssemblyPart>(true);
         bool[] added = new bool[hierarchyOrder.Length];
-        ProductionProgression progression = ProductionProgression.Current;
+        ProductionProgression progression = Progression;
         if (progression != null && progression.processes != null)
         {
             // Follow the authored process/type order; duplicate same-type parts retain car hierarchy order.
@@ -151,7 +156,7 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
             panelExpanded ? "관리자 테스트 도구 ▲ 접기" : "관리자 테스트 도구 ▼ 펼치기")) panelExpanded = !panelExpanded;
         if (!panelExpanded) return;
         bool modal = IsModalOpen();
-        ProductionProgression progression = ProductionProgression.Current;
+        ProductionProgression progression = Progression;
         bool prototype = progression != null && progression.prototypeMode;
         PrototypeDayCycle cycle = PrototypeDayCycle.Current;
         bool settlement = cycle != null && cycle.IsSettlement;
@@ -167,32 +172,50 @@ public sealed class PrototypePlayerTestControls : MonoBehaviour
             else status = "플레이어 카메라를 찾지 못했습니다";
         }
         GUI.enabled = canEdit && IsAvailable();
-        if (GUI.Button(new Rect(x, y + 70f, 276f, 27f), "1 · 마지막 2개 미체결")) TrySetNearbyVehicle(false);
-        if (GUI.Button(new Rect(x, y + 101f, 276f, 27f), "2 · 전체 완성")) TrySetNearbyVehicle(true);
+        if (GUI.Button(new Rect(x, y + 70f, 276f, 27f), FirstProductionLoop.Current == null ? "1 · 마지막 2개 미체결" : "접촉 차량 · 마지막 2개 미체결")) TrySetNearbyVehicle(false);
+        if (GUI.Button(new Rect(x, y + 101f, 276f, 27f), FirstProductionLoop.Current == null ? "2 · 전체 완성" : "접촉 차량 · 전체 체결")) TrySetNearbyVehicle(true);
         GUI.enabled = canEdit;
-        if (GUI.Button(new Rect(x, y + 132f, 276f, 27f), "+1,000 자금 지급")) TryGrantDebugMoney();
+        if (GUI.Button(new Rect(x, y + 132f, 134f, 27f), "+1,000원")) GrantDebugMoney(1000);
+        if (GUI.Button(new Rect(x + 142f, y + 132f, 134f, 27f), "+10,000원")) GrantDebugMoney(10000);
+        var loop = FirstProductionLoop.Current;
+        float extra = 0f;
+        if (loop != null)
+        {
+            if (GUI.Button(new Rect(x, y + 162f, 276f, 27f), "전체 조립 라인 개방 + 사람 작업자 배치") && loop.AdminOpenStaffedLine())
+                status = "전체 공정 작업자 배치 · 새 차량부터 전체 공정";
+            if (GUI.Button(new Rect(x, y + 192f, 276f, 27f), "테스트 차량 자동 세척  " + (loop.AdminWashVehicles ? "ON" : "OFF")))
+                loop.SetAdminWashVehicles(!loop.AdminWashVehicles);
+            if (GUI.Button(new Rect(x, y + 222f, 276f, 27f), "다음 차량 1대 투입 요청"))
+            {
+                bool queued = loop.spawner.RequestVehicle();
+                if (queued) loop.BeginAdminSession();
+                status = queued ? "투입 대기에 추가" : "투입 대기가 가득 찼습니다";
+            }
+            extra = 90f;
+        }
         GUI.enabled = true;
 
         string availability = modal ? "창을 닫으면 사용할 수 있습니다" : !prototype ? "프로토타입 장면에서만 사용 가능" :
-            settlement ? "정산 중 · 경제/차량 변경 잠김" : closestCar == null ? "차량 가까이에서 1·2 사용 가능" :
+            settlement ? "정산 중 · 경제/차량 변경 잠김" : closestCar == null ? "차량 가까이에서 체결 상태 변경 가능" :
             !closestCar.CanRepair ? "수리 기한이 지난 차량입니다" : "차량 테스트 및 자금 조정 가능";
-        GUI.Label(new Rect(x, y + 162f, 276f, 34f), availability);
-        if (!string.IsNullOrEmpty(status)) GUI.Label(new Rect(x, y + 197f, 276f, 36f), status);
+        GUI.Label(new Rect(x, y + 162f + extra, 276f, 26f), loop != null && loop.AdminSession ? "관리자 테스트 중 · 일반 진행 저장 일시 중지" : availability);
+        if (!string.IsNullOrEmpty(status)) GUI.Label(new Rect(x, y + 190f + extra, 276f, 26f), status);
     }
 
-    private void TryGrantDebugMoney()
+    private void GrantDebugMoney(int amount)
     {
-        ProductionProgression progression = ProductionProgression.Current;
+        ProductionProgression progression = Progression;
         if (progression == null || !progression.prototypeMode) { status = "프로토타입에서만 사용할 수 있습니다"; return; }
         PrototypeDayCycle cycle = PrototypeDayCycle.Current;
         if (cycle != null && cycle.IsSettlement) { status = "정산 중에는 사용할 수 없습니다"; return; }
-        EconomyManager.Instance.Earn(1000);
-        status = "자금 +1,000 · 미션 진행에는 반영되지 않음";
+        FirstProductionLoop.Current?.BeginAdminSession();
+        EconomyManager.Instance.Earn(amount);
+        status = $"자금 +{amount:N0} · 미션 진행에는 반영되지 않음";
     }
 
     private bool IsAvailable()
     {
-        ProductionProgression progression = ProductionProgression.Current;
+        ProductionProgression progression = Progression;
         PrototypeDayCycle cycle = PrototypeDayCycle.Current;
         return closestCar != null && closestCar.CanRepair && progression != null && progression.prototypeMode &&
             (cycle == null || !cycle.IsSettlement);

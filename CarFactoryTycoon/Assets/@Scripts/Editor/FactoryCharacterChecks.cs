@@ -193,10 +193,10 @@ public static class FactoryCharacterChecks
         Check(progression.TryHireProcess(0),"NPC fixture hired");var crew=PrototypeProcessCrew.Ensure(progression,0);testCrew=crew;oldDuty=crew.WorkersOnDuty;oldOvertime=crew.Overtime;crew.SetDutyStatus(true,false);
         foreach(var pile in stock.Keys)if(hiredEntry.parts.Contains(pile.partType))pile.Fill_Full();
         int before=crew.StrikeCount;var spline=line.spawner.mainLineSpline;
-        testCar=CarPool.Instance.Get();testCar.SetPath(spline,0,Mathf.Clamp01(hiredEntry.gateProgress+.05f/spline.CalculateLength()));progression.Stamp(testCar);
+        testCar=CarPool.Instance.Get();testCar.SetPath(spline,0,Mathf.Clamp01(crew.GateProgress-.02f/spline.CalculateLength()));progression.Stamp(testCar);
         float end=Time.time+26f; bool sawHammerClip=false;
-        while(Time.time<end && crew.StrikeCount-before<3){foreach(var w in hiredEntry.workers){var a=w.GetComponentInChildren<Animator>();if(a!=null && a.layerCount>1 && a.GetCurrentAnimatorClipInfo(1).Any(c=>c.clip!=null && c.clip.name=="Worker_Hammer" && c.weight>.1f))sawHammerClip=true;}Result="running NPC automation "+(crew.StrikeCount-before)+"/3";yield return null;}
-        Check(sawHammerClip,"NPC Mixamo hammer clip actually played");
+        while(Time.time<end && crew.StrikeCount-before<3){foreach(var w in hiredEntry.workers){var a=w.GetComponentInChildren<Animator>();if(a!=null && a.GetLayerIndex("Hammer")>=0 && a.GetCurrentAnimatorClipInfo(a.GetLayerIndex("Hammer")).Any(c=>c.clip!=null && c.clip.name=="Worker_RightHammer_Heavy" && c.weight>.1f))sawHammerClip=true;}Result="running NPC automation "+(crew.StrikeCount-before)+"/3";yield return null;}
+        Check(sawHammerClip,"NPC Kyle right-hand hammer clip actually played");
         Check(crew.StrikeCount-before==3,$"NPC automatic timed hits={crew.StrikeCount-before}; completed parts={crew.CompletedPartCount}");
     }
     static void Cleanup()

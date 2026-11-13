@@ -24,22 +24,66 @@ public class Worker : MonoBehaviour
     public PrototypeBalanceSettings prototypeSettings;
     public UnityEngine.Splines.SplineContainer prototypeSpline;
     public float prototypeStartProgress, prototypeWorkMeters = 6f;
-    public Vector3 PrototypeCarryPoint => CarryWorldPos;
+    public float PrototypeBodyRadius => prototypeMode&&TryGetComponent<WorkerReachEnvelope>(out var reach)&&reach.Ready?reach.TorsoRadius:.32f;
+    public AssemblyPart PrototypePart => targetPart;
+    public Quaternion PrototypeCarryRotation => CarryWorldRot;
+    public Vector3 PrototypeCarryPoint => CarryWorldPos - (UseHandIK && gripValid && targetPart!=null ? CarryWorldRot * Vector3.Scale(gripCenterLocal,targetPart.transform.lossyScale) : Vector3.zero);
     public bool PrototypeMoveTo(Vector3 point, WorkerState state, AssemblyPart held)
     {
         movedThisFrame = 0f; currentState = state;
-        transform.position += CarBodyCollision.ConstrainActorStep(transform.position, Vector3.zero);
-        bool arrived = MoveToward(point);
+        transform.position += CarBodyCollision.ConstrainActorStep(transform.position, Vector3.zero,PrototypeBodyRadius);
+        float previousRadius=arriveRadius;
+        if(state==WorkerState.Working)arriveRadius=Mathf.Min(arriveRadius,.05f);
+        if((state==WorkerState.Fetching||state==WorkerState.Working)&&held!=null&&held.TryGetComponent<PartGripOverride>(out var grip)&&grip.authoredByProcess)arriveRadius=Mathf.Min(arriveRadius,.005f);
+        bool arrived;try{arrived=MoveToward(point);}finally{arriveRadius=previousRadius;}
         if (state == WorkerState.Working && held != null) FaceTowards(held.AttachmentWorldPosition);
         UpdateAnimator(); return arrived;
     }
-    public void PrototypeGrip(AssemblyPart part)
+    public void PrototypeGrip(AssemblyPart part,bool snapToCarry=true)
     {
+        postureTarget = 0f;
+        WorkTargetHeight = null;
         targetPart = part;
-        if (UseHandIK) { ComputeGripPoints(); BeginGrip(); }
+        if (UseHandIK) { ComputeGripPoints(); BeginGrip(snapToCarry); }
     }
+    public void PrototypeFacePoint(Vector3 point)=>FaceTowards(point);
+    public void PrototypeReachReady(Transform display,ProcessGripSettings data)
+    {
+        if(!UseHandIK||display==null||data==null||!data.configured)return;
+        handIK.SetPose(data);handIK.Grip(display,data.left,data.right,data.finger);
+    }
+    [Header("낮은 작업 자세 (발밑 기준, m)")]
+    [Min(.01f)] public float kneelWorkHeight = .62f;
+    [Min(.01f)] public float uprightWorkHeight = 1.18f;
+    [Min(.05f)] public float postureApproachDistance = 1.1f;
+    int postureLayer = -1;
+    static readonly int kneelId = Animator.StringToHash("Kneel");
+    float postureTarget, kneelTarget, postureTravel;
+    static readonly int poseSampleId = Animator.StringToHash("WorkPoseSample");
+    public float? WorkTargetHeight { get; private set; }
+
+    public void EvaluateWorkPosture(float height, float distance, out float weight, out float knee)
+    {
+        float depth = Mathf.InverseLerp(uprightWorkHeight, kneelWorkHeight, height);
+        float approach = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(postureApproachDistance, .08f, distance));
+        weight = approach * Mathf.SmoothStep(0f, 1f, depth * 2f);
+        // Lean over the part on the last step, then let the low knee take the weight.
+        knee = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.20f, .80f, depth))
+             * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(.28f, .83f, approach));
+    }
+
+    public bool UsingWorkPosture => postureLayer >= 0 && animator.GetLayerWeight(postureLayer) > .01f;
+
+    public void ApproachWorkHeight(Vector3 stand, float contactY)
+    {
+        float height = contactY - transform.position.y;
+        WorkTargetHeight = height;
+        float distance = Vector3.ProjectOnPlane(stand - transform.position, Vector3.up).magnitude;
+        EvaluateWorkPosture(height, distance, out postureTarget, out kneelTarget);
+    }
+
     public void PrototypeRelease()
-    { ReleaseGrip(); targetPart = null; currentState = WorkerState.Idle; }
+    { postureTarget = 0f; WorkTargetHeight = null; ReleaseGrip(); targetPart = null; currentState = WorkerState.Idle; }
     public enum WorkerState
     {
         GoingToWork,   // 출근 중 (입구 → 자기 자리)
@@ -254,7 +298,14 @@ public class Worker : MonoBehaviour
     private Quaternion HandWorldRot => handPos != null && !UseHandIK ? handPos.rotation : transform.rotation;
 
     /// <summary>손에 들린 부품이 있어야 할 월드 회전 (손 회전 × 인스펙터 미세 조정).</summary>
-    private Quaternion CarryWorldRot => HandWorldRot * Quaternion.Euler(carryEuler);
+    private Quaternion CarryWorldRot
+    {
+        get
+        {
+            var grip=targetPart!=null?targetPart.GetComponent<PartGripOverride>():null;
+            return HandWorldRot*Quaternion.Euler(grip!=null&&grip.enabled&&grip.authoredByProcess?grip.processCarryEuler:carryEuler);
+        }
+    }
 
     /// <summary>손에 들린 부품이 있어야 할 월드 위치 (손 위치 + 손 로컬 미세 조정).</summary>
     private Vector3 CarryWorldPos => HandWorldPos + HandWorldRot * carryOffset;
@@ -300,6 +351,7 @@ public class Worker : MonoBehaviour
             handIK = null;
         }
 
+        postureLayer = animator.GetLayerIndex("Work posture");
         speedHash = Animator.StringToHash(speedParam);
         motionSpeedHash = Animator.StringToHash(motionSpeedParam);
         groundedHash = Animator.StringToHash(groundedParam);
@@ -440,7 +492,21 @@ public class Worker : MonoBehaviour
 
     private void Update()
     {
-        if (prototypeMode) return;
+        if (prototypeMode)
+        {
+            if (postureLayer >= 0)
+            {
+                bool lowering = postureTarget > postureTravel;
+                postureTravel = Mathf.MoveTowards(postureTravel, postureTarget, Time.deltaTime / (lowering ? .38f : .55f));
+                float weight = Mathf.SmoothStep(0f, 1f, postureTravel);
+                animator.SetLayerWeight(postureLayer, weight);
+                animator.SetFloat(kneelId, kneelTarget, .10f, Time.deltaTime);
+                // Traverse the authored lowering / rising sections around the held work pose.
+                animator.SetFloat(poseSampleId, lowering ? Mathf.Lerp(.18f, .5f, postureTravel)
+                    : postureTarget > 0f ? .5f : Mathf.Lerp(.93f, .5f, postureTravel));
+            }
+            return;
+        }
         movedThisFrame = 0f;
 
         switch (currentState)
@@ -726,7 +792,8 @@ public class Worker : MonoBehaviour
                 out Vector3 a, out Vector3 b, out Vector3 finger)) return;
 
         Quaternion carryLocal = Quaternion.Euler(carryEuler);
-        bool aIsRight = (carryLocal * a).x > (carryLocal * b).x;
+        bool explicitHands=targetPart.TryGetComponent<PartGripOverride>(out var authoredGrip)&&authoredGrip.enabled&&authoredGrip.explicitHands;
+        bool aIsRight = !explicitHands && (carryLocal * a).x > (carryLocal * b).x;
         gripRightLocal = aIsRight ? a : b;
         gripLeftLocal = aIsRight ? b : a;
         gripFingerLocal = finger;
@@ -784,10 +851,11 @@ public class Worker : MonoBehaviour
     private static readonly System.Collections.Generic.List<MeshFilter> hullBuffer =
         new System.Collections.Generic.List<MeshFilter>();
 
-    private void BeginGrip()
+    private void BeginGrip(bool snapToCarry=true)
     {
         if (!UseHandIK || targetPart == null || !gripValid) return;
-        UpdateCarryPose(); // 집는 순간 부품을 몸 앞으로(이 프레임 IK가 바로 이 자세를 잡는다)
+        if(snapToCarry)UpdateCarryPose(); // 집는 순간 부품을 몸 앞으로(이 프레임 IK가 바로 이 자세를 잡는다)
+        var processGrip=targetPart.GetComponent<PartGripOverride>();handIK.SetPose(processGrip!=null&&processGrip.authoredByProcess?processGrip.processPose:null);
         handIK.Grip(targetPart.transform, gripLeftLocal, gripRightLocal, gripFingerLocal);
     }
 
@@ -887,7 +955,7 @@ public class Worker : MonoBehaviour
         if (Vector3.Distance(transform.position, flatTarget) <= stopRadius) return;
 
         Vector3 before = transform.position;
-        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, speed * Time.deltaTime) - before);
+        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, speed * Time.deltaTime) - before,PrototypeBodyRadius);
         movedThisFrame += Vector3.Distance(before, transform.position);
     }
 
@@ -904,7 +972,7 @@ public class Worker : MonoBehaviour
         if (dist <= arriveRadius) return true;
 
         Vector3 before = transform.position;
-        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, moveSpeed * Time.deltaTime) - before);
+        transform.position = before + CarBodyCollision.ConstrainActorStep(before, Vector3.MoveTowards(before, flatTarget, moveSpeed * Time.deltaTime) - before,PrototypeBodyRadius);
         movedThisFrame += Vector3.Distance(before, transform.position);
 
         FaceTowards(flatTarget);

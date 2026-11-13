@@ -16,21 +16,51 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
     int focused = -1;
     readonly RaycastHit[] hits = new RaycastHit[24];
     bool Settlement => PrototypeDayCycle.Current != null && PrototypeDayCycle.Current.IsSettlement;
+    // A free warehouse hire lets an indebted factory recover from empty stock.
+    bool CanHireSupply => !Settlement && supply != null && supply.CanHire &&
+        (progression.prototypeSettings.hirePrice == 0 || EconomyManager.Instance.currentMoney >= progression.prototypeSettings.hirePrice);
     public bool TryHireSupply()
     {
-        if(Settlement || supply==null || !supply.CanHire)return false;
+        if (!CanHireSupply) return false;
         int cost=progression.prototypeSettings.hirePrice;
-        if(!EconomyManager.Instance.TrySpend(cost))return false;
+        if (cost != 0 && !EconomyManager.Instance.TrySpend(cost)) return false;
         var worker=supply.Hire();
         if(worker==null){EconomyManager.Instance.Earn(cost);return false;}
         var day=PrototypeDayCycle.Current;
         worker.SetDutyStatus(day==null || !day.IsSettlement&&(day.GameHour<20 || day.OvertimeEnabled));
         return true;
     }
+    bool warehouseOnly;
+    public void EnableWarehouseOnly()
+    {
+        warehouseOnly = true;
+        // The old overhead view used an invisible warehouse cube as a click target.
+        // Its six-metre collider surrounds the loading point in the on-foot scene.
+        var legacyInput = FindFirstObjectByType<InputManager>(FindObjectsInactive.Include);
+        if (legacyInput != null && !legacyInput.isActiveAndEnabled && legacyInput.warehouse != null)
+        {
+            var proxy = legacyInput.warehouse;
+            var renderer = proxy.GetComponent<Renderer>();
+            if (renderer != null && !renderer.enabled && proxy.TryGetComponent<BoxCollider>(out var box))
+                box.enabled = false;
+        }
+        if (fuelPost != null) fuelPost.gameObject.SetActive(false);
+        enabled = true;
+    }
+
+    public void OpenFinalFuelStation(FinalInspectionLane inspection)
+    {
+        if (fuel == null || fuelPost == null) return;
+        warehouseOnly = false;
+        fuel.SetFinalInspection(inspection);
+        fuel.gameObject.SetActive(true);
+        fuelPost.gameObject.SetActive(true);
+    }
+
     public void OpenService(bool isFuel)
     {
         Transform post=isFuel?fuelPost:warehousePost;
-        if(Settlement || player==null || player.MapMode || post==null ||
+        if((isFuel && warehouseOnly) || Settlement || player==null || player.MapMode || post==null ||
             !player.CanReachInteraction(DeskPoint(post),interactionRange))return;
         if(fuel!=null)fuel.CancelPlayerFueling();
         fuelMenu=isFuel;PopupIsOpen=true;oldCursor=Cursor.lockState;oldVisible=Cursor.visible;
@@ -45,7 +75,7 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         player.InteractionUIOpen=false;
         Cursor.lockState=player.MapMode?CursorLockMode.None:oldCursor;
         Cursor.visible=player.MapMode||oldVisible;
-        if(player.interactor!=null)player.interactor.inputEnabled=player.ControlsActive;
+        if(player.interactor!=null)player.interactor.inputEnabled=player.ControlsActive && (FirstProductionLoop.Current == null || !FirstProductionLoop.Current.WashToolActive);
     }
     void Update()
     {
@@ -61,7 +91,7 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         if(Settlement || !player.ControlsActive){focused=-1;return;}
         focused=FindDesk();
         if(focused>=0 && keys!=null && keys.fKey.wasPressedThisFrame){OpenService(focused==1);return;}
-        if(fuel==null || keys==null)return;
+        if(warehouseOnly || fuel==null || keys==null)return;
         if(keys.eKey.wasPressedThisFrame)
         {
             if(fuel.PlayerCarryingNozzle)
@@ -100,7 +130,7 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         if(PopupIsOpen){DrawMenu();return;}
         if(!player.ControlsActive)return;
         string text=focused>=0?(focused==0?"F 창고 · 보급자 고용":"F 주유 · 고용/자동화"):null;
-        string fuelHint=fuel!=null?fuel.PlayerInteractionHint(player):null;
+        string fuelHint=!warehouseOnly && fuel!=null?fuel.PlayerInteractionHint(player):null;
         if(fuelHint!=null)text=fuelHint;
         if(text!=null)GUI.Label(new Rect(PrototypeGui.Width*.5f-240,PrototypeGui.Height*.76f,480,30),text);
     }
@@ -122,9 +152,9 @@ public sealed class PrototypeServicesInteraction : MonoBehaviour
         else
         {
             GUILayout.Label("보급자 "+supply.WorkerCount+"명 · 창고에서 부족한 재고로 운반");
-            GUI.enabled=supply.CanHire&&EconomyManager.Instance.currentMoney>=progression.prototypeSettings.hirePrice;
+            GUI.enabled = CanHireSupply;
             if(GUILayout.Button("보급자 1명 고용  "+progression.prototypeSettings.hirePrice,GUILayout.Height(36))){if(TryHireSupply())ClosePopup();}
-            GUILayout.Label("정규·특근 급여 적용 / 한 번에 한 종류 운반");
+            GUILayout.Label(warehouseOnly ? "열린 공정 우선 보급 · 정규·특근 급여 적용" : "정규·특근 급여 적용 / 한 번에 한 종류 운반");
         }
         GUI.enabled=true;GUILayout.FlexibleSpace();
         if(GUILayout.Button("닫기",GUILayout.Height(26)))ClosePopup();

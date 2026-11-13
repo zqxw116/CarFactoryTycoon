@@ -17,7 +17,11 @@ public sealed class FactoryPlayerController : MonoBehaviour
     public Transform holdAnchor;
     public bool MapMode { get; private set; }
     public bool FirstPerson { get; private set; }
-    public bool InteractionUIOpen { get; set; }
+    public FactoryManagementTablet Tablet { get; private set; }
+    public bool TabletOpen => Tablet != null && Tablet.gameObject.activeSelf;
+    bool interactionUIOpen;
+    public bool InteractionUIOpen { get => interactionUIOpen || TabletOpen; set => interactionUIOpen = value; }
+    static Rect TabletButton => new Rect(PrototypeGui.Width - 158f, PrototypeGui.Height - 64f, 146f, 52f);
     public bool ControlsActive => !InteractionUIOpen && !MapMode && PointerInGameView;
     public static bool PointerInGameView => Application.isFocused && Mouse.current != null &&
         Mouse.current.position.ReadValue().x >= 0 && Mouse.current.position.ReadValue().y >= 0 &&
@@ -34,6 +38,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
         get
         {
             var mouse=Mouse.current;
+            if (FirstProductionLoop.Current != null && TabletButton.Contains(PrototypeGui.PointerPosition)) return true;
             if(PrototypePlayerTestControls.PointerOverAdminPanel(mouse))return true;
             if(UnityEngine.EventSystems.EventSystem.current!=null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())return true;
             if(dayHud==null)dayHud=FindFirstObjectByType<PrototypeDayHUD>();
@@ -42,8 +47,9 @@ public sealed class FactoryPlayerController : MonoBehaviour
             return dayHud.BlocksPointer(new Vector2(point.x,Screen.height-point.y));
         }
     }
-    bool grounded, moveBasisActive;
-    float moveYaw;
+    bool grounded;
+    [Min(0f)] public float movementTurnSpeed = 720f;
+    [Min(0f)] public float lookTurnSpeed = 1440f;
     CarController supportCar;
     int supportVersion;
     Vector3 supportLocalPoint;
@@ -61,9 +67,8 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     public Vector3 ResolveMoveDirection(Vector2 input)
     {
-        if(input.sqrMagnitude < .0001f){moveBasisActive=false;return Vector3.zero;}
-        if(!moveBasisActive){moveYaw=yaw;moveBasisActive=true;}
-        var direction=Quaternion.Euler(0,moveYaw,0)*new Vector3(input.x,0,input.y);
+        if(input.sqrMagnitude < .0001f)return Vector3.zero;
+        var direction=Quaternion.Euler(0,yaw,0)*new Vector3(input.x,0,input.y);
         return Vector3.ClampMagnitude(direction,1f);
     }
     public bool CanReachInteraction(Vector3 point,float range)
@@ -89,7 +94,6 @@ public sealed class FactoryPlayerController : MonoBehaviour
         controller.Move(delta);
         var turn=supportCar.transform.rotation*Quaternion.Inverse(supportRotation);
         transform.rotation=turn*transform.rotation;
-        if(moveBasisActive)moveYaw+=Mathf.DeltaAngle(0,turn.eulerAngles.y);
         supportRotation=supportCar.transform.rotation;
     }
     void RememberSupport(RaycastHit ground)
@@ -102,6 +106,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     int speedId=Animator.StringToHash("Speed"), motionId=Animator.StringToHash("MotionSpeed");
     int groundId=Animator.StringToHash("Grounded"), jumpId=Animator.StringToHash("Jump"), fallId=Animator.StringToHash("FreeFall");
+    static readonly int jumpPhaseId = Animator.StringToHash("JumpPhase");
     int moveXId=Animator.StringToHash("MoveX"), moveZId=Animator.StringToHash("MoveZ");
 
     void Awake()
@@ -131,6 +136,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     public void SetFirstPerson(bool value)
     {
+        if (TabletOpen) return;
         FirstPerson = value;
         if (firstPersonCamera != null) firstPersonCamera.Priority = value ? 20 : 10;
         if (thirdPersonCamera != null) thirdPersonCamera.Priority = value ? 10 : 20;
@@ -150,14 +156,33 @@ public sealed class FactoryPlayerController : MonoBehaviour
     }
     public void SetMapMode(bool value)
     {
+        var loop = FirstProductionLoop.Current;
+        if (value && loop != null)
+        {
+            if (InteractionUIOpen || PrototypeDayCycle.SettlementOpen || viewCamera == null) return;
+            if (Tablet == null)
+            {
+                var device = new GameObject("현장 관리 태블릿");
+                device.transform.SetParent(transform, false);
+                Tablet = device.AddComponent<FactoryManagementTablet>();
+                Tablet.Initialize(this, loop);
+            }
+            Tablet.Open();
+            loop.ShowWashGun(false);
+        }
+        else if (!value && TabletOpen)
+        {
+            Tablet.gameObject.SetActive(false);
+            if (loop != null) loop.ShowWashGun(loop.WashToolActive);
+        }
         MapMode = value;
         if (brain != null) brain.enabled = !value;
-        if (mapCamera != null) { mapCamera.enabled=value; if(value)mapCamera.SetOverview(true); }
+        if (mapCamera != null) { mapCamera.enabled=value && !TabletOpen; if(mapCamera.enabled)mapCamera.SetOverview(true); }
         if (!value && viewCamera != null) viewCamera.orthographic=false;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        if(interactor!=null)interactor.inputEnabled=!value;
-        SetFirstPerson(FirstPerson);
+        if(interactor!=null)interactor.inputEnabled=!value && !InteractionUIOpen && (loop == null || !loop.WashToolActive);
+        SetFirstPersonBodyHidden(FirstPerson && !value);
     }
     void Update()
     {
@@ -165,14 +190,38 @@ public sealed class FactoryPlayerController : MonoBehaviour
         // Escape always makes the pointer available, including during settlement or while a UI is open.
         if(keyboard!=null && keyboard.escapeKey.wasPressedThisFrame)
         { Cursor.lockState=CursorLockMode.None; Cursor.visible=true; }
-        if(PrototypeDayCycle.Current!=null && PrototypeDayCycle.Current.IsSettlement) {if(interactor!=null)interactor.inputEnabled=false;return;}
-        if(keyboard!=null && keyboard.tabKey.wasPressedThisFrame) SetMapMode(!MapMode);
-        if(!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);
+        if(PrototypeDayCycle.SettlementOpen)
+        {
+            if (TabletOpen) SetMapMode(false);
+            if(interactor!=null)interactor.inputEnabled=false;
+            return;
+        }
+        bool touch = Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasReleasedThisFrame;
+        bool click = mouse != null && mouse.leftButton.wasReleasedThisFrame;
+        if (TabletOpen)
+        {
+            if (keyboard != null && (keyboard.tabKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
+                SetMapMode(false);
+            else if (touch || click)
+                Tablet.Tap(touch ? Touchscreen.current.primaryTouch.position.ReadValue() : mouse.position.ReadValue());
+        }
+        else if (!InteractionUIOpen)
+        {
+            bool open = keyboard != null && keyboard.tabKey.wasPressedThisFrame;
+            if (FirstProductionLoop.Current != null && (touch || click))
+            {
+                var point = touch ? Touchscreen.current.primaryTouch.position.ReadValue() : mouse.position.ReadValue();
+                open |= PrototypeGui.ToScreenRect(TabletButton).Contains(new Vector2(point.x, Screen.height-point.y));
+            }
+            if (open) SetMapMode(!MapMode);
+            else if (!MapMode && keyboard!=null && keyboard.cKey.wasPressedThisFrame)SetFirstPerson(!FirstPerson);
+        }
         // Clicking any visible admin control must remain a UI click, never cursor recapture or a hammer hit.
         bool overAdminPanel=PrototypePlayerTestControls.PointerOverAdminPanel(mouse);
         bool overGameUI=PointerOverInterface;
-        if(interactor!=null)interactor.inputEnabled=ControlsActive&&!overAdminPanel&&!overGameUI;
-        if(ControlsActive && mouse!=null && mouse.rightButton.isPressed)
+        if(interactor!=null)interactor.inputEnabled=ControlsActive&&!overAdminPanel&&!overGameUI&&(FirstProductionLoop.Current==null||!FirstProductionLoop.Current.WashToolActive);
+        bool looking=ControlsActive && !overGameUI && mouse!=null && mouse.rightButton.isPressed;
+        if(looking)
         {
             RotateView(mouse.delta.ReadValue()*settings.lookSensitivity);
         }
@@ -182,11 +231,11 @@ public sealed class FactoryPlayerController : MonoBehaviour
             move=new Vector2((keyboard.dKey.isPressed?1:0)-(keyboard.aKey.isPressed?1:0),(keyboard.wKey.isPressed?1:0)-(keyboard.sKey.isPressed?1:0));
             sprint=keyboard.leftShiftKey.isPressed; jump=keyboard.spaceKey.wasPressedThisFrame;
         }
-        SimulateMovement(move,sprint,jump,Time.deltaTime);
+        SimulateMovement(move,sprint,jump,Time.deltaTime,looking);
         if(transform.position.y < -12f)Teleport(SpawnPoint);
     }
     /// <summary>Same path for live input and deterministic movement checks.</summary>
-    public void SimulateMovement(Vector2 input, bool sprint, bool jump, float dt)
+    public void SimulateMovement(Vector2 input, bool sprint, bool jump, float dt, bool looking = false)
     {
         if(controller==null)controller=GetComponent<CharacterController>();
         Physics.SyncTransforms();
@@ -206,8 +255,11 @@ public sealed class FactoryPlayerController : MonoBehaviour
         if(tookOff){verticalSpeed=Mathf.Sqrt(2f*settings.jumpHeight*-settings.playerGravity);grounded=false;BeltVelocity=Vector3.zero;}
         verticalSpeed+=settings.playerGravity*dt;
         var direction=ResolveMoveDirection(input);
-        if(direction.sqrMagnitude>.001f)
-            transform.rotation=Quaternion.Slerp(transform.rotation,Quaternion.LookRotation(direction),Mathf.Clamp01(14f*dt));
+        if(direction.sqrMagnitude>.001f || looking)
+        {
+            var facing=direction.sqrMagnitude>.001f?Quaternion.LookRotation(direction):Quaternion.Euler(0,yaw,0);
+            transform.rotation=Quaternion.RotateTowards(transform.rotation,facing,(looking?lookTurnSpeed:movementTurnSpeed)*Mathf.Max(0f,dt));
+        }
         if(bodyAnimator!=null && bodyAnimator.transform!=transform)bodyAnimator.transform.localRotation=Quaternion.identity;
         if(holdAnchor!=null && holdAnchor.parent==transform)holdAnchor.localRotation=Quaternion.identity;
         float speed=sprint?settings.playerSprintSpeed:settings.playerWalkSpeed;
@@ -231,14 +283,20 @@ public sealed class FactoryPlayerController : MonoBehaviour
             bodyAnimator.SetFloat(moveXId,localPlanarVelocity.x);
             bodyAnimator.SetFloat(moveZId,localPlanarVelocity.z);
             bodyAnimator.SetBool(groundId,grounded);
+            // The run-up and landing are in the same take. Drive the airborne section with the
+            // capsule velocity so a ledge, low ceiling or moving car cannot desync the pose.
+            float launchSpeed = Mathf.Sqrt(2f * settings.jumpHeight * -settings.playerGravity);
+            float flight = Mathf.Clamp01(.5f - verticalSpeed / Mathf.Max(.01f, 2f * launchSpeed));
+            bodyAnimator.SetFloat(jumpPhaseId, Mathf.Lerp(.30f, .72f, flight));
             bodyAnimator.SetBool(jumpId,tookOff);
             bodyAnimator.SetBool(fallId,!grounded && verticalSpeed<-3f);
         }
     }
     public void Teleport(Vector3 position)
-    { if(controller==null)controller=GetComponent<CharacterController>();ClearSupport();controller.enabled=false;transform.position=position;controller.enabled=true;verticalSpeed=0;moveBasisActive=false; }
+    { if(controller==null)controller=GetComponent<CharacterController>();ClearSupport();controller.enabled=false;transform.position=position;controller.enabled=true;verticalSpeed=0; }
     void LateUpdate()
     {
+        if (TabletOpen) { Tablet.FrameCamera(); return; }
         if(MapMode || viewCamera==null)return;
         var q=Quaternion.Euler(pitch,yaw,0);
         var eye=transform.position+Vector3.up*1.62f;
@@ -262,6 +320,7 @@ public sealed class FactoryPlayerController : MonoBehaviour
     void OnLand(AnimationEvent e) { }
     void OnDisable()
     {
+        if (TabletOpen) SetMapMode(false);
         Cursor.lockState=CursorLockMode.None;Cursor.visible=true;
         ClearSupport();
         SetFirstPersonBodyHidden(false);
@@ -269,7 +328,10 @@ public sealed class FactoryPlayerController : MonoBehaviour
     void OnGUI()
     {
         using var gui=PrototypeGui.Scope();
-        GUI.Label(new Rect(18,14,800,25),"WASD 이동 · Shift 달리기 · Space 점프 · C 1/3인칭 · Tab 지도 · 우클릭 드래그 시점");
+        if (TabletOpen || PrototypeDayCycle.SettlementOpen) return;
+        bool hasTablet = FirstProductionLoop.Current != null;
+        GUI.Label(new Rect(18,14,800,25),"WASD 이동 · Shift 달리기 · Space 점프 · C 1/3인칭 · Tab " + (hasTablet ? "태블릿" : "지도") + " · 우클릭 드래그 시점");
+        if (hasTablet && !InteractionUIOpen) GUI.Box(TabletButton, "관리 태블릿  [Tab]", GUI.skin.button);
         if(!MapMode && !InteractionUIOpen)
             GUI.Label(new Rect(PrototypeGui.Width/2-160,PrototypeGui.Height-36,320,25),"마우스 자유 이동 · 우클릭 드래그로 시점 회전");
     }

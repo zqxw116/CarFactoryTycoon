@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>Solid, inexpensive exterior proxy; the root trigger still detects production stations.</summary>
 [DisallowMultipleComponent]
@@ -10,10 +10,10 @@ public sealed class CarBodyCollision : MonoBehaviour
     static Vector3 sharedCenter, sharedSize;
     static readonly Collider[] actorOverlaps = new Collider[32];
 
-    public static CarBodyCollision EnsureCreated(GameObject vehicleRoot)
+    public static CarBodyCollision EnsureCreated(GameObject vehicleRoot,bool sanitizeParts=true)
     {
         if (vehicleRoot == null) return null;
-        foreach (var part in vehicleRoot.GetComponentsInChildren<AssemblyPart>(true))
+        if(sanitizeParts)foreach (var part in vehicleRoot.GetComponentsInChildren<AssemblyPart>(true))
         {
             foreach (var child in part.GetComponentsInChildren<Transform>(true))
                 if (child.gameObject != vehicleRoot && child.name != "Origin") child.gameObject.layer = 9;

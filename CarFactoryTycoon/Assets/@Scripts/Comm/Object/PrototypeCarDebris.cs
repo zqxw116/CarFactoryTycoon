@@ -15,7 +15,14 @@ public sealed class PrototypeCarDebris : MonoBehaviour
 
     public static void Drop(AssemblyPart part) { if (part != null) Burst(new[] { part }); }
 
-    public static void Burst(AssemblyPart[] parts)
+    public static void DropSideways(AssemblyPart part, CarController car)
+    {
+        if (part != null && car != null) Burst(new[] { part }, car);
+    }
+
+    public static void Burst(AssemblyPart[] parts) => Burst(parts, null);
+
+    static void Burst(AssemblyPart[] parts, CarController rollerCar)
     {
         if (parts == null) return;
         PruneDestroyed();
@@ -77,6 +84,11 @@ public sealed class PrototypeCarDebris : MonoBehaviour
                 Vector3 direction = Vector3.Slerp(horizontal.normalized, Random.onUnitSphere, .45f);
                 direction.y = Random.Range(.45f, 1.15f);
                 Vector3 burstDirection = direction.normalized * Random.Range(3.2f, 5.4f);
+                if (rollerCar != null)
+                {
+                    float side = Vector3.Dot(source.bounds.center - rollerCar.transform.position, rollerCar.transform.right);
+                    burstDirection = rollerCar.transform.right * (side < 0f ? -4f : 4f) + Vector3.up * 2.2f;
+                }
                 body.AddForce(burstDirection, ForceMode.VelocityChange);
                 body.AddTorque(Random.insideUnitSphere * 2.4f, ForceMode.VelocityChange);
                 var lifetime = go.AddComponent<PrototypeCarDebris>();

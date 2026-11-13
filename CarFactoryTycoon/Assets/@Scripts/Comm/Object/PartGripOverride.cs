@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 사람 작업자가 두 손으로 부품을 잡을 지점(부품 로컬)을 수동으로 지정한다 — 선택 사항.
@@ -10,6 +10,23 @@ using UnityEngine;
 /// </summary>
 public class PartGripOverride : MonoBehaviour
 {
+    public bool explicitHands;
+    [HideInInspector] public bool authoredByProcess;
+    [HideInInspector] public Vector3 processCarryEuler;
+    [System.NonSerialized] public ProcessGripSettings processPose;
+    bool baselineEnabled,baselineExplicit;
+    Vector3 baselineA,baselineB,baselineFinger;
+    public void BeginProcessOverride()
+    {
+        if(authoredByProcess)return;
+        baselineEnabled=enabled;baselineExplicit=explicitHands;baselineA=gripA;baselineB=gripB;baselineFinger=fingerDir;
+        authoredByProcess=true;
+    }
+    public void ClearProcessOverride()
+    {
+        if(!authoredByProcess)return;
+        enabled=baselineEnabled;explicitHands=baselineExplicit;gripA=baselineA;gripB=baselineB;fingerDir=baselineFinger;authoredByProcess=false;processPose=null;
+    }
     [Tooltip("잡이 지점 A (부품 로컬, m).")]
     public Vector3 gripA = new Vector3(-0.3f, 0f, 0f);
 
@@ -21,6 +38,7 @@ public class PartGripOverride : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+        if(authoredByProcess||GetComponentInParent<PartStack>()!=null)return;
         Gizmos.color = new Color(0.2f, 1f, 0.4f, 1f);
         Vector3 a = transform.TransformPoint(gripA), b = transform.TransformPoint(gripB);
         Gizmos.DrawWireSphere(a, 0.04f);

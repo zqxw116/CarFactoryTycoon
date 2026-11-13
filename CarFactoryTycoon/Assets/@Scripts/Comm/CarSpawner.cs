@@ -36,16 +36,20 @@ public class CarSpawner : MonoBehaviour
         RequestFeedbackChanged?.Invoke(value);
     }
 
-    public bool RequestVehicle()
+    public bool RequestVehicle() => QueueVehicle(true);
+
+    public bool RequestAutomaticVehicle() => QueueVehicle(false);
+
+    bool QueueVehicle(bool manual)
     {
-        if (!manualInput) return false;
+        if (!manualInput || PrototypeDayCycle.SettlementOpen) return false;
         if (PendingCount >= Mathf.Max(1, queueCapacity))
         {
-            SetRequestFeedback(RequestFeedback.Full);
+            if (manual) SetRequestFeedback(RequestFeedback.Full);
             return false;
         }
         PendingCount++;
-        TotalManualRequestsAccepted++;
+        if (manual) TotalManualRequestsAccepted++;
         if (PendingCount == 1) preparationRemaining = Mathf.Max(0f, manualPreparationSeconds);
         SetRequestFeedback(RequestFeedback.Accepted);
         return true;
@@ -74,6 +78,7 @@ public class CarSpawner : MonoBehaviour
 
     private void Update()
     {
+        if (PrototypeDayCycle.SettlementOpen) return;
         // 라인 속도 배율이 높을수록 생성도 빨라짐
         if (manualInput)
         {
@@ -119,7 +124,8 @@ public class CarSpawner : MonoBehaviour
         if (car == null) return false;
 
         car.SetPath(mainLineSpline, (manualInput ? globalLineSpeed : globalLineSpeed * SpeedMultiplier), startProgress);
-        if (ProductionProgression.Current != null) ProductionProgression.Current.Stamp(car);
+        if(FirstProductionLoop.Current!=null&&FirstProductionLoop.Current.Owns(this))FirstProductionLoop.Current.Stamp(car);
+        else if (ProductionProgression.Current != null) ProductionProgression.Current.Stamp(car);
         return true;
     }
 

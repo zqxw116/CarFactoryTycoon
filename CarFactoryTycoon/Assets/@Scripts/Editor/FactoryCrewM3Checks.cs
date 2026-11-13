@@ -132,10 +132,10 @@ public static class FactoryCrewM3Checks
     {
         Require(progression.prototypeMode, "Prototype mode is off");
         Require(progression.HiredPrefix == 0, "Prototype mode must keep the legacy prefix at zero");
-        Require(progression.processes != null && progression.processes.Length == 23, "Expected 23 process entries");
+        Require(progression.processes != null && progression.processes.Length == 26, "Expected 26 process entries");
         foreach (var process in progression.processes)
             Require(!process.hired && !process.automated && process.workerLevel == 0, "A process did not start unstaffed");
-        log.AppendLine("All 23 processes start unhired, unautomated, level 0; full-line prototype prefix remains 0: passed.");
+        log.AppendLine("All 26 processes start unhired, unautomated, level 0; full-line prototype prefix remains 0: passed.");
 
         economy.currentMoney = 0;
         Require(progression.TryHireProcess(20), "Arbitrary process 20 could not be hired first");
@@ -225,7 +225,7 @@ public static class FactoryCrewM3Checks
         yield return CheckRobotAssembly(1);
         int wheelIndex = FindWheelProcess();
         Require(wheelIndex >= 0, "No wheel process entry found");
-        yield return CheckWheelAssembly(wheelIndex);
+        for (int i = wheelIndex; i < wheelIndex + 4; i++) yield return CheckWheelAssembly(i);
         CheckHiringUI();
     }
 
@@ -253,41 +253,19 @@ public static class FactoryCrewM3Checks
     static IEnumerator CheckWheelAssembly(int processIndex)
     {
         var entry = progression.processes[processIndex];
-        Require(entry.wheel != null, "WheelStation reference missing");
-        Require(entry.workers != null && entry.workers.Length == 2 && entry.workers[0] != null && entry.workers[1] != null,
-            "Wheel process does not have the expected two workers");
-        Require(progression.TryHireProcess(processIndex), "Wheel process human hire failed");
-        Require(entry.wheel.gameObject.activeInHierarchy && !entry.wheel.isActiveAndEnabled,
-            "Wheel lift hardware is not preserved with its legacy gate disabled");
-
+        Require(entry.parts.Length == 1 && entry.workers.Length == 1 && entry.robots.Length == 1 && entry.humanStation.partStacks.Length == 1,
+            "Each wheel needs a dedicated worker, arm, stock and part");
+        var stock = entry.humanStation.partStacks[0];
+        Require(entry.parts[0] == stock.partType && entry.parts[0] == entry.robots[0].targetPartType, "Wheel assignment mismatch");
+        Require(progression.TryHireProcess(processIndex), "Wheel hire failed");
         var crew = FindCrew(processIndex);
-        int completedBefore = crew.CompletedPartCount;
-        int strikesBefore = crew.StrikeCount;
+        int count = stock.Count, hits = crew.StrikeCount, completed = crew.CompletedPartCount;
         var car = CreateCar(processIndex);
-        var wheelParts = new List<AssemblyPart>();
-        foreach (var type in entry.parts)
-        {
-            var part = FindPart(car, type);
-            Require(part != null, "Wheel part missing from car: " + type);
-            wheelParts.Add(part);
-        }
-        Require(wheelParts.Count == 4, "Wheel process must cover four parts");
-        yield return WaitForPartCount(crew, completedBefore + 4, 45f, "Two-worker wheel process did not finish within 45 game seconds");
-        foreach (var part in wheelParts) Require(part.IsAssembled, "Wheel part was left incomplete: " + part.myType);
-        Require(crew.StrikeCount - strikesBefore == 12, "Wheel process did not apply 3 hits to each of four wheels");
-        foreach (var worker in entry.workers)
-        {
-            Require(Mathf.Abs(worker.condition - 50f) < .1f, "Each wheel worker should finish at condition 50");
-            Require(!worker.IsResting && worker.currentState != Worker.WorkerState.Resting, "Wheel worker entered legacy forced rest");
-        }
-        int pulses = 0;
-        foreach (var worker in entry.workers)
-        {
-            var effect = worker.GetComponent<PrototypeAssemblyEffects>();
-            if (effect != null) pulses += effect.PulseCount;
-        }
-        Require(pulses == 12, "Wheel workers did not produce twelve visible hit pulses");
-        log.AppendLine("Wheel lift hardware remains active without its stopping component; two workers assemble four wheels / 12 hits / 50 condition each: passed.");
+        var wheel = FindPart(car, entry.parts[0]);
+        Require(wheel != null, "Car wheel missing");
+        yield return WaitForPartCount(crew, completed + 1, 45f, "Wheel worker did not finish " + entry.displayName);
+        Require(wheel.IsAssembled && stock.Count == count - 1 && crew.StrikeCount == hits + 3, "Wheel stock, fastening or strikes mismatch");
+        log.AppendLine("Independent wheel completed: " + entry.displayName);
         ReturnTestCar(car);
         yield return null;
     }
@@ -309,8 +287,8 @@ public static class FactoryCrewM3Checks
 
     static void CheckHiringUI()
     {
-        Require(hiringUI != null && hiringUI.postsRoot != null && hiringUI.postsRoot.childCount == 23,
-            "Hiring UI or 23 generated placards missing");
+        Require(hiringUI != null && hiringUI.postsRoot != null && hiringUI.postsRoot.childCount == 26,
+            "Hiring UI or 26 generated placards missing");
         player.SetMapMode(true);
         hiringUI.OpenProcess(0);
         Require(!hiringUI.PopupIsOpen, "Remote/map hiring opened a popup");
@@ -380,7 +358,7 @@ public static class FactoryCrewM3Checks
     static int FindWheelProcess()
     {
         for (int i = 0; i < progression.processes.Length; i++)
-            if (progression.processes[i] != null && progression.processes[i].wheel != null) return i;
+            if (progression.processes[i] != null && WheelProcessMigration.IsWheel(progression.processes[i].parts[0])) return i;
         return -1;
     }
 

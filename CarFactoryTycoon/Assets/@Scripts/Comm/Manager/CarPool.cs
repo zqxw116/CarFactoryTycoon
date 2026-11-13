@@ -24,7 +24,9 @@ public class CarPool : GameObjectSingleton<CarPool>
         activeRoot.SetParent(transform, false);
 
         // 차량 프리팹은 인스펙터 연결 없이 실행 시 Resources에서 로드한다.
-        carPrefab = Resources.Load<GameObject>(prefabResourcePath);
+        var profile=ProductionProgression.Current!=null?ProductionProgression.Current.authoringProfile:null;
+        var model=profile!=null?profile.FindVehicle(profile.defaultVehicleId):null;
+        carPrefab=profile!=null?(model!=null?model.prefab:null):Resources.Load<GameObject>(prefabResourcePath);
         if (carPrefab == null)
         {
             Debug.LogError($"[CarPool] 차량 프리팹 로드 실패: Resources/{prefabResourcePath}");
@@ -56,6 +58,8 @@ public class CarPool : GameObjectSingleton<CarPool>
         car.transform.SetParent(activeRoot, true); // 활성 차량 컨테이너로 이동
         // 폐기 연출(방수 테스트 해치 등)로 줄어든 스케일이 남아 있지 않도록 프리팹 스케일로 복원
         if (carPrefab != null) car.transform.localScale = carPrefab.transform.localScale;
+        var profile=ProductionProgression.Current!=null?ProductionProgression.Current.authoringProfile:null;
+        if(profile!=null)ProcessAuthoringLayout.ApplyVehicle(car,profile,profile.defaultVehicleId);
         car.gameObject.SetActive(true);
         return car;
     }

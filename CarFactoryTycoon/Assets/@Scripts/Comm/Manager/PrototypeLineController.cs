@@ -85,7 +85,7 @@ public sealed class PrototypeLineController : MonoBehaviour
     }
     void OnGUI()
     {
-        if(settings==null || spawner==null || player!=null && !player.MapMode)return;
+        if(settings==null || spawner==null || player!=null && (!player.MapMode || player.TabletOpen))return;
         using var gui=PrototypeGui.Scope();
         GUI.Box(panel,"라인 · 대기 "+spawner.PendingCount+"/"+spawner.queueCapacity+" · "+CurrentSpeed.ToString("0.00")+" m/s");
         GUI.Label(new Rect(panel.x+12,panel.y+35,panel.width-24,50),"가까이에서 망치로 터널을 두드려 투입 / 레버를 두드려 속도 전환");

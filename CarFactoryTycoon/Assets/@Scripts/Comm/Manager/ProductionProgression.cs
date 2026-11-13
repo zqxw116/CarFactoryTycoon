@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Splines;
@@ -11,14 +11,18 @@ public sealed class ProductionProgression : MonoBehaviour
     [Serializable] public class ProcessEntry
     {
         public string displayName;
+        public string authoringId;
         public int row;
         public PartType[] parts;
         public WorkerStation humanStation;
         public Worker[] workers;
         public StationController[] robots;
         public GameObject humanRoot;
+        public Transform hiringPost;
         public GameObject[] robotDecor;
         public WheelStation wheel;
+        public Transform wheelPlatform;
+        public Transform Platform => wheelPlatform != null ? wheelPlatform : wheel != null ? wheel.liftPlatform : null;
         public float gateProgress;
         public bool hired;
         public bool automated;
@@ -33,6 +37,9 @@ public sealed class ProductionProgression : MonoBehaviour
         public int[] levels;
     }
     public static ProductionProgression Current {get;private set;}
+    public ProcessAuthoringProfile authoringProfile;
+    public FuelStation authoringFuelStation;
+    public float authoringFuelAnchorProgress;
     public SplineContainer mainSpline;
     public SplineConveyorDeformer conveyor;
     public ProcessEntry[] processes;
@@ -66,10 +73,14 @@ public sealed class ProductionProgression : MonoBehaviour
     EconomyManager economy;
     const string SaveKey="CarFactoryTycoon.Production.v1";
 
+    ProcessAuthoringProfile runtimeProfile;
     void Awake()
     {
         Current=this;
         if(processes==null||processes.Length==0){enabled=false;Current=null;return;}
+        var runtime = WheelProcessMigration.ForRuntime(authoringProfile);
+        if (runtime != authoringProfile) authoringProfile = runtimeProfile = runtime;
+        WheelProcessMigration.ExpandScene(this, GetComponent<ProcessAuthoringPreview>());
         economy=EconomyManager.Instance;
         if(prototypeMode)
         {
@@ -86,9 +97,10 @@ public sealed class ProductionProgression : MonoBehaviour
             for(int i=0;i<processes.Length;i++) processes[i].hired=i<HiredPrefix;
         }
         ConfigurePickupSlots();
+        ProcessAuthoringLayout.Apply(this, authoringProfile);
         ApplyAll();
     }
-    void ConfigurePickupSlots()
+    public void ConfigurePickupSlots()
     {
         foreach(var entry in processes)
         {
@@ -99,6 +111,8 @@ public sealed class ProductionProgression : MonoBehaviour
                 var stack=stacks[i];if(stack==null)continue;
                 StationController robot=null;
                 if(entry.robots!=null)foreach(var candidate in entry.robots)if(candidate!=null && candidate.targetPartType==stack.partType){robot=candidate;break;}
+                if(robot!=null && robot.stationPileMesh!=null && robot.stationPileMesh!=stack.gameObject)robot.stationPileMesh.SetActive(false);
+                if(ProcessAuthoringLayout.HasStock(this,entry,stack))continue;
                 Vector3 position;Quaternion rotation=stack.GetTopSlotWorldRot();
                 if(robot!=null && robot.stationPilePos!=null)
                 {
@@ -196,10 +210,12 @@ public sealed class ProductionProgression : MonoBehaviour
     public bool TryHireProcess(int index)
     {
         if(!prototypeMode||!ValidProcessIndex(index))return false;
+        var loop = FirstProductionLoop.Current;
+        if (loop != null && loop.progression == this && !loop.CanInvestAt(index)) return false;
         var process=processes[index];
         if(process.hired||process.automated||!CanSwitch(process))return false;
         var manager=EconomyManager.Instance;
-        int cost=prototypeSettings!=null?prototypeSettings.hirePrice:0;
+        int cost = loop != null && loop.progression == this ? loop.settings.firstHireCost : prototypeSettings != null ? prototypeSettings.hirePrice : 0;
         if(manager==null||!manager.TrySpend(cost))return false;
         process.hired=true;
         SelectedProcess=index;
@@ -211,6 +227,8 @@ public sealed class ProductionProgression : MonoBehaviour
     public bool TryPurchaseRobot(int index)
     {
         if(!prototypeMode||!ValidProcessIndex(index))return false;
+        var loop = FirstProductionLoop.Current;
+        if (loop != null && loop.progression == this && !loop.CanInvestAt(index)) return false;
         var process=processes[index];
         if(process.automated||!CanSwitch(process))return false;
         var manager=EconomyManager.Instance;
@@ -289,6 +307,8 @@ public sealed class ProductionProgression : MonoBehaviour
     {
         if(p.workers!=null)foreach(var w in p.workers)if(w!=null)w.assembleSpeed=4f*(1f+.5f*p.workerLevel);
     }
+    public void RefreshProcess(int index)
+    { if(ValidProcessIndex(index))ApplyProcess(processes[index]); }
     void ApplyProcess(ProcessEntry p)
     {
         if(prototypeMode)
@@ -417,12 +437,25 @@ public sealed class ProductionProgression : MonoBehaviour
         try
         {
             var d=JsonUtility.FromJson<SaveData>(PlayerPrefs.GetString(SaveKey));
-            if(d==null||d.version!=1||d.automated==null||d.levels==null||d.experienced==null||d.automated.Length!=processes.Length||d.levels.Length!=processes.Length||d.experienced.Length!=processes.Length)return;
-            HiredPrefix=Mathf.Clamp(d.prefix,1,processes.Length);EconomyManager.Instance.currentMoney=Mathf.Max(0,d.money);
-            for(int i=0;i<processes.Length;i++){processes[i].automated=d.automated[i];processes[i].workerLevel=Mathf.Clamp(d.levels[i],0,3);processes[i].experienced=d.experienced[i];}
+            if (d == null || d.version != 1 || d.automated == null || d.levels == null || d.experienced == null) return;
+            int count = d.automated.Length;
+            if (count != d.levels.Length || count != d.experienced.Length) return;
+            int firstWheel = Array.FindIndex(processes, p => p.parts.Length == 1 && p.parts[0] == PartType.Wheel_FrontRight_41);
+            bool oldTeam = count == processes.Length - 3 && firstWheel >= 0;
+            if (count != processes.Length && !oldTeam) return;
+            HiredPrefix = Mathf.Clamp(d.prefix + (oldTeam && d.prefix > firstWheel ? 3 : 0), 1, processes.Length);
+            EconomyManager.Instance.currentMoney = Mathf.Max(0, d.money);
+            for (int i = 0; i < processes.Length; i++)
+            {
+                int source = oldTeam && i > firstWheel ? Mathf.Max(firstWheel, i - 3) : i;
+                processes[i].automated = d.automated[source];
+                processes[i].workerLevel = Mathf.Clamp(d.levels[source], 0, 3);
+                processes[i].experienced = d.experienced[source];
+            }
         }
         catch(Exception e){Debug.LogWarning("[Production] Save could not be read: "+e.Message);}
     }
+    void OnDestroy() { if (runtimeProfile != null) Destroy(runtimeProfile); }
     void OnApplicationPause(bool pause){if(pause)Save();}
     void OnApplicationQuit(){Save();}
     void OnDisable()

@@ -68,7 +68,7 @@ public static class FactoryPrototypeServicesChecks
         yield return Until(()=>target.Count>before,60,"real navigation and stock unloading");
         Require(target.Count<=target.Capacity,"no duplicate/over-capacity stock");
         Require(services.TryHireSupply()&&supply.WorkerCount==2,"second free supply hire");
-        var wheel=p.processes.First(x=>x.wheel!=null).wheel.humanPartStacks;
+        var wheel=p.processes.Where(x=>WheelProcessMigration.IsWheel(x.parts[0])).SelectMany(x=>x.humanStation.partStacks).ToArray();
         wheel[0].TryConsume();wheel[1].TryConsume();
         var second=supply.supplyWorkers.Last(w=>w!=null&&w.gameObject.activeInHierarchy);
         SupplyManager.SupplyTarget a=default,b=default;
@@ -115,7 +115,7 @@ public static class FactoryPrototypeServicesChecks
         eco.Earn(expectedRegular+15);Require(services.TryHireSupply(),"debt repayment unlocks warehouse hire");
 
         var process=p.processes[0];Require(p.TryHireProcess(0),"audio worker hire");
-        car=CarPool.Instance.Get();car.SetPath(p.mainSpline,0,process.gateProgress+.05f/p.mainSpline.CalculateLength());p.Stamp(car);
+        car=CarPool.Instance.Get();car.SetPath(p.mainSpline,1.2f,process.gateProgress+.05f/p.mainSpline.CalculateLength());p.Stamp(car);
         var part=car.GetComponentsInChildren<AssemblyPart>(true).First(x=>x.myType==process.parts[0]);
         yield return Until(()=>part.IsAssembled,25,"real work and sound");
         var audio=UnityEngine.Object.FindFirstObjectByType<PrototypeWorkAudio>();

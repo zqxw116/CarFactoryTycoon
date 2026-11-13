@@ -1771,3 +1771,169 @@ Unity MCP 8080 연결 확인 후 실제 테스트 진행. 망치 누락 원인 �
 - 기존검사회귀 PASS: FactoryAssemblyM2Checks 실제26슬롯부착/77도메인타격/3타·2타·중복금지/검사/부분수리/마감/초기화. M2의 옛 입력모델검사는 명시API검사로 이관하고 물리타격과 구분했다. FactoryCharacterChecks(true,true) 실제머리접촉0→5/허공0/16방향/점프3상태1.176m/고정그립/NPC실제망치모션3타완료1, 누락0/깨진참조0/Humanoid29. Services 실제보급이동·하역/예약·양손상자, 수동·고용·자동주유,임금·부채·다음날·음향 PASS.
 - 최종 Feedback23항목/Responsive3해상도·10초자동정산을 분리실행. M2는 FullCar를 진단용으로 남겨두므로 이후 같은위치 차량지지검사는 fresh Play에서실행(겹친두차의 지지대상 비교오류 방지). 독립최종검토 중요결함없음. 빌드/전공정장시간자연플레이 및 발·운반동작의 주관적 자연스러움은 미검증. 대시보드Y90도/트렁크 등 재고끼리전체미술배치는 저우선순위잔여.
 - GAME_DESIGN 최신외피/슬롯/깊이규칙, HANDOFF 현재상태 및 계획의 플레이어확정을 갱신했다. 커밋/원격 검증과 Notion 기록은 해당 Git/Notion 날짜행에서 추적한다.
+
+## 2026-11-04 — 공정 편집 도구 요구사항·정차 규칙 확정 및 설계 초안
+
+사용자는 카메라 회전 반영 이동, 고용 공정 작업자 로봇 외형, 공정·차종·주체·재고/집기 슬롯·대기/정차/감지 영역·경로를 편집/저장하고 메인에서 공유하는 새 테스트 환경을 요청했다. 추가 답변으로 메인 작업자 공정도 정차 체결하며 작업 가능한 경우에만 정지/준비 불가 시 통과/취소 시 해제를 확정했다. 기존 Animation Rigging으로 도구·엔진/문/주유 검증부터 시작한다.
+
+현행 코드와 Unity 편집 상태를 읽기 전용 조사했다. 메인 Worker26개가 Helmet Avatar/Animator.humanScale97.80041을 참조함을 확인했으나 고용 후 비가시성 원인은 아직 런타임 미재현이다. RobotKyle 원본은 남아 있다. 기존 저장은 로봇 단일 부품 중심이고 슬롯 자동 계산과 별도 테스트 이동기, 레거시와 prototype 작업 소유권이 충돌할 수 있어 공통 설정/실행 경계가 필요하다. laneWidth가 실제 레일 폭이 아닌 점도 확인했다.
+
+개발관리/이슈/process-authoring/spec.md에 설계 검토본, 임시/PROCESS_AUTHORING_INTAKE_2026-11-04.md에 요구사항·조사 근거를 남기고 목록/HANDOFF/GAME_DESIGN의 확정 결정만 연결했다. 설계의 재시도/저장 UX 등 제안은 승인 전이며 구현 완료로 기록하지 않는다. 코드·씬·아트 수정, Play 검증, 외부 게시, 커밋·푸시는 하지 않았다.
+
+## 2026-11-04 — 공정 편집 씬·공유 저작 설정·RobotKyle·작업자 정차 체결 구현
+
+사용자가 설계와 개발 착수를 승인했고, 추가 질문으로 고용 주유원도 공정 작업자와 같은 RobotKyle로 전환하는 데 승인했다. 카메라는 현재 yaw 기준 이동/우클릭 빠른 회전으로 변경했다. 원본 FBX와 사용자 작업 중인 아트는 보존했다. 실제24공정 Worker와 주유원의 gameplay root/고용/이동/손/Animator를 유지하며 실제 Kyle skeleton Animator에 연결하고 StarterAssets demo controller를 씬 인스턴스에서 제거했다. 중복 Animator와 Hammer Head 이름 충돌도 해결했다.
+
+새 `Assets/@Scene/ProcessAuthoringScene.unity`와 `Tools > CarFactory > Process Authoring > Open Workbench`를 만들었다. TestPartsScene/기존IK비교씬을 보존하고 새 씬 하나만 단독 실행한다. 실제 레일폭2m,23공정/50주체/Origin차량/주유를 공유 SO로 가져와 라인 로컬·안정ID 기반으로 편집한다. 재고/단일집기슬롯/공통거리/주체/대기·체결대기·작업위치/로봇대기·목표/감지상자/정차점/바퀴설비와 주체별 곡선, 차종별 부착점·그립·주유구를 저장하고 메인에 같은 해석기로 적용한다. 메인이 기존 dirty이면 묵시적으로 저장하지 않는다. 차종 프리팹 교체/Undo와 창 재열기 선택복원도 검사했다.
+
+작업자 사이클은 차량 감지→집기→체결대기→지정위치정차→작업접근/운반→3타체결→출발·복귀다. 준비불가/재고0/퇴근은 통과, 취소·시간초과는 소유정지/예약을 해제하며 차량 LifeVersion을 검사한다. 로봇은 이동 중 체결,20배에서는 모터 서브스텝/순서·접촉기반 누적타격으로 검사했다. 재시도는 실행시작재고를 복원하고 정상 자동반복은 계속 소비한다. 핵심 슬롯 소비/재충전에 Instantiate·Destroy를 추가하지 않았다.
+
+독립검토 Important6건(도달성/저장Retry/메인차종주유구/프리팹교체/종료시계/dirty저장)을 보완했다. 실제 행렬에서 바퀴 부모배율 누락(.33→1), 앞2바퀴 후 조기방출, 체결대기/작업위치 혼용을 찾아 수정했다. 엔진은 차체를 관통하지 않고 앞코너를 돌아 접근한다. 메인 잔존 legacy 범퍼재고1개를 삭제하지 않고 RetiredProcessInventory에 보관하고 보급참여를 끄도록 명시했다. 시각 캡처로 새 운반 경로가 기존 그립중심 보정을 누락한 것도 재현(0.5809273m)해1mm이내로 수정했다.
+
+검증 근거(실제 Unity 실행, 세부 수치/실패→수정 과정은 연결 원장):
+- FactoryProcessPreviewChecks.StartMatrix(): 엔진1/문8/바퀴13/주유23×사람/로봇8조합20배 완료, 조립 재고각1/1/4 정확. 저장Retry·종료시계·메인공유주유구·먼작업위치미완료 PASS. carry수정 후 재실행 PASS.
+- FactoryProcessPreviewChecks.Start(): 실제곡선+Animation Rigging 작업자/냉간로봇20배·3타/소모1·중간재시도·pause/.1배·자동반복소모·재고0 PASS. carry수정 후 재실행 PASS. CheckCarryGrip1mm이내 PASS.
+- FactoryProcessEditorChecks.Run(): 그립/부착점보정해제/동일ID프리팹교체·Undo/메인dirty보존/전체작업자pose/창재열기선택 PASS.
+- 메인 FactoryProcessGateChecks PASS: 실제고용·정차6cm이내·체결/출발/소모1·풀재사용·취소·재고0·퇴근통과.
+- FactoryAssemblyM2Checks PASS: 실제26슬롯/77도메인타격/정확단계·중복금지/검사·부분수리·초기화. 물리접촉과 구분한다.
+- FactoryCharacterChecks(true,true) PASS: 누락0/Humanoid29,16방향·점프1.175m·실제망치접촉/허공0·그립고정·NPC실제망치3타/완료1. 마지막 carry 수정 후 최종 재확인은 원장에 추가한다.
+- FactoryPrototypeServicesChecks 독립새Play PASS: 실제보급·하역·예약/근무중단·복귀/임금/부채/다음날/수동·고용RobotKyle·자동주유/작업음. 초기조건과 새정차규칙에 맞게 fixture를 확인했다.
+- FactoryFeedbackNov2Checks23항목 PASS. FactoryPickupSlotChecks.RunCoreGc100회0bytes PASS. 각 채택 실행 콘솔 error0, 별도빌드/전체장시간부하 검사는 아님.
+
+기술 PASS를 자연스러움 승인으로 쓰지 않았다.1배속984×548캡처 엔진/문/RobotKyle주유를 로컬Temp/ProcessAuthoringCaptures에 보관했다. 엔진 기본자동그립은 carry수정 후에도 부착 표본 손목오차약0.892m(수정전.941m), 문표본.081m, 주유.109m로 공정별 튜닝이 남는다. 앞면그립/운반곡선 실험은 복사프로필에서만 수행·미채택. 새창은 손목오차와15cm초과 경고를 표시한다. package rig는 기본비활성이며 전신솔버/유료도구는 도입하지 않았다. 전체23공정/새세단/발미끄러짐·관통의 전체모션 정량값/장시간부하는 미확인이다.
+
+현재 상태는 기능·기술검증 완료와 사용자 자세/배치 튜닝 대기를 구분한다. 명세는 ready-for-human/open, 사용법·HANDOFF·GAME_DESIGN과 원장을 갱신했다. 기존 dirty Unity 체크아웃을 재사용했고 아트/설정 전체를 stage하지 않았다. 이번 개발 착수 단계의 신규 커밋·푸시·Notion 게시를 하지 않았다.
+
+최종 추가확인: carry 수정 후 FactoryCharacterChecks(true,true) 새메인Play PASS·콘솔0, FactoryProcessEditorChecks 재열기선택 포함 PASS. 마지막에 Play 종료/시간1로 복귀하고 ProcessAuthoringScene만 단독으로 열어 공정0·편집창을 준비했다. 엔진 최종 표본.8919m, 주유.1087m와 관측 옵션·미확인 범위를 계획 원장에 명시했다.
+
+## 2026-11-05 — 공정 편집 카메라·자유 커서·가독성·Scene 양방향 편집 수정
+
+사용자4개 피드백: 카메라 이동 불가, Game에 마우스가 갇혀 Hierarchy 조작 불가, 편집메뉴 가독성 저하, 재고 X 수치 변경이 안 보이며 실제 Scene 게임오브젝트도 드래그하고 싶다는 요청.
+
+원인을 실제 호출로 확인했다. 비활성 Kyle StarterAssetsInputs.OnApplicationFocus도 cursorLocked=true를 적용(RED CursorLocked). NPC 입력은 단순 disable 대신 씬 인스턴스에서 제거했고 전용 ProcessAuthoringCamera를 편집씬에 저장했다. 원본Kyle/Worker 에셋과 메인 플레이어 입력은 보존했다. 카메라는Game포커스/포인터내부/RMB 조건으로만 입력을 받고 unscaled로 이동하며 항상 커서를 자유롭게 둔다.
+
+Play 중 ApplyLayout 무조건return 때문에 일시정지 inventory X+1도 이동0(RED)이었다. edit/paused에서 즉시 적용하도록 고치고, ProcessAuthoringSceneEditing으로 실제 재고/주체 Transform·집기/대기/정차 기준점과 동일 SO초안을 양방향 연결했다. 자동 실행 중 actor 순간pose는 캡처하지 않고 편집을 잠근다. 일반 W/E 이동·회전, Undo, 선택대상 추적, ReadyDisplay→집기 슬롯, 미저장 초안/공정 왕복·리로드 복구를 지원한다. Scene소유자가 바뀌면 파괴된 참조를 버리고 새씬에 연결한다. 기준점은 EditorOnly 그룹으로 관리하고 이전 모드의 기준점을 비활성화한다.
+
+메뉴는 Unity native IMGUI를 유지하며 선택/실행/저장 고정영역 +배치/동선·IK/차종/공통4탭으로 정리했다. 선택대상만 핸들을 표시하고 라인 로컬 좌표와 월드위치를 구분한다. 바퀴처럼 복합공정은 주체/경로용 집기슬롯을 별도로 선택한다. Scene은 배치,Game은Play관찰,공정편집창은수치·저장·실행이라는 흐름을 창과사용법에 명시했다.
+
+검증: FactoryProcessEditorUXChecks.Run edit/paused 양쪽 PASS(수치→실제이동/Transform→초안/ReadyDisplay→슬롯/슬롯기준점/Undo/다른대상선택후WorkerUndo/paused초안공정왕복/idle100회불변/카메라unscaled·포커스·커서). 독립검토 Important2는 실제추가검사 RED로 재현하고 GREEN으로 고쳤다. 미저장+0.125m 초안으로 실제 RequestScriptReload 후 초안/Scene오차0, 진단변경 복원. CUA로 Game클릭후Esc없이Hierarchy선택·커서None, 실제Move핸들.74m드래그/창수치갱신/ControlZ오차0 확인. UI전후캡처는1회변경·확인으로 점검했고 C#대상web detector([])를기능합격근거로 사용하지 않았다.
+
+기존 FactoryProcessPreviewChecks.Start 및 StartMatrix8조합20배·정확재고 PASS·error0. 메인입력정리저장후 FactoryCharacterChecks(true,true) PASS(누락0/Humanoid29/16방향·점프1.165m/물리접촉·허공0/NPC3타완료1), 콘솔0. 마지막 선택context/씬소유자갱신 이후 edit/paused UX를 다시 실행해 PASS했다. 메인과 편집씬에 입력정리를 저장했고 종료 시 편집씬단독·시간1·공정0·재고선택·편집창을 준비했다. 사용법·개별이슈·HANDOFF 갱신. 기존 엔진그립·자세튜닝/장시간전체공정·차종검증은 이번 완료주장에 포함하지 않는다. 미커밋·외부게시없음.
+
+## 2026-11-05 — 실행 중 공정 편집·주체별 잡기 위치 구현
+- 사용자 시작 지시에 따라 process-authoring/01·02를 재개하고 구현·대표 검증 완료. 실행 중 수치/Scene/Undo 수정과 명시적 저장을 제공한다. 움직이는 주체의 저작 기준점과 실행 pose를 구분한다.
+- 잡기 탭에 작업자 왼손/오른손, 로봇팔 접촉1점 기즈모·수치를 추가했다. 대기 슬롯의 집어갈 부품에만 표시한다. 공정 부품별 운반 회전/손가락 방향을 저장하고 미설정 시 기존 그립으로 복귀한다. 오른쪽 문 공정에 기본값을 저장했다.
+- 기존 손 IK 사용. ready/차량부품 미러 스케일 좌표 변환, 양손 접촉 전 재고 소모 방지, 도달 실패 취소, 부드러운 들어올림, 팔끝 역변환 운반을 구현했다. 새 전신 IK·유료 도구는 도입하지 않았다.
+- 독립검토2건 RED→GREEN(Scene marker실반영/기존그립복원), 추가 실제검사로 로봇 첫집기.271m오차, pickup도착거리·미러스케일, 창종료profileMissing/외부프로필소유권을 수정했다.
+- 최종: 문5배속 worker726표본 wrist최대.1127234m, robot178표본 접촉최대.00000106624m/각재고1·슬롯재충전. 8조합20배 matrix·core retry/자동반복/재고0, unpaused/paused 양방향·Undo·idle100·프로필종료·카메라 PASS. Console Error0. 실행중저장 실제SO/디스크 확인 후 테스트값복원.
+- 상세: 개발관리/이슈/process-authoring/live-grip-plan-2026-11-05.md 및 usage.md. 전체공정/전차종/엔진 자세/1배속 시각평가·손가락 관절 튜닝은 미검증. 기능 PASS와 자연스러움 승인은 구분한다.
+- 종료: 편집씬 단독/Edit/오른쪽 문/작업자/잡기 탭. 로컬 미커밋, 커밋·푸시·Notion 게시 없음. 자동 보급 레일은 아이디어만 유지.
+
+## 2026-11-06 — 체결 재시도 즉시 슬롯 집기
+- 사용자 요청: 차량 진입을 기다리지 않고 재시도 직후 로봇팔/작업자가 부품을 집기 시작.
+- 원인: 기존 Retry는 home 복귀 준비 후 차량을 출발시키며 Crew는 감지 이후에만 Assign/Fetch했다.
+- 프리뷰 전용 BeginPreviewPickup과 감지 전 대기를 추가. Retry가 즉시 집기를 시작하고 첫 집기 후 차량 출발, 실제 진입 시 기존 체결/정차 규칙으로 합류한다. 취소/연속Retry 재고·예약 복원 유지. 메인은 기존 감지 시작 그대로다.
+- RED 차량progress0 고정 시 선집기 실패 → GREEN robot/worker 선집기·hold·반복retry·완료/재고1. 기존 core20배/저속/반복/재고0 PASS. 별도 재고0 Retry count0/Gatefalse 통과·미완료 확인. 독립검토 새 Important/Critical 없음.
+- 로컬 문서·사용법 갱신. 커밋/푸시/Notion게시 없음. 상세: 개발관리/이슈/process-authoring/issues/03-retry-immediate-pickup.md.
+
+## 2026-11-08 — 공정 지점 표시·두 작업자 자세 편집·Idle
+- 사용자 피드백에 따라 역할별 이름/색상 기즈모, 곡선 시작/끝/C1/C2와 UI 간격, 새 곡선 기본활성·기존 전체켜기를 추가. 실제 작업자 옆 고정 리깅 모델/부품에서 W접촉/E손목/팔꿈치 방향을 편집하며 공유 그립이 실제 작업자에 적용된다.
+- 기존 IK 재사용, 팔길이 실측 도달 트리거/명시적 도달검사로 집기 시작·접근거리를 결정. 녹색 손끝화살표는 손목/손바닥 접근 기준. 전신솔버/개별 손가락 편집을 도입한 것이 아니다.
+- Idle는 차량 정차·worker 일반대기·자동작업 억제. 편집모드 Idle의 서비스 생성과 저작값 오인, 미러 손목방향, 실제 pose 소유권 덮어쓰기, max reach 여유, 고정 복사본 이동/Play종료 stale참조, editor hull 원본물리변경을 재현 후 수정.
+- 작업위치 자동초기화/재계산. 오른쪽 문 기존 zero 작업위치를 초안에서 보정하고 상체보정 활성. 프로필/메인 저장은 강제하지 않음.
+- 최종 Edit9 PASS;20배8조합 matrix/core PASS; 실제 grip worker330표본 max .09200566m/robot81표본 max .00000106624m·정확재고/슬롯 PASS. 공정선택 runStock 잔류 수정 후 robot/worker Retry 선집기/보유/반복복원/완료 PASS. Console Error0.
+- Unity Scene 캡처로 라벨/팔 도달 구/두 모델 분리를 확인. 사용자 자연스러움·전체23공정·새차종은 별도 튜닝. 종료는 authoring/Edit/문/잡기/Idle·미저장초안, 코드·문서 미커밋/외부게시 없음.
+- 상세: 개발관리/이슈/process-authoring/issues/04-pose-preview-markers-idle.md, 사용법 갱신.
+
+## 2026-11-08 — 리깅 작업자 이동·양팔 기본 자세·체결 재생 후속
+- 사용자 현장편집 피드백을 재현: 좌우목표까지 .355m/.506m, elbow93.39°/19.53°. 자동위치가 매tick 덮어쓰였고 고정손목축으로 모델의 wrist가 꺾였음.
+- 실제 어깨축·목표축의 회전/중점/수직접근을 맞추고 Humanoid손가락 본 기반 손목 자동정렬(opt-in) 추가. 기본자세 버튼은 접촉점보존/추가손목euler0/대칭팔꿈치/팔98%. 검증 elbow23.61°/24.64°, fingerdot>.99.
+- 별도preview pose를 프로필에 보존하며 root드래그, 거리밖Idle/안집기. Idle버튼은 실제worker일반대기/차량정차와 별개로 리깅기본집기. Retry/실행에서는 두번째모델도 실제6팔본/부품동작을 translated 공간에서 재생. 모델복제만 하므로 재고·job중복없음.
+- 실제620표본 replay PASS(보유316), 회전차0/손·부품차1e-6m미만/재고1. 기존9pose+새이동검사/core/robot·workerRetry PASS, Error0.
+- 사용자 편집 전체백업 후 Play종료하고 .cs변경, 접촉점과 다른공정 보존. 현재 초안에 기본팔 적용, 원본프로필·메인저장/커밋/외부게시 없음. 상세 issue05/usage 참조.
+
+- 후속 독립검토2건(손해제후Hits부품추적/다른actor강제자세누수) 수정. PreviewPartFor+attempt cache로 완료후차량출구까지추적, actor.id범위강제. ForceReachScope PASS. 최종618표본 보유312/해제후망치33/완료후출구271, 회전0°/손.000000546m/부품.000005960m·완전체결·재고1 PASS. 추가중요지적없음. 종료Play/Idle/리깅root이동선택.
+
+## 2026-11-09 — 독립 부품/작업자 회전·월드 재고 배치
+- 사용자 현장피드백으로 기본서기재계산/표시용자식 덮어쓰기/legacy local간격을 확인. 전체미저장백업 후 Play종료해소스변경. 리깅부품→ready변환, workerpose고정/회전, 하위선택루팅·반대면접촉 초기화, 운반회전설명.
+- 사용자확정: start에서고정간격/개수, end는방향·초과허용. ready처음같은회전/독립가능. 재고배치탭에 실제회전메시 월드크기·행열높이·gap/중심간격·전체행층offset·Bezier거리샘플/끝접선연장·Scene핸들.
+- 기존pool/count/readyAPIs유지. Edit/Play12/6x2·끝점무관·회전두께·offset·roottilt·poolIDs·refill PASS;100회소모/보충0bytes. 독립회전/반대면180·child선택/core20배·반복·재고0 PASS, Error0. 독립검토중요지적없음.
+- 현재door초안에눕힘예시 적용, hand중점높이 유지. zero직접workPose는 임시프로필 auto검증으로 집기/완전체결/재고1 PASS 후(-1.390,-.405,.389)로 초안만보정. 다른공정/bodySupport=false보존.
+- 종료 authoring단독Play/Idle/문/재고배치·미저장초안. savedprofile/main저장·commit/push/Notion게시안함. 상세 issue06/usage. 다른부품/전체자연스러움은 별도튜닝.
+
+## 2026-11-09 — 재고 UI 무입력 좌표 드리프트
+- 사용자 시작/끝 소수점 누적 보고를 실제frame 1000왕복으로 재현(startX+.000953674m/endX+.000715256m).
+- 원인: OnGUI에서 표시값을 입력없이역변환대입. 각 위치/control/offset/회전 필드마다 입력 change check로 제한. 무입력은 원본 struct 유지.
+- 현재전체초안 백업 후 Play종료·cs수정. 기존편집값 반올림/복원 안함. Edit/Play 각각200회 실제update/repaint stockJSON 전체동일 PASS, ConsoleError0. 기존packing회귀도 재확인. 종료Play/Idle/재고배치·미저장초안·미커밋.
+
+## 2026-11-13 — 전체 세척·첫 납품에서 첫 공정 해금까지 실제 플레이
+
+사용자 지시에 따라 HANDOFF/최근 기록/현행11-12설계/공정 편집 이슈와 실제 Unity 상태·dirty diff를 대조했다. 기존 슬롯·플레이어 부착·망치·계약·경제·대차를 재사용하여 main/prototype 한정 FirstProductionLoop를 연결했다. 씬/저장 프로필을 덮어쓰지 않고 runtime으로 열린 공정·벨트 끝·입력 도구·현장 투자만 구성한다. 임시 FirstProductionSettings 기본값은 납품100/고용180/다음 해금200, 추가 공정당 납품+60이며 최종 가격 확정이 아니다.
+
+VehicleWashSurface는 실제 활성 차체 메시의 외장5방향을 샘플링하고 분사 위치부터 원색을 복구한다. 초기98% 정체는 내부 틈 면 포함과 바닥 높이 오인 때문이었다. 실제 지지면·면 방향/가림과 가로12cm/높이25cm 시점 여유를 검사하도록 수정, 마지막 약2cm 조준을 요구하던 모서리도 안정적인 목표 선택으로 해결했다. 최종5,444개 목표100%를 실제 입력으로 두 번 완료했다. 워밍업 후 별도 Spray200회 hit200/관리할당0B; 전체 게임 프레임 GC/GPU0 주장은 아니다.
+
+첫차만 풀 생명주기별 표적gate로 세척과 체결을 기다린다. 이후는 현장 터널 실제 망치 타격으로 요청하고 작업 완료 자동 대기는 없다. 계약에 투입 시 작업·가격·끝을 동결하며 인수 시작 후 수리를 닫는다. 미완료0원/이유·정상 약정 전액·중복 지급 방지. 새 공정 끝단은 이전 차량 인수 후 전환하고 새세대 차량용 PendingProductionOutletGate를 연결했다. 새 루프에서 체결 잔돈과 기존 중복 자금 HUD/구 구매·하루 흐름을 제외했다.
+
+실제 입력 검증은 Keyboard/Mouse 상태와 기존 CharacterController/카메라 입력 경로로 진행했다. 돈·완료 플래그·차량 진행도를 주입하지 않았다. 경로를 단계별로 보정한 새 세션에서 0원→첫차 외장100%/재고12→11/E부착/실제망치 접촉 체결/대차100원→터널2번째 요청/풀 세척0·첫차gate해제→실제레버 Stop/Low 선택/두번째100%·재고11→10·부착체결·대차100원→현장F/숫자2 구매200원으로 엔진 해금. 최종 정상2/실패0/수입200/잔액0/열린공정2/새outlet2/엔진표시 확인. 앞선 별도 시험에서 미완료 두번째가 통과하여 전체세척미완료0원·잔액100 유지도 확인했다. 실제 선택은 해금이며 고용 후 NPC 작업 전 과정은 이번 검증이 아니다.
+
+해금 후 분홍 화면은 이전 Play의 DontSave runtime 루트5개가 invalid scene에 남고 재질만 해제된 원인이었다. 해당 생성 루트만 제거하자 구매 상태·돈을 건드리지 않고 화면 복구. Bootstrap은 일반 Play 씬 수명을 쓰고 소유 tool 재질/임시 설정/traffic gate를 해제한다. 반복 Play 루트1·누락재질0, 두 번 Stop 뒤 루트0/세척query0 PASS. 검증 통로도 큰 재고/차체/고용표지를 가로지르지 않도록 차량 외곽과 남쪽29.5m 통로를 쓰며, 부착 거리와 별개로 실제 망치가 닿는 가까운 위치로 접근한다.
+
+검증: 계약 배열복사/미완료·잔액부족/세대gate 격리PASS, 인수 후 수리 차단·중복capture거절·정산이벤트1회·지갑유지PASS. FactoryAssemblyM2Checks passed(26슬롯부품/77도메인 타격·검사·기한/리셋), FactoryCharacterChecks contacts=true/npc=false PASS59, FactoryFeedbackNov2Checks PASS23. 씬 audit missingScripts0/brokenRefs0/humanoids29. 도메인·회귀 fixture는 실제 플레이 검증과 별도이며 원래 fixture의 이동/도메인 stepping을 사용했다. 마우스 잠금은 None으로 유지했다. 직접 코드 점검과 대상 diff --check PASS; 독립 리뷰 에이전트는 사용량 한도로 결과를 내지 못했다.
+
+보존/종료: 모든 cs 수정 전 Play 종료. 메인 Car_Factory3.unity/ProcessAuthoringProfile.asset/ProcessAuthoringNavMesh.asset SHA256 동일, 사용자 포즈·그립·재고 초안 재튜닝 없음. 메인 Edit/dirtyfalse·편집창dirtyfalse·CursorNone·LegacyChecks=false·임시루트0. 새 컴파일 오류0, 종료 후 Console Error/Warning0; 기존 obsolete/CS0114 컴파일 경고는 대상외. local issue first-production-loop/01 closed, 사용법·HANDOFF·INDEX 갱신. cwd first-production-2026-11-13/verification.txt·해시manifest·PNG에 증거 보관. 새 커밋·푸시·Notion 게시 없음. 현행 설계는 변경하지 않았고 태블릿/후속검사/자동투입/영구저장/다차량 혼잡·새차종·Blender아트 및 독립빌드 검증은 별도 범위로 남긴다.
+
+### 첫 투자 이후 플레이 검증 (2026-11-13)
+
+[작업자 고용·엔진 납품 기록](개발관리/이슈/first-production-loop/issues/02-post-investment.md). 대시보드 납품선을 작업자 정차 뒤로 조정하고 고용 후 세척/작업자 체결로 100원 지급 확인. 레버 정지 중 취소 반복을 수정. 혼합 계약 2대는 대시보드 차량 100원→엔진 차량 160원 순으로 정상 납품(누적 수입 460). 빈 재고 거절 확인. 긴 정지와 최종 검사 경로 재실행은 개별 이슈 참조.
+
+### 엔진커버 공정 (2026-11-13)
+
+엔진커버 공정 해금·납품을 메인 씬에서 확인했다. 엔진 차량 납품으로 잔액 420원, 해금 400원, 잔액 20원. 작업대와 재고 슬롯 활성화, 세 번째 끝단 진행도 0.1509903, 신규 계약 220원. 세척·대시보드·엔진·엔진커버 수동 부착과 망치 체결, 커버 재고 12→11, 인수 후 잔액 240원. 정상 6대·실패 0대·총수입 840원. 작업 안내는 투입 당시 계약의 남은 공정명, 투자 버튼은 다음 공정명과 단가를 표시한다. 게임 창 포커스 이탈 및 새 재고 더미로 막힌 자동 보행은 같은 차량에서 입력 경로를 조정해 통과했다. 최종 우회 경로의 처음부터 단일 실행은 미검증.
+
+### 2026-11-13 — 2차 프로토타입 개발 우선순위 재정리
+
+일반 부품별 납품 검사를 이어가던 인수인계를 공장 구역 개방 → 창고 보급 → 투자·생산 운영 → 검사·출고 → 관리·저장 순서로 고쳤다. 코드 확인 결과 새 생산 루프는 공정과 벨트를 제한하지만 FactoryExpansion은 프로토타입에서 전체 바닥 범위를 선택하고 창고 현장 고용 접점도 비활성화한다. GAME_DESIGN 2-1의 이전 전체 벨트 문구를 현행 규칙에 맞췄다. 이번 작업은 문서와 코드 대조이며 새 기능 구현·플레이 검증은 수행하지 않았다.
+
+### 2026-11-13 — 공장 구역 경계와 창고 보급 연결
+
+공정 해금에 맞춰 바닥과 안전 펜스·충돌·NavMesh를 갱신하고 창고 통로와 고용을 복구했다. 플레이어 보행으로 찾아낸 비가시 창고 클릭 박스를 현장 모드에서 해제했다. 같은 줄·다음 줄 해금과 초기 계약 유지, 실제 F 창구 접근 및 보급자 운반으로 재고 0→6→집기 후 5 확인. 검증 조건과 다음 작업은 [개별 이슈](개발관리/이슈/factory-systems/issues/01-area-and-warehouse.md)에 기록했다.
+
+2026-11-13 세단 아트 — 실내 참고 7장과 원 외관을 비교해 바퀴·시트·대시보드·유리·헤드램프 18개를 재모델링. 개별 메시 검사와 분리 렌더 완료. 차체 결합부 및 Unity 체결 검수는 계속. vehicle-blender/03 참조.
+
+### 2026-11-13 — 공정별 고용·로봇 전환과 혼합 납품
+
+새 생산 루프에서 열린 공정별 현장 투자를 기존 구매·체결 시스템에 연결했다. 대시보드 로봇, 엔진 작업자, 엔진커버 직접 작업 차량 납품 220원, 기존 계약 100원 확인. 구매 차단·자금·UI 및 시험 준비 조건은 [검증 기록](개발관리/이슈/factory-systems/issues/02-process-staffing.md)에 남겼다. 다음은 자동 투입과 대기열이다.
+
+2026-11-13 세단 부품 2차 — 헤드램프 양쪽 상세 광학부/차체 소켓과 네 브레이크/휠하우스 추가. 차량 탈거 렌더·닫힌 상태 메시 교차 검사. vehicle-blender/03 참조.
+
+### 2026-11-13 — 구매형 자동 투입
+
+열린 표지의 현장 투자 창에 자동 투입을 추가했다. 정체 중 수동·자동 대기 합계 5대, 공간 확보 후 1대 투입·대기 4대 확인. [구현과 시험 조건](개발관리/이슈/factory-systems/issues/03-automatic-input.md).
+
+### 2026-11-13 — 하루 운영·납품 장부 연결
+
+대차 인수 시 판매 이벤트로 입금·일일 장부를 연결하고 고용 뒤 생성한 작업조의 교대를 복구했다. 메인 씬 짧은 검사에서 대차 1건 100원, 추가 시험 판매를 포함한 순수입·잔액 484원, 실제 10초 후 2일 차 전환과 고용 유지 확인. [상세 검사 조건](개발관리/이슈/factory-systems/issues/04-day-settlement.md).
+
+### 2026-11-13 — 작업자 낮은 자세와 플레이어 점프·망치
+
+작업 높이·접근 거리에 따라 보행 중 숙이기·무릎 자세를 혼합하고 플레이어 점프에 실제 비행 진행률, 망치에 오른팔 레이어를 연결했다. 낮은 슬롯의 양손 도달 기준은 실제 어깨를 사용한다. 사용자 그립·부품 배치는 보존했다. [대표 검사와 기존 검사 한계](개발관리/이슈/worker-interaction/issues/02-work-motions.md).
+
+### 2026-11-13 — 관리자 테스트 라인, 손에 든 분사건, 작업자 낮은 자세
+
+관리자 자금·전 공정 사람 배치·테스트 자동 세척·차량 투입을 연결하고 시점 전환 시 분사건이 카메라에 남는 문제를 수정했다. 공정 편집에서 실제 그립 높이에 맞춘 무릎/허리 전환과 두 모델 비교를 추가했다. [테스트 라인 확인](개발관리/이슈/factory-systems/issues/05-admin-animation-line.md) 및 [자세 측정](개발관리/이슈/worker-interaction/issues/02-work-motions.md). 종료 시 기존 ProcessAuthoringScene의 저장 전 편집 상태 유지.
+
+### 2026-11-13 — 바퀴 독립 공정과 완성차 검사·출고
+
+[바퀴 4개 독립](개발관리/이슈/process-authoring/issues/08-independent-wheels.md)으로 조립 공정을 26개로 확장했다. 공정 편집 대표 실행에서 오른쪽 앞바퀴만 체결되고 해당 재고가 1개 감소했다. [최종 검사와 출고](개발관리/이슈/factory-systems/issues/06-final-inspection.md)에서는 먼저 투입한 기존 계약 대차 100원, 새 정상 차량 1,600원과 중앙 출고문 외부 반환, 바퀴 부분 체결 차량 지급 0원과 불량 1건을 확인했다. 검사 단계 해금은 마지막 조립 해금을 임시 기준으로 삼았다.
+
+## 2026-11-13 · 완성차 검사 이후 주유 연결
+
+기존 주유소를 마지막 공정 해금에 연결하고 차량별 검사 결과에 따라 정차시켰다. 수동·고용·자동 각 한 대가 주유 후 출고했고 불량 차량은 주유 없이 처리됐다. 창고 접점, 초기 중간 납품 및 일반 저장을 보존했다. [메인 씬 검증 조건과 수치](개발관리/이슈/factory-systems/issues/08-final-fueling.md).
+
+## 2026-11-13 · 메인 라인 완성차 두 대 연속 출고
+
+앞차가 주유를 기다리는 동안 뒷차가 설정 간격 6.3m를 유지하고, 두 차가 투입 순서대로 각각 1,600원에 출고됨을 확인했다. 계약 정산 이벤트 2회, 누적 3,200원. [메인 씬 통합 검사 조건](개발관리/이슈/factory-systems/issues/08-final-fueling.md).
+
+## 2026-11-13 · 2차 프로토타입 시스템 통합 리뷰
+
+부채와 재고 소진이 겹치면 무료 보급자도 고용할 수 없었던 창고 경로를 수정했다. 메인 씬에서 잔액 -1원 상태로 보급자 1명이 재고 12개와 집기 슬롯을 복구했고 유료 지출은 거절됐다. 첫 세척 셰이더의 빌드 포함 참조를 추가했다. [전체 생산·운영·출고 흐름 검증 기록](개발관리/이슈/factory-systems/spec.md).

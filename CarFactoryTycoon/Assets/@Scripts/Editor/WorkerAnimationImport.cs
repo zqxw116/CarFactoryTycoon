@@ -17,6 +17,8 @@ public static class WorkerAnimationImport
             string path=AssetDatabase.GUIDToAssetPath(guid);
             var importer=AssetImporter.GetAtPath(path) as ModelImporter;
             if(importer==null || !System.IO.Path.GetFileName(path).StartsWith("Worker_"))continue;
+            // The authored four-take sheet retains its per-clip names, ranges and root-motion settings.
+            if(path==FactoryCharacterAnimationSetup.WorkMotionsPath)continue;
             importer.importAnimation=true; importer.animationType=ModelImporterAnimationType.Human;
             importer.sourceAvatar=null; importer.avatarSetup=ModelImporterAvatarSetup.CreateFromThisModel;
             importer.importCameras=false; importer.importLights=false;

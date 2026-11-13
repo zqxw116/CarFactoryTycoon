@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -182,7 +182,10 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     public bool TryAttach(CarController car)
     {
+        if(FirstProductionLoop.Current!=null&&!FirstProductionLoop.Current.CanAttach(car))return false;
         if (swingActive || HeldPart == null || IsAttaching || car == null || !car.gameObject.activeInHierarchy || !car.CanRepair) return false;
+        var contract = car.GetComponent<ProductionContract>();
+        if (contract != null && contract.requireWholeWash && !contract.Requires(HeldPart.PartType)) return false;
         var part = FindPart(car, HeldPart.PartType, true, AimPoint(car));
         if (part == null || !IsAimingAt(part)) return false;
         if (!part.TryBeginPlayerAttachment(this, HeldPart.transform.position, HeldPart.transform.rotation)) return false;
@@ -196,8 +199,10 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     // Compatibility entry point: requests a swing, never awards work on click.
     public bool TryHammer(AssemblyPart part) => TrySwingHammer();
 
+    public void SetHammerVisible(bool value){if(hammerVisual!=null)hammerVisual.gameObject.SetActive(value);}
     public bool TrySwingHammer()
     {
+        if(FirstProductionLoop.Current!=null&&FirstProductionLoop.Current.WashToolActive)return false;
         if (!inputEnabled || ExternalCarryTarget!=null || HeldPart != null || IsAttaching) return false;
         // Restart is explicit, including rapid clicks. Never sweep from the old pose to the reset pose.
         if(swingActive)WorkerHammerAnimation.Stop(bodyAnimator);
@@ -501,7 +506,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
 
     public static string PartLabel(PartType type)
     {
-        var progression = ProductionProgression.Current;
+        var progression = FirstProductionLoop.Current != null ? FirstProductionLoop.Current.progression : ProductionProgression.Current;
         if (progression != null && progression.processes != null)
             foreach (var process in progression.processes)
                 if (process.parts != null && Array.IndexOf(process.parts, type) >= 0)
@@ -530,7 +535,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         if (shader == null) shader = Shader.Find("Standard");
         if (shader != null) { toolMaterial = new Material(shader); toolMaterial.color = new Color(.25f, .27f, .29f); }
         MakeToolPiece("Handle", PrimitiveType.Cylinder, new Vector3(0, .10f, 0), new Vector3(shaftWidth, .15f, shaftWidth));
-        MakeToolPiece("Head", PrimitiveType.Cube, new Vector3(0, WorkerHammerAnimation.HeadDistance, 0), new Vector3(.21f, .10f, .09f));
+        MakeToolPiece("PlayerHammerHead", PrimitiveType.Cube, new Vector3(0, WorkerHammerAnimation.HeadDistance, 0), new Vector3(.21f, .10f, .09f));
     }
 
     private void MakeToolPiece(string label, PrimitiveType shape, Vector3 position, Vector3 scale)
@@ -541,7 +546,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
         piece.transform.SetParent(hammerVisual, false);
         piece.transform.localPosition = position; piece.transform.localScale = scale;
         var collider = piece.GetComponent<Collider>(); collider.enabled = false;
-        if (label == "Head") hammerHead = collider as BoxCollider; else Destroy(collider);
+        if (label == "PlayerHammerHead") hammerHead = collider as BoxCollider; else Destroy(collider);
         if (toolMaterial != null) piece.GetComponent<Renderer>().sharedMaterial = toolMaterial;
     }
 
@@ -558,6 +563,7 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
     public void ApplyHandIK(Animator animator)
     {
         if (animator == null || !animator.isHuman) return;
+        if (player != null && player.TabletOpen) { player.Tablet.PoseHands(animator); return; }
         bool carrying = HeldPart != null && !IsAttaching;
         if(ExternalCarryTarget!=null && !carrying && !IsAttaching && !swingActive)
         {
@@ -565,6 +571,8 @@ public sealed class PlayerAssemblyInteractor : MonoBehaviour
             SetHand(animator,AvatarIKGoal.RightHand,ExternalCarryTarget.TransformPoint(ExternalRightGrip),.9f);
             return;
         }
+        if (!carrying && !IsAttaching && FirstProductionLoop.Current != null && FirstProductionLoop.Current.PoseWashGun(animator))
+            return;
         float workWeight = inputEnabled && (IsAttaching || swingActive) ? 1f : 0f;
         Vector3 target = swingActive ? SwingTarget(Mathf.Clamp01(swingElapsed / WorkerHammerAnimation.Duration)) : lastHitPoint;
         if (IsAttaching)

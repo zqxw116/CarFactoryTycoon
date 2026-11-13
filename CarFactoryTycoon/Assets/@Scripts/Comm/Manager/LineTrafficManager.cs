@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -13,6 +13,7 @@ using UnityEngine;
 /// - WheelStation은 게이트로 등록된다: 게이트를 아직 통과하지 않은 차량은 게이트 지점을 넘지 못하고
 ///   감속 정지 → 리프트가 대기 차량을 캡처한다. 방출은 SetProgress로 게이트 너머로 넘겨 처리.
 /// </summary>
+[DefaultExecutionOrder(-20)]
 public class LineTrafficManager : MonoSingleton<LineTrafficManager>
 {
 
@@ -105,6 +106,7 @@ public class LineTrafficManager : MonoSingleton<LineTrafficManager>
                 // → MonoBehaviour 캐스트 후 Unity null 체크 + GateEnabled로 활성 여부 확인
                 MonoBehaviour mb = gate as MonoBehaviour;
                 if (mb == null || !gate.GateEnabled) continue;
+                if (gate is ITargetedLineGate targeted && !targeted.Blocks(car)) continue;
 
                 float gateT = gate.GateProgress;
                 if (car.pathProgress >= gateT) continue; // 이미 통과(방출 직후 포함)

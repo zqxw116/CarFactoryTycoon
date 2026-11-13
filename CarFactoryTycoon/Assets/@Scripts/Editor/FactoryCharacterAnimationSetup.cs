@@ -11,6 +11,11 @@ public static class FactoryCharacterAnimationSetup
     const string Legacy = "Assets/UnityTechnologies/SpaceRobotKyle/Animations/";
     const string Mixamo = "Assets/@Resource/Animations/Characters/Worker/";
 
+    public const string WorkMotionsPath = Mixamo + "Worker_Kyle_WorkMotions.fbx";
+
+    static AnimationClip WorkMotion(string name) =>
+        AssetDatabase.LoadAllAssetsAtPath(WorkMotionsPath).OfType<AnimationClip>().First(c => c.name == name);
+
     public static string[] MissingMixamoClips() => new[] { "Worker_Idle", "Worker_Walk", "Worker_Walk_Backward", "Worker_Strafe_Left", "Worker_Strafe_Right", "Worker_Run", "Worker_Run_Backward", "Worker_Run_Left", "Worker_Run_Right", "Worker_Jump_Takeoff", "Worker_Jump_Air", "Worker_Jump_Land", "Worker_Hammer" }
         .Where(name => !AssetDatabase.LoadAllAssetsAtPath(Mixamo + name + ".fbx").OfType<AnimationClip>().Any(c => !c.name.StartsWith("__preview"))).ToArray();
 
@@ -47,17 +52,24 @@ public static class FactoryCharacterAnimationSetup
         tree.AddChild(Clip("Worker_Run_Backward", "Locomotion--Run_S.anim.fbx"), new Vector2(0, -runSpeed));
         tree.AddChild(Clip("Worker_Run_Left", "Locomotion--Run_N.anim.fbx"), new Vector2(-runSpeed, 0));
         tree.AddChild(Clip("Worker_Run_Right", "Locomotion--Run_N.anim.fbx"), new Vector2(runSpeed, 0));
-        var jump = machine.AddState("Takeoff"); jump.motion = LegacyClip("Jump--Jump.anim.fbx");
-        var air = machine.AddState("Airborne"); air.motion = LegacyClip("Jump--InAir.anim.fbx");
-        var land = machine.AddState("Grounded Landing"); land.motion = LegacyClip("Locomotion--Run_N_Land.anim.fbx");
-        var takeoff = locomotion.AddTransition(jump); Configure(takeoff); takeoff.AddCondition(AnimatorConditionMode.If, 0, "Jump");
-        var falling = locomotion.AddTransition(air); Configure(falling); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Grounded"); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
-        var flight = jump.AddTransition(air); Configure(flight); flight.hasExitTime = true; flight.exitTime = .85f;
+        controller.AddParameter("JumpPhase", AnimatorControllerParameterType.Float);
+        var jump = machine.AddState("Takeoff");
+        var air = machine.AddState("Airborne");
+        var land = machine.AddState("Grounded Landing");
+        jump.motion = air.motion = land.motion = WorkMotion("Worker_Running_Jump_Forward");
         foreach (var state in new[] { jump, air })
         {
-            var grounded = state.AddTransition(land); Configure(grounded); grounded.AddCondition(AnimatorConditionMode.If, 0, "Grounded"); grounded.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
+            state.timeParameter = "JumpPhase";
+            state.timeParameterActive = true;
         }
-        var resume = land.AddTransition(locomotion); Configure(resume); resume.hasExitTime = true; resume.exitTime = .8f;
+        var takeoff = locomotion.AddTransition(jump); Configure(takeoff); takeoff.AddCondition(AnimatorConditionMode.If, 0, "Jump");
+        var falling = locomotion.AddTransition(air); Configure(falling); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Grounded"); falling.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
+        var flight = jump.AddTransition(air); Configure(flight); flight.AddCondition(AnimatorConditionMode.Greater, .47f, "JumpPhase");
+        foreach (var state in new[] { jump, air })
+        {
+            var grounded = state.AddTransition(land); Configure(grounded); grounded.offset = .72f; grounded.AddCondition(AnimatorConditionMode.If, 0, "Grounded"); grounded.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
+        }
+        var resume = land.AddTransition(locomotion); Configure(resume); resume.hasExitTime = true; resume.exitTime = .90f;
         var repeatJump = land.AddTransition(jump); Configure(repeatJump); repeatJump.AddCondition(AnimatorConditionMode.If, 0, "Jump");
         var ledge = land.AddTransition(air); Configure(ledge); ledge.AddCondition(AnimatorConditionMode.IfNot, 0, "Grounded"); ledge.AddCondition(AnimatorConditionMode.IfNot, 0, "Jump");
         AddHammerLayer(controller); EditorUtility.SetDirty(controller); return controller;
@@ -84,17 +96,39 @@ public static class FactoryCharacterAnimationSetup
         tree.AddChild(LegacyClip("Stand--Idle.anim.fbx"), 0f);
         tree.AddChild(LegacyClip("Locomotion--Walk_N.anim.fbx"), 1.7f);
         tree.AddChild(LegacyClip("Locomotion--Run_N.anim.fbx"), 4f);
+        AddWorkPosture(controller);
         AddHammerLayer(controller); EditorUtility.SetDirty(controller); return controller;
+    }
+    static void AddWorkPosture(AnimatorController controller)
+    {
+        controller.AddParameter("Kneel", AnimatorControllerParameterType.Float);
+        controller.AddParameter(new AnimatorControllerParameter
+        {
+            name = "WorkPoseSample", type = AnimatorControllerParameterType.Float, defaultFloat = .5f
+        });
+        controller.AddLayer("Work posture");
+        var layers = controller.layers;
+        var posture = layers[layers.Length - 1];
+        posture.defaultWeight = 0f;
+        posture.iKPass = true;
+        controller.layers = layers;
+        var state = posture.stateMachine.AddState("Reach height");
+        posture.stateMachine.defaultState = state;
+        state.timeParameter = "WorkPoseSample";
+        state.timeParameterActive = true;
+        var tree = new BlendTree { name = "Bend to kneel", blendParameter = "Kneel",
+            blendType = BlendTreeType.Simple1D, useAutomaticThresholds = false };
+        AssetDatabase.AddObjectToAsset(tree, controller);
+        tree.AddChild(WorkMotion("Worker_Bend_Reach"), 0f);
+        tree.AddChild(WorkMotion("Worker_Kneel_Work"), 1f);
+        state.motion = tree;
     }
     static void AddHammerLayer(AnimatorController controller)
     {
-        var clip = AssetDatabase.LoadAllAssetsAtPath(Mixamo + "Worker_Hammer.fbx")
-            .OfType<AnimationClip>().FirstOrDefault(c => !c.name.StartsWith("__preview"));
-        if (clip == null) { Debug.LogWarning("Worker_Hammer.fbx missing: hammer playback unavailable."); return; }
-        var mask = new AvatarMask { name = "Worker upper body" };
+        var clip = WorkMotion("Worker_RightHammer_Heavy");
+        var mask = new AvatarMask { name = "Hammer right arm" };
         for (int i = 0; i < (int)AvatarMaskBodyPart.LastBodyPart; i++) mask.SetHumanoidBodyPartActive((AvatarMaskBodyPart)i, false);
-        foreach (var part in new[] { AvatarMaskBodyPart.Body, AvatarMaskBodyPart.LeftArm,
-            AvatarMaskBodyPart.RightArm, AvatarMaskBodyPart.LeftFingers, AvatarMaskBodyPart.RightFingers })
+        foreach (var part in new[] { AvatarMaskBodyPart.RightArm, AvatarMaskBodyPart.RightFingers })
             mask.SetHumanoidBodyPartActive(part, true);
         AssetDatabase.AddObjectToAsset(mask, controller);
         controller.AddLayer("Hammer");

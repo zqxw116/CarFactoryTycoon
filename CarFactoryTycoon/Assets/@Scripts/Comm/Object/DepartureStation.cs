@@ -55,8 +55,14 @@ public class DepartureStation : MonoBehaviour
         public CarController car;
         public float timer;
         public float speed;
+        public int version;
+        public bool usingDoor, aligned;
+        public float startHeight;
         public Quaternion baseRot; // 레브 진동의 기준 회전 (캡처 시점)
     }
+
+    Transform outboundDoor;
+    public void SetFactoryExit(Transform door) => outboundDoor = door;
 
     private readonly List<Departing> departing = new List<Departing>();
 
@@ -67,7 +73,8 @@ public class DepartureStation : MonoBehaviour
         if (Current == this) Current = null;
         // 출고 중이던 차량은 그대로 얼지 않도록 전부 풀로 반환하고 정리
         for (int i = 0; i < departing.Count; i++)
-            ReturnToPool(departing[i].car);
+            if (departing[i].car != null && departing[i].car.LifeVersion == departing[i].version)
+                ReturnToPool(departing[i].car);
         departing.Clear();
     }
 
@@ -96,19 +103,18 @@ public class DepartureStation : MonoBehaviour
             }
         }
 
-        departing.Add(new Departing { car = car, baseRot = car.transform.rotation });
+        departing.Add(new Departing { car = car, baseRot = car.transform.rotation, version = car.LifeVersion,
+            usingDoor = outboundDoor != null, startHeight = car.transform.position.y });
     }
 
     private Vector3 Destination => arrivalPoint != null ? arrivalPoint.position : transform.position;
 
     private void Update()
     {
-        Vector3 dest = Destination;
-
         for (int i = departing.Count - 1; i >= 0; i--)
         {
             Departing d = departing[i];
-            if (d.car == null || !d.car.gameObject.activeInHierarchy)
+            if (d.car == null || d.version != d.car.LifeVersion || !d.car.gameObject.activeInHierarchy)
             {
                 departing.RemoveAt(i); // 외부 요인으로 사라진 차량(풀 반환 등)은 목록에서만 정리
                 continue;
@@ -127,8 +133,21 @@ public class DepartureStation : MonoBehaviour
             }
 
             // 2) 가속 주행: 도착 지점을 향해 회전하며 점점 빨라진다
+            Vector3 dest = Destination;
+            if (d.usingDoor && outboundDoor != null)
+            {
+                var door = outboundDoor.position;
+                // Stay inside the factory until aligned to cross the narrow opening head-on.
+                Vector3 approach = door + Vector3.forward * 4f;
+                if (!d.aligned && Vector3.ProjectOnPlane(tf.position - approach, Vector3.up).sqrMagnitude < .16f)
+                    d.aligned = true;
+                dest = d.aligned ? door + Vector3.back * 5f : approach;
+                float descent = Mathf.Clamp01((d.timer - revDuration) / .7f);
+                dest.y = Mathf.Lerp(d.startHeight, door.y, descent);
+            }
             Vector3 to = dest - tf.position;
-            if (to.sqrMagnitude <= arriveRadius * arriveRadius)
+            bool outside = !d.usingDoor || outboundDoor == null || tf.position.z < outboundDoor.position.z - 3f;
+            if (outside && to.sqrMagnitude <= arriveRadius * arriveRadius)
             {
                 // 3) 도착: 풀로 반환 (파괴하지 않고 재사용)
                 ReturnToPool(d.car);

@@ -39,14 +39,14 @@ public sealed class PrototypeAssemblyEffects : MonoBehaviour
         var shader=Shader.Find("Universal Render Pipeline/Lit");
         if(shader!=null){material=new Material(shader);material.color=new Color(.3f,.32f,.34f);}
         Piece("Handle",new Vector3(0,.10f,0),new Vector3(shaftWidth,.3f,shaftWidth));
-        Piece("Head",new Vector3(0,WorkerHammerAnimation.HeadDistance,0),new Vector3(.21f,.1f,.09f));
+        Piece("CrewHammerHead",new Vector3(0,WorkerHammerAnimation.HeadDistance,0),new Vector3(.21f,.1f,.09f));
     }
     void Piece(string name,Vector3 p,Vector3 size)
     {
         var go=GameObject.CreatePrimitive(PrimitiveType.Cube);go.name=name;go.transform.SetParent(tool,false);
         go.transform.localPosition=p;go.transform.localScale=size;
         var collider=go.GetComponent<Collider>();collider.enabled=false;
-        if(name=="Head")hammerHead=collider as BoxCollider;else Destroy(collider);
+        if(name=="CrewHammerHead")hammerHead=collider as BoxCollider;else Destroy(collider);
         if(material!=null)go.GetComponent<Renderer>().sharedMaterial=material;
     }
     public void Pulse(Vector3 point,bool complete)

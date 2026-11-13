@@ -10,6 +10,7 @@ using UnityEngine.Splines;   // [추가] 스플라인 네임스페이스
 public class CarController : MonoBehaviour
 {
     [Header("물류 설정")]
+    public string authoringVehicleId = "Origin";
     public float moveSpeed = 1.0f;
     public bool isMoving = true;
     public bool RepairDeadlineReached { get; private set; }
@@ -25,6 +26,14 @@ public class CarController : MonoBehaviour
     [Tooltip("완제품 출고 성공 시 벌어들이는 금액")]
     public int sellPrice = 100;
     private bool _finished = false;
+    FinalInspectionLane finalLane;
+    ProductionContract finalContract;
+
+    public void SetFinalInspection(FinalInspectionLane lane, ProductionContract contract)
+    {
+        finalLane = lane;
+        finalContract = lane != null ? contract : null;
+    }
 
     // LineTrafficManager(정체 관리)가 있으면 이동을 매니저가 MoveStep으로 구동한다.
     // 없으면(TestPartsScene 등) 기존대로 Update에서 자율 이동.
@@ -102,6 +111,9 @@ public class CarController : MonoBehaviour
     // 풀 반환(SetActive(false))·파괴 시 트래픽 목록에서 해제
     private void OnDisable()
     {
+        if (finalLane != null) finalLane.Forget(this);
+        finalLane = null;
+        finalContract = null;
         LifeVersion++;
         if (_managed)
         {
@@ -169,6 +181,14 @@ public class CarController : MonoBehaviour
         // 제약(앞차 꽁무니/게이트)을 넘지 못하게 클램프. 이미 제약보다 앞서 있으면 후진하지 않고 정지.
         pathProgress = Mathf.Min(next, Mathf.Max(pathProgress, maxProgress));
 
+        SnapToProgress(pathProgress);
+        if (finalLane != null)
+        {
+            finalLane.Advance(this, finalContract);
+            if (pathProgress >= 1f) FinishInspectedVehicle();
+            return;
+        }
+
         // 라인 끝에 도달하면 출고 처리 — 출고 공정이 있으면 부릉부릉 주행 후, 없으면 즉시 풀 반환
         if (pathProgress >= 1f)
         {
@@ -205,7 +225,53 @@ public class CarController : MonoBehaviour
             return;
         }
 
-        SnapToProgress(pathProgress);
+    }
+
+    void FinishInspectedVehicle()
+    {
+        if (finalContract.settled) return;
+        _finished = true;
+        finalContract.settled = true;
+        bool passed = finalLane.Passed(this, out string reason);
+        finalContract.inspectionFailure = reason;
+        finalLane.Forget(this);
+        if (passed)
+        {
+            var source = transform.position + Vector3.up * 1.8f;
+            EconomyManager.Instance.SellCar(finalContract.payout, source);
+            CashPopup.Show(source, finalContract.payout, 1.6f);
+        }
+        finalContract.NotifySettlement(passed);
+        if (passed && DepartureStation.TryDepart(this)) return;
+        LeaveLine();
+        if (!passed)
+        {
+            PrototypeCarDebris.Burst(GetComponentsInChildren<AssemblyPart>(true));
+            StartCoroutine(LowerRejectedVehicle());
+            return;
+        }
+        ReturnAfterInspection();
+    }
+
+    IEnumerator LowerRejectedVehicle()
+    {
+        int version = LifeVersion;
+        Vector3 start = transform.position;
+        float elapsed = 0f;
+        while (elapsed < .65f)
+        {
+            if (version != LifeVersion) yield break;
+            elapsed += Time.deltaTime;
+            transform.position = start + Vector3.down * Mathf.SmoothStep(0f, 1.7f, elapsed / .65f);
+            yield return null;
+        }
+        if (version == LifeVersion) ReturnAfterInspection();
+    }
+
+    void ReturnAfterInspection()
+    {
+        if (CarPool.Instance != null) CarPool.Instance.Return(this);
+        else gameObject.SetActive(false);
     }
 
     public void SetPosition(Vector3 pos)

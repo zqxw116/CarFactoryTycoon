@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -63,13 +63,26 @@ public class WorkerHandIK : MonoBehaviour
     [Range(0f, 1f)] public float lookAtBodyWeight = 0.15f;
     [Range(0f, 1f)] public float lookAtHeadWeight = 0.8f;
 
+    [Header("Procedural support")]
+    public bool bodySupport;
+    [Range(0f,.25f)] public float maximumBodyShift=.12f;
+    [Range(0f,1f)] public float plantedFootWeight=.7f;
+    public float footSoleOffset=.08f;
+    bool feetOwned;
+    private Vector3 supportPreviousPosition;
     private Animator animator;
 
     // 잡고 있는 대상과 잡이 지점(대상 로컬). Release 후에도 블렌드 아웃 동안은 유지한다.
     private Transform gripTarget;
     private Vector3 leftLocal, rightLocal, fingerLocal = Vector3.forward;
     private bool holding;
+    ProcessGripSettings poseSettings;
+    public void SetPose(ProcessGripSettings settings){poseSettings=settings;}
+    public Vector3 LeftPoseEuler => leftHandEuler+(poseSettings!=null?poseSettings.leftWristEuler:Vector3.zero);
+    public Vector3 RightPoseEuler => rightHandEuler+(poseSettings!=null?poseSettings.rightWristEuler:Vector3.zero);
     private float weight;
+    Quaternion leftPalmBasis,rightPalmBasis;
+    bool palmBasisReady;
 
     // 어깨(상완 본) 위치를 루트 로컬로 캐시 — 팔꿈치 힌트 기준. OnAnimatorIK 시점의 본 Transform은
     // 이번 프레임 IK 적용 전 값이라 흔들리므로, 시작 시 1회 잰 값을 몸 기준 고정점으로 쓴다.
@@ -85,12 +98,14 @@ public class WorkerHandIK : MonoBehaviour
     private void Awake()
     {
         animator = GetComponent<Animator>();
+        supportPreviousPosition=transform.position;
         if (animator == null || !animator.isHuman) return;
 
         Transform l = animator.GetBoneTransform(HumanBodyBones.LeftUpperArm);
         Transform r = animator.GetBoneTransform(HumanBodyBones.RightUpperArm);
         if (l != null) leftShoulderLocal = transform.InverseTransformPoint(l.position);
         if (r != null) rightShoulderLocal = transform.InverseTransformPoint(r.position);
+        CachePalmBasis();
     }
 
     /// <summary>
@@ -112,9 +127,54 @@ public class WorkerHandIK : MonoBehaviour
         holding = false;
     }
 
+    public bool TryGetWristTargets(out Vector3 left,out Vector3 right,out Quaternion leftRotation,out Quaternion rightRotation)
+    {
+        left=right=Vector3.zero;leftRotation=rightRotation=Quaternion.identity;
+        if(gripTarget==null || !gripTarget.gameObject.activeInHierarchy || (!holding&&weight<=0))return false;
+        var a=gripTarget.TransformPoint(leftLocal);var b=gripTarget.TransformPoint(rightLocal);
+        var across=b-a;if(across.sqrMagnitude<.000001f)across=transform.right;across.Normalize();
+        var finger=Vector3.ProjectOnPlane(gripTarget.TransformVector(fingerLocal),across);
+        if(finger.sqrMagnitude<.000001f)finger=transform.forward;finger.Normalize();
+        var thumb=Vector3.Cross(finger,across);
+        rightRotation=WristRotation(false,finger,across);
+        leftRotation=WristRotation(true,finger,across);
+        left=a-finger*palmOffset;right=b-finger*palmOffset;return true;
+    }
+    void ApplyBodySupport(float blend,Vector3 left,Vector3 right)
+    {
+        var movement=Vector3.ProjectOnPlane(transform.position-supportPreviousPosition,Vector3.up);
+        supportPreviousPosition=transform.position;
+        if(!bodySupport){if(feetOwned){SupportFoot(AvatarIKGoal.LeftFoot,HumanBodyBones.LeftFoot,0);SupportFoot(AvatarIKGoal.RightFoot,HumanBodyBones.RightFoot,0);feetOwned=false;}return;}
+        feetOwned=true;
+        var shoulder=transform.TransformPoint((leftShoulderLocal+rightShoulderLocal)*.5f);
+        var toward=(left+right)*.5f-shoulder;
+        var horizontal=Vector3.ProjectOnPlane(toward,Vector3.up);
+        if(Vector3.Dot(horizontal,transform.forward)<0)horizontal=Vector3.zero;
+        var shift=Vector3.ClampMagnitude(horizontal*.14f,maximumBodyShift)*blend;
+        shift.y=Mathf.Clamp(toward.y*.1f,-maximumBodyShift,maximumBodyShift)*blend;
+        animator.bodyPosition+=shift;
+        float pin=movement.magnitude/Mathf.Max(.001f,Time.deltaTime)<.15f?blend*plantedFootWeight:0f;
+        SupportFoot(AvatarIKGoal.LeftFoot,HumanBodyBones.LeftFoot,pin);
+        SupportFoot(AvatarIKGoal.RightFoot,HumanBodyBones.RightFoot,pin);
+    }
+    void SupportFoot(AvatarIKGoal goal,HumanBodyBones bone,float weight)
+    {
+        var foot=animator.GetBoneTransform(bone);
+        if(foot==null)return;
+        if(weight>0 && Physics.Raycast(foot.position+Vector3.up*.4f,Vector3.down,out var hit,1.4f,(1<<0)|(1<<11),QueryTriggerInteraction.Ignore))
+        {
+            animator.SetIKPositionWeight(goal,weight);animator.SetIKPosition(goal,hit.point+Vector3.up*footSoleOffset);
+            animator.SetIKRotationWeight(goal,weight*.5f);animator.SetIKRotation(goal,Quaternion.FromToRotation(foot.up,hit.normal)*foot.rotation);
+        }
+        else{animator.SetIKPositionWeight(goal,0);animator.SetIKRotationWeight(goal,0);}
+    }
+
     private void OnAnimatorIK(int layerIndex)
     {
-        if (layerIndex != 0 || animator == null) return;
+        if (animator == null) return;
+        int posture = animator.GetLayerIndex("Work posture");
+        int gripLayer = posture >= 0 && animator.GetLayerWeight(posture) > 0f ? posture : 0;
+        if (layerIndex != gripLayer) return;
 
         float step = blendTime > 0f ? Time.deltaTime / blendTime : 1f;
         weight = Mathf.MoveTowards(weight, holding ? 1f : 0f, step);
@@ -132,7 +192,7 @@ public class WorkerHandIK : MonoBehaviour
 
         Vector3 leftGrip = gripTarget.TransformPoint(leftLocal);
         Vector3 rightGrip = gripTarget.TransformPoint(rightLocal);
-        Vector3 finger = gripTarget.TransformDirection(fingerLocal);
+        Vector3 finger = gripTarget.TransformVector(fingerLocal);
 
         // 잡이 축(왼→오른). 부품이 회전해도 이 축 기준으로 손바닥을 마주 보게 한다.
         Vector3 across = rightGrip - leftGrip;
@@ -145,16 +205,16 @@ public class WorkerHandIK : MonoBehaviour
         Vector3 thumbUp = Vector3.Cross(finger, across); // 오른손 기준 엄지 방향(위)
 
         // T포즈 기준 오른손: 손가락 +X, 손등 +Y, 엄지 +Z → 손가락=finger, 손등=across(바깥), 엄지=위.
-        Quaternion rightRot = Quaternion.LookRotation(thumbUp, across) * Quaternion.Euler(rightHandEuler);
+        Quaternion rightRot = WristRotation(false,finger,across);
         // T포즈 기준 왼손: 손가락 -X, 손등 +Y, 엄지 +Z → -X=finger, 손등=-across(바깥), 엄지=위.
-        Quaternion leftRot = Quaternion.LookRotation(Vector3.Cross(-finger, -across), -across)
-                             * Quaternion.Euler(leftHandEuler);
+        Quaternion leftRot = WristRotation(true,finger,across);
 
         // 손 본은 손목이므로 잡이 지점에서 손가락 반대 방향으로 물린다.
         Vector3 leftWrist = leftGrip - finger * palmOffset;
         Vector3 rightWrist = rightGrip - finger * palmOffset;
 
-        float pw = w * positionWeight, rw = w * rotationWeight;
+        ApplyBodySupport(w,leftWrist,rightWrist);
+        float pw = w * positionWeight, rw = w * (poseSettings!=null&&poseSettings.anatomicalWrist?1f:rotationWeight);
         animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, pw);
         animator.SetIKPositionWeight(AvatarIKGoal.RightHand, pw);
         animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, rw);
@@ -165,10 +225,7 @@ public class WorkerHandIK : MonoBehaviour
         animator.SetIKRotation(AvatarIKGoal.RightHand, rightRot);
 
         // 팔꿈치: 어깨에서 몸 바깥·아래·약간 뒤 — 팔이 몸 안쪽으로 꺾여 가슴을 파고들지 않게.
-        Vector3 leftHint = transform.TransformPoint(leftShoulderLocal
-            + new Vector3(-hintOutward, -hintDown, -hintBack));
-        Vector3 rightHint = transform.TransformPoint(rightShoulderLocal
-            + new Vector3(hintOutward, -hintDown, -hintBack));
+        GetElbowTargets(out var leftHint,out var rightHint);
         animator.SetIKHintPositionWeight(AvatarIKHint.LeftElbow, w * hintWeight);
         animator.SetIKHintPositionWeight(AvatarIKHint.RightElbow, w * hintWeight);
         animator.SetIKHintPosition(AvatarIKHint.LeftElbow, leftHint);
@@ -181,8 +238,51 @@ public class WorkerHandIK : MonoBehaviour
         }
     }
 
+    Quaternion PalmBasis(bool left)
+    {
+        var h=animator.GetBoneTransform(left?HumanBodyBones.LeftHand:HumanBodyBones.RightHand);
+        var m=animator.GetBoneTransform(left?HumanBodyBones.LeftMiddleProximal:HumanBodyBones.RightMiddleProximal);
+        var i=animator.GetBoneTransform(left?HumanBodyBones.LeftIndexProximal:HumanBodyBones.RightIndexProximal);
+        var k=animator.GetBoneTransform(left?HumanBodyBones.LeftLittleProximal:HumanBodyBones.RightLittleProximal);
+        if(h==null||m==null||i==null||k==null)return Quaternion.identity;
+        var finger=h.InverseTransformVector(m.position-h.position);
+        var thumb=Vector3.ProjectOnPlane(h.InverseTransformVector(i.position-k.position),finger);
+        return finger.sqrMagnitude>.000001f&&thumb.sqrMagnitude>.000001f?Quaternion.LookRotation(finger,thumb):Quaternion.identity;
+    }
+    void CachePalmBasis()
+    {
+        if(animator==null||!animator.isHuman)return;
+        leftPalmBasis=PalmBasis(true);rightPalmBasis=PalmBasis(false);palmBasisReady=true;
+    }
+    public Quaternion WristRotation(bool left,Vector3 finger,Vector3 across)
+    {
+        var correction=Quaternion.Euler(left?LeftPoseEuler:RightPoseEuler);
+        if(poseSettings!=null&&poseSettings.anatomicalWrist)
+        {
+            if(!palmBasisReady){animator=GetComponent<Animator>();CachePalmBasis();}
+            var thumb=Vector3.Cross(finger,across);
+            if(thumb.sqrMagnitude<.00001f)thumb=transform.up;
+            return Quaternion.LookRotation(finger,thumb)*Quaternion.Inverse(left?leftPalmBasis:rightPalmBasis)*correction;
+        }
+        return (left?Quaternion.LookRotation(Vector3.Cross(-finger,-across),-across):Quaternion.LookRotation(Vector3.Cross(finger,across),across))*correction;
+    }
+    public void GetElbowTargets(out Vector3 left,out Vector3 right)
+    {
+        var l=poseSettings!=null?poseSettings.leftElbow:new Vector3(-hintOutward,-hintDown,-hintBack);
+        var r=poseSettings!=null?poseSettings.rightElbow:new Vector3(hintOutward,-hintDown,-hintBack);
+        left=transform.TransformPoint(leftShoulderLocal+l);right=transform.TransformPoint(rightShoulderLocal+r);
+    }
+    public void CacheSkeleton()
+    {
+        animator=GetComponent<Animator>();if(animator==null||!animator.isHuman)return;
+        leftShoulderLocal=transform.InverseTransformPoint(animator.GetBoneTransform(HumanBodyBones.LeftUpperArm).position);
+        rightShoulderLocal=transform.InverseTransformPoint(animator.GetBoneTransform(HumanBodyBones.RightUpperArm).position);
+        CachePalmBasis();
+    }
     private void ClearIK()
     {
+        supportPreviousPosition=transform.position;
+        if(bodySupport||feetOwned){feetOwned=false;animator.SetIKPositionWeight(AvatarIKGoal.LeftFoot,0);animator.SetIKPositionWeight(AvatarIKGoal.RightFoot,0);animator.SetIKRotationWeight(AvatarIKGoal.LeftFoot,0);animator.SetIKRotationWeight(AvatarIKGoal.RightFoot,0);}
         animator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
         animator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
         animator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
@@ -216,7 +316,7 @@ public class WorkerHandIK : MonoBehaviour
         fingerDir = Vector3.forward;
         if (part == null) return false;
 
-        if (part.TryGetComponent(out PartGripOverride ov))
+        if (part.TryGetComponent(out PartGripOverride ov) && ov.enabled)
         {
             gripA = ov.gripA;
             gripB = ov.gripB;

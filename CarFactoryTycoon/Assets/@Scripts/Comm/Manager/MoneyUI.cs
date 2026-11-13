@@ -1,4 +1,4 @@
-﻿using DG.Tweening;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -101,7 +101,7 @@ public class MoneyUI : MonoSingleton<MoneyUI>
     private void LateUpdate()
     {
         // The settlement already contains the balance; keep its modal unobscured.
-        if (moneyCanvas != null) moneyCanvas.enabled = PrototypeDayCycle.Current == null || !PrototypeDayCycle.Current.IsSettlement;
+        if (moneyCanvas != null) moneyCanvas.enabled = FirstProductionLoop.Current == null && (PrototypeDayCycle.Current == null || !PrototypeDayCycle.Current.IsSettlement);
     }
 
     private void HandleMoneyChanged(int newAmount, int delta, Vector3? sourceWorldPos)

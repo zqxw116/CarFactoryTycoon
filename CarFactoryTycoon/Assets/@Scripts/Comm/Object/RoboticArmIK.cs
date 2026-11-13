@@ -142,11 +142,24 @@ public class RoboticArmIK : MonoBehaviour
         jointsInitialized = true;
     }
 
-    void LateUpdate()
+    int solvedFrame = -1;
+    Vector3 previousTarget;
+    bool hasPreviousTarget;
+    void LateUpdate() => TrackTargetNow();
+    /// <summary>Evaluate before contact tests; LateUpdate cannot advance motors a second time.</summary>
+    public void TrackTargetNow()
     {
-        if (target == null || endEffector == null || joints.Length == 0) return;
-        SolveStep(target.position, Time.deltaTime);
+        if(!jointsInitialized || target==null || endEffector==null || joints.Length==0 || solvedFrame==Time.frameCount)return;
+        solvedFrame=Time.frameCount;
+        var destination=target.position;
+        if(!hasPreviousTarget){previousTarget=destination;hasPreviousTarget=true;}
+        float dt=Mathf.Max(0f,Time.deltaTime);
+        int steps=Mathf.Clamp(Mathf.CeilToInt(dt/(1f/60f)),1,32);
+        for(int i=1;i<=steps;i++)SolveStep(Vector3.Lerp(previousTarget,destination,(float)i/steps),dt/steps);
+        previousTarget=destination;
     }
+    void OnEnable(){solvedFrame=-1;hasPreviousTarget=false;}
+
 
     /// <summary>
     /// CCD IK 1프레임 분량을 계산해 관절 트랜스폼에 적용한다.

@@ -8,6 +8,7 @@ public sealed class ProductionDispatch : MonoBehaviour
 {
     public float gateProgress;
     public SplineContainer mainSpline;
+    public bool simpleHandover;
     public bool IsBusy => car != null;
     public bool IsIdle => !IsBusy;
 
@@ -70,7 +71,13 @@ public sealed class ProductionDispatch : MonoBehaviour
         phase = Phase.Scan;
         elapsed = 0f;
         leftLine = false;
-        SetSignal(Ready, "SCANNING");
+        if(simpleHandover)
+        {
+            car.CloseRepairWindow();
+            phase=Phase.Transfer;laser.gameObject.SetActive(false);marker.gameObject.SetActive(false);
+            SetSignal(valid?Pass:Fail,valid?"ACCEPT +"+contract.payout:contract.FailureReason+" / 0");
+        }
+        else SetSignal(Ready, "SCANNING");
         return true;
     }
 
@@ -133,12 +140,13 @@ public sealed class ProductionDispatch : MonoBehaviour
             if (completed && promise != null && !promise.settled)
             {
                 promise.settled = true; // Claim settlement before callbacks or pool reuse.
-                if (valid && promise.payout > 0)
+                if (valid)
                 {
                     Vector3 rewardPosition = transform.TransformPoint(new Vector3(1.8f, 3.5f, 0f));
-                    EconomyManager.Instance.Earn(promise.payout, rewardPosition);
-                    CashPopup.Show(rewardPosition, promise.payout, 1.2f);
+                    EconomyManager.Instance.SellCar(promise.payout, rewardPosition);
+                    if (promise.payout > 0) CashPopup.Show(rewardPosition, promise.payout, 1.2f);
                 }
+                promise.NotifySettlement(valid);
             }
             // External pool returns already disabled the vehicle. Never enqueue it twice.
             if (outgoing.gameObject.activeInHierarchy)
@@ -156,7 +164,8 @@ public sealed class ProductionDispatch : MonoBehaviour
     void ResetVisuals()
     {
         if (laser == null) return;
-        laser.gameObject.SetActive(true);
+        laser.gameObject.SetActive(!simpleHandover);
+        press.gameObject.SetActive(!simpleHandover);
         laser.localPosition = new Vector3(0f, 1.65f, -2.4f);
         shutter.localPosition = new Vector3(1.8f, 1.65f, 0f);
         press.localPosition = new Vector3(0f, 3.25f, 0f);

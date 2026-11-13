@@ -1,4 +1,4 @@
-#if UNITY_EDITOR
+﻿#if UNITY_EDITOR
 using UnityEditor;
 using UnityEditor.Splines;
 #endif
@@ -198,12 +198,18 @@ public class SplineConveyorDeformer : MonoBehaviour
         var tangent = (Vector3)SplineUtility.EvaluateTangent(m_Spline.Splines[nearest], nearestT);
         return Vector3.ProjectOnPlane(m_Spline.transform.TransformDirection(tangent), Vector3.up).normalized * speed;
     }
+    public void SetUniformWidth(float width)
+    {
+        width=Mathf.Max(.1f,width);bool changed=!Mathf.Approximately(m_Width,width);m_Width=width;
+        for(int i=0;i<m_SplineWidths.Count;i++){changed|=!Mathf.Approximately(m_SplineWidths[i],width);m_SplineWidths[i]=width;}
+        if(changed)RequestRebuild();
+    }
     public SplineContainer Spline { get => m_Spline; set { m_Spline = value; RequestRebuild(); } }
 
     void OnEnable()
     {
         Rebuild();
-        if (m_LineSource == null) m_LineSource = FindAnyObjectByType<CarSpawner>();
+        if (m_SyncLineSpeed && m_LineSource == null) m_LineSource = FindAnyObjectByType<CarSpawner>();
         UnityEngine.Splines.Spline.Changed += OnSplineChanged;
 #if UNITY_EDITOR
         EditorSplineUtility.AfterSplineWasModified += OnAfterSplineWasModified;
@@ -715,10 +721,12 @@ public class SplineConveyorDeformer : MonoBehaviour
 
     // Runtime clipping preserves authored knots, excludes and robot placement.
     [SerializeField, HideInInspector] float productionEnd = 1f;
-    public void SetProductionEnd(float progress)
+    float inspectionStart = 1f;
+    public void SetProductionEnd(float progress, float continuousFrom = 1f)
     {
         float next = Mathf.Clamp01(progress);
-        if (Mathf.Abs(next - productionEnd) < .00001f) return;
+        if (Mathf.Abs(next - productionEnd) < .00001f && Mathf.Approximately(inspectionStart, continuousFrom)) return;
+        inspectionStart = continuousFrom;
         productionEnd = next;
         Rebuild();
     }
@@ -738,6 +746,7 @@ public class SplineConveyorDeformer : MonoBehaviour
             foreach (var r in m_ExcludeRanges)
             {
                 if (r.splineIndex != splineIndex) continue;
+                if (splineIndex == 0 && inspectionStart < 1f && Mathf.Min(r.start, r.end) >= inspectionStart * splineLength) continue;
                 float a = Mathf.Clamp(Mathf.Min(r.start, r.end), 0f, splineLength);
                 float b = Mathf.Clamp(Mathf.Max(r.start, r.end), 0f, splineLength);
                 if (b - a > 0.001f) ranges.Add(new Vector2(a, b));

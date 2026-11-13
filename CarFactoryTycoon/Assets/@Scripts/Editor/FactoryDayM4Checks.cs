@@ -22,8 +22,8 @@ public static class FactoryDayM4Checks
         // No elapsed test frames: this exact ledger check controls only the day clock.
         float startingHour = cycle.GameHour;
         Check(p.TryHireProcess(0), "free first hire");
-        int wheels = Array.FindIndex(p.processes, x => x.wheel != null);
-        Check(wheels >= 0 && p.TryHireProcess(wheels) && cycle.HumanCount == 3, "wheel station counts two paid humans");
+        int wheels = Array.FindIndex(p.processes, x => WheelProcessMigration.IsWheel(x.parts[0]));
+        Check(wheels >= 0 && p.TryHireProcess(wheels) && p.TryHireProcess(wheels + 1) && cycle.HumanCount == 3, "two independently hired wheel workers enter payroll");
         Check(!upgrades.TryUpgradeHammer() && !upgrades.TryUpgradeLine(), "unaffordable upgrades rejected");
 
         // Actual shipment completion enters Economy.SellCar, then emits the mission event once.

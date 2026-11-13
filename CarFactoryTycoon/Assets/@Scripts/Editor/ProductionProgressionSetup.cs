@@ -53,6 +53,7 @@ public static class ProductionProgressionSetup
         Add(list,manager,template,spline,robots,null,3,"뒤범퍼",PartType.Bumper2_69);
         list.Sort((a,b)=>a.gateProgress.CompareTo(b.gateProgress));
         manager.processes=list.ToArray();
+        WheelProcessMigration.ExpandScene(manager,null);
         var finish=new List<GameObject>();
         foreach(string name in new[]{"WaterTestStation","ShakeTestStation","FuelStation","Pool","GantryCrane","RejectHatch"})
         {var go=GameObject.Find(name);if(go!=null&&!finish.Contains(go))finish.Add(go);}
@@ -78,7 +79,7 @@ public static class ProductionProgressionSetup
         manager.conveyor.SetProductionEnd(manager.EndFor(1));
         EditorUtility.SetDirty(manager);EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
-        Debug.Log("[Production] Authored 23 sequential workplaces across four rows; first worker only.");
+        Debug.Log("[Production] Authored 26 sequential workplaces across four rows; first worker only.");
     }
     static void Add(List<ProductionProgression.ProcessEntry> list,ProductionProgression manager,Worker template,SplineContainer spline,StationController[] all,WheelStation wheel,int row,string label,params PartType[] parts)
     {

@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
 /// 공정에 쌓여 있는 부품 재고. 실제 부품 프리팹을 쌓아 보여주고, 체결마다 눈에 보이게 줄어든다.
@@ -9,8 +9,10 @@ using UnityEngine;
 /// - 부품 프리팹 경로는 PartResourceManager.GetPrefabPath(PartType)를 그대로 재사용한다.
 /// </summary>
 [ExecuteAlways] // 에디터 씬에서도 표시용 인스턴스를 만들어 보여주기 위함. 게임 로직은 아래에서 isPlaying으로 가드한다.
-public class PartStack : MonoBehaviour
+public partial class PartStack : MonoBehaviour
 {
+    [Tooltip("보관용 재고는 보급 대상에서 제외합니다.")] public bool participatesInSupply = true;
+
     [Header("재고 부품")]
     [Tooltip("쌓을 부품 타입. WorkerStation이 SetPartType으로 지정하기도 한다.")]
     public PartType partType = PartType.None;
@@ -86,6 +88,7 @@ public class PartStack : MonoBehaviour
     private BoxCollider readyClickCollider;
     private Bounds displayLocalBounds = new Bounds(Vector3.zero, Vector3.one * 0.15f);
     public Collider ReadyClickCollider => readyClickCollider;
+    public Bounds ItemLocalBounds=>displayLocalBounds;
     public Bounds ReadyBounds
     {
         get
@@ -123,6 +126,22 @@ public class PartStack : MonoBehaviour
         EnsureReadyClickCollider();
         if (Application.isPlaying) PreparePortablePool();
         Refresh();
+    }
+
+    /// <summary>Release transient slot ownership when resetting an isolated/reused station.</summary>
+    public void SetInventoryRotation(Vector3 euler)
+    {
+        if(itemRotation==euler)return;
+        itemRotation=euler;
+        if(worldPackingActive)return;
+        if(items==null)return;
+        var rotation=Quaternion.Euler(euler);
+        for(int i=0;i<items.Length;i++)if(i!=stagedDisplayIndex && items[i]!=null)items[i].transform.localRotation=rotation;
+    }
+
+    public void ResetReadySlot()
+    {
+        readyReservation=null;readyRefillPending=false;departingGrip=null;Refresh();
     }
 
     public bool TryReserveReady(UnityEngine.Object owner)
@@ -370,6 +389,7 @@ public class PartStack : MonoBehaviour
     /// </remarks>
     private Vector3 GetSlotLocalPos(int index)
     {
+        if(worldPackingActive&&packedLocalPositions!=null&&index<packedLocalPositions.Length)return packedLocalPositions[index];
         int row = perRow > 0 ? index / perRow : 0;
         int slot = perRow > 0 ? index % perRow : index;
         return (effectiveStepOffset == Vector3.zero ? stepOffset : effectiveStepOffset) * slot + rowOffset * row;
@@ -397,7 +417,7 @@ public class PartStack : MonoBehaviour
     private void ApplyItemLayout()
     {
         if (items == null) return;
-        Quaternion rot = Quaternion.Euler(itemRotation);
+        Quaternion rot = worldPackingActive?packedLocalRotation:Quaternion.Euler(itemRotation);
         for (int i = 0; i < items.Length; i++)
         {
             if (items[i] == null) continue;
@@ -450,9 +470,9 @@ public class PartStack : MonoBehaviour
         for (int i = 1; i < n; i++)
         {
             int cur = fillOrder[i];
-            float curY = GetSlotLocalPos(cur).y;
+            float curY = worldPackingActive?transform.TransformPoint(GetSlotLocalPos(cur)).y:GetSlotLocalPos(cur).y;
             int j = i - 1;
-            while (j >= 0 && GetSlotLocalPos(fillOrder[j]).y > curY + 0.0001f)
+            while (j >= 0 && (worldPackingActive?transform.TransformPoint(GetSlotLocalPos(fillOrder[j])).y:GetSlotLocalPos(fillOrder[j]).y) > curY + 0.0001f)
             {
                 fillOrder[j + 1] = fillOrder[j];
                 j--;
@@ -586,7 +606,7 @@ public class PartStack : MonoBehaviour
         {
             Transform item = items[stagedDisplayIndex].transform;
             item.localPosition = GetSlotLocalPos(stagedDisplayIndex);
-            item.localRotation = Quaternion.Euler(itemRotation);
+            item.localRotation = worldPackingActive?packedLocalRotation:Quaternion.Euler(itemRotation);
         }
         stagedDisplayIndex = -1;
     }
@@ -639,7 +659,7 @@ public class PartStack : MonoBehaviour
     }
 
     /// <summary>집어 든 부품이 이어받을 자세(쌓여 있던 회전 그대로).</summary>
-    public Quaternion GetTopSlotWorldRot() => transform.rotation * Quaternion.Euler(itemRotation);
+    public Quaternion GetTopSlotWorldRot() => transform.rotation * (worldPackingActive?packedLocalRotation:Quaternion.Euler(itemRotation));
 
     /// <summary>재고 1개를 소모한다. 재고가 없으면 false (= 공정 진행 불가).</summary>
     public bool TryConsume()
@@ -716,7 +736,7 @@ public class PartStack : MonoBehaviour
         // 재고 슬롯 위치를 작은 와이어큐브로 표시 — 배치/간격 조정용.
         // 큐브도 itemRotation을 적용해 그려서 실제 부품이 어떤 자세로 눕는지 바로 보이게 한다.
         Matrix4x4 prevMatrix = Gizmos.matrix;
-        Quaternion rot = Quaternion.Euler(itemRotation);
+        Quaternion rot = worldPackingActive?packedLocalRotation:Quaternion.Euler(itemRotation);
         int n = Mathf.Max(0, capacity);
         for (int i = 0; i < n; i++)
         {
